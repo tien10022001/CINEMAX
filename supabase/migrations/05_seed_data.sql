@@ -1,0 +1,569 @@
+-- ====================================================================
+-- CINEMAX - BƯỚC 5/5: DỮ LIỆU MẪU ĐẦY ĐỦ (SEED DATA)
+-- Thể loại, Phim, Rạp, Phòng chiếu, Sơ đồ ghế, Suất chiếu + Giá, Bắp nước, Mã giảm giá
+-- ====================================================================
+
+-- 1. THỂ LOẠI PHIM (Genres)
+INSERT INTO public.genres (name, slug) VALUES
+  ('Hành Động', 'hanh-dong'),
+  ('Khoa Học Viễn Tưởng', 'khoa-hoc-vien-tuong'),
+  ('Hoạt Hình', 'hoat-hinh'),
+  ('Phiêu Lưu', 'phieu-luu'),
+  ('Kinh Dị', 'kinh-di'),
+  ('Hài Kịch', 'hai-kich'),
+  ('Tâm Lý - Tình Cảm', 'tam-ly-tinh-cam'),
+  ('Giật Gân', 'giat-gan'),
+  ('Gia Đình', 'gia-dinh')
+ON CONFLICT (slug) DO NOTHING;
+
+
+-- 2. PHIM (Movies)
+INSERT INTO public.movies (
+  title, original_title, slug, synopsis, duration_min, release_date, end_date,
+  age_rating, country, director, cast_list, poster_url, banner_url, trailer_url, imdb_score, status, is_deleted
+) VALUES
+(
+  'Dune: Hành Tinh Cát - Phần 2',
+  'Dune: Part Two',
+  'dune-hanh-tinh-cat-phan-2',
+  'Paul Atreides hợp lực cùng Chani và tộc người Fremen để trả thù những kẻ đã hủy hoại gia đình anh, đồng thời nỗ lực ngăn chặn viễn cảnh tương lai tăm tối mà chỉ mình anh có thể thấy trước.',
+  166,
+  CURRENT_DATE - INTERVAL '15 days',
+  CURRENT_DATE + INTERVAL '30 days',
+  'T16',
+  'Mỹ',
+  'Denis Villeneuve',
+  'Timothée Chalamet, Zendaya, Rebecca Ferguson, Javier Bardem, Austin Butler',
+  'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1440&q=80',
+  'https://www.youtube.com/watch?v=Way9Dexny3w',
+  8.6,
+  'NOW_SHOWING',
+  false
+),
+(
+  'Mai',
+  'Mai',
+  'mai',
+  'Mai là một phụ nữ ngoài 30 tuổi với quá khứ nhiều tổn thương, làm nghề mát-xa trị liệu. Khi gặp Dương - một chàng trai trẻ phóng khoáng, tình yêu chân thành bắt đầu nảy nở giữa định kiến xã hội.',
+  131,
+  CURRENT_DATE - INTERVAL '20 days',
+  CURRENT_DATE + INTERVAL '25 days',
+  'T18',
+  'Việt Nam',
+  'Trấn Thành',
+  'Phương Anh Đào, Tuấn Trần, Trấn Thành, Hồng Đào, Uyển Ân',
+  'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1440&q=80',
+  'https://www.youtube.com/watch?v=0j3Qk04_1eQ',
+  7.3,
+  'NOW_SHOWING',
+  false
+),
+(
+  'Godzilla x Kong: Đế Chế Mới',
+  'Godzilla x Kong: The New Empire',
+  'godzilla-x-kong-de-che-moi',
+  'Một mối hiểm họa khổng lồ chưa từng thấy xuất hiện từ lòng Trái Đất rỗng, buộc hai quái thú huyền thoại Godzilla và Kong phải liên minh sát cánh bảo vệ nhân loại.',
+  115,
+  CURRENT_DATE - INTERVAL '10 days',
+  CURRENT_DATE + INTERVAL '35 days',
+  'T13',
+  'Mỹ',
+  'Adam Wingard',
+  'Rebecca Hall, Brian Tyree Henry, Dan Stevens, Kaylee Hottle',
+  'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1440&q=80',
+  'https://www.youtube.com/watch?v=lV1OOlGwExg',
+  6.5,
+  'NOW_SHOWING',
+  false
+),
+(
+  'Kung Fu Panda 4',
+  'Kung Fu Panda 4',
+  'kung-fu-panda-4',
+  'Gấu Po chuẩn bị trở thành Thủ lĩnh Tinh thần của Thung lũng Bình Yên và cần tìm một Thần Long Đại Hiệp kế vị, đồng thời phải đối đầu với mụ phù thủy biến hình Tắc Kè Bông xảo quyệt.',
+  94,
+  CURRENT_DATE - INTERVAL '5 days',
+  CURRENT_DATE + INTERVAL '40 days',
+  'P',
+  'Mỹ',
+  'Mike Mitchell',
+  'Jack Black, Awkwafina, Viola Davis, Dustin Hoffman, James Hong',
+  'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1440&q=80',
+  'https://www.youtube.com/watch?v=_inKs4eeHiI',
+  6.4,
+  'NOW_SHOWING',
+  false
+),
+(
+  'Lật Mặt 7: Một Điều Ước',
+  'Face Off 7: One Wish',
+  'lat-mat-7-mot-dieu-uoc',
+  'Câu chuyện cảm động về người mẹ già 73 tuổi một mình nuôi 5 người con khôn lớn. Khi bà gặp nạn, 5 người con ở 5 nơi khác nhau phải đối mặt với thử thách về chữ hiếu.',
+  138,
+  CURRENT_DATE - INTERVAL '2 days',
+  CURRENT_DATE + INTERVAL '45 days',
+  'K',
+  'Việt Nam',
+  'Lý Hải',
+  'Thanh Hiền, Trương Minh Cường, Đinh Y Nhung, Quách Ngọc Tuyên, Trâm Anh',
+  'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&w=1440&q=80',
+  'https://www.youtube.com/watch?v=d_kS_Z9k2lY',
+  7.6,
+  'NOW_SHOWING',
+  false
+),
+(
+  'Deadpool & Wolverine',
+  'Deadpool & Wolverine',
+  'deadpool-va-wolverine',
+  'Thánh bựa Deadpool chính thức gia nhập MCU và lôi kéo Wolverine đang chán nản cùng thực hiện một nhiệm vụ sống còn cứu vãn dòng thời gian.',
+  127,
+  CURRENT_DATE + INTERVAL '10 days',
+  CURRENT_DATE + INTERVAL '60 days',
+  'T18',
+  'Mỹ',
+  'Shawn Levy',
+  'Ryan Reynolds, Hugh Jackman, Emma Corrin, Morena Baccarin',
+  'https://images.unsplash.com/photo-1534809027769-b00d750a6bac?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1535016120720-40c646be5580?auto=format&fit=crop&w=1440&q=80',
+  'https://www.youtube.com/watch?v=73_1biulkYk',
+  7.9,
+  'COMING_SOON',
+  false
+),
+(
+  'Inside Out 2: Những Mảnh Ghép Cảm Xúc',
+  'Inside Out 2',
+  'inside-out-2-nhung-manh-ghep-cam-xuc',
+  'Cô bé Riley bước vào tuổi dậy thì, kéo theo sự xuất hiện của những cảm xúc mới tinh như Lo Âu (Anxiety), Ghen Tị (Envy), Xấu Hổ (Embarrassment) náo loạn trung tâm điều khiển não bộ.',
+  100,
+  CURRENT_DATE + INTERVAL '14 days',
+  CURRENT_DATE + INTERVAL '60 days',
+  'P',
+  'Mỹ',
+  'Kelsey Mann',
+  'Amy Poehler, Maya Hawke, Kensington Tallman, Liza Lapira',
+  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1440&q=80',
+  'https://www.youtube.com/watch?v=LEjhY15eCx0',
+  7.7,
+  'COMING_SOON',
+  false
+)
+ON CONFLICT (slug) DO UPDATE
+SET
+  title = EXCLUDED.title,
+  synopsis = EXCLUDED.synopsis,
+  imdb_score = EXCLUDED.imdb_score,
+  status = EXCLUDED.status;
+
+
+-- 3. GẮN THỂ LOẠI CHO PHIM (Movie Genres)
+INSERT INTO public.movie_genres (movie_id, genre_id)
+SELECT m.id, g.id
+FROM public.movies m, public.genres g
+WHERE 
+  (m.slug = 'dune-hanh-tinh-cat-phan-2' AND g.slug IN ('hanh-dong', 'khoa-hoc-vien-tuong', 'phieu-luu'))
+  OR (m.slug = 'mai' AND g.slug IN ('tam-ly-tinh-cam', 'hai-kich'))
+  OR (m.slug = 'godzilla-x-kong-de-che-moi' AND g.slug IN ('hanh-dong', 'khoa-hoc-vien-tuong', 'phieu-luu'))
+  OR (m.slug = 'kung-fu-panda-4' AND g.slug IN ('hoat-hinh', 'hai-kich', 'gia-dinh'))
+  OR (m.slug = 'lat-mat-7-mot-dieu-uoc' AND g.slug IN ('gia-dinh', 'tam-ly-tinh-cam'))
+  OR (m.slug = 'deadpool-va-wolverine' AND g.slug IN ('hanh-dong', 'hai-kich', 'khoa-hoc-vien-tuong'))
+  OR (m.slug = 'inside-out-2-nhung-manh-ghep-cam-xuc' AND g.slug IN ('hoat-hinh', 'gia-dinh', 'hai-kich'))
+ON CONFLICT DO NOTHING;
+
+
+-- 4. DANH SÁCH RẠP CHIẾU (Cinemas)
+INSERT INTO public.cinemas (name, address, district, city, latitude, longitude, phone, image_url, is_active) VALUES
+(
+  'CINEMAX Landmark 81',
+  'Tầng B1, TTTM Vincom Center Landmark 81, 720A Điện Biên Phủ, Phường 22',
+  'Quận Bình Thạnh',
+  'TP. Hồ Chí Minh',
+  10.795200,
+  106.721800,
+  '028 3622 8181',
+  'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=800&q=80',
+  true
+),
+(
+  'CINEMAX Đồng Khởi',
+  'Tầng 3, Vincom Center Đồng Khởi, 72 Lê Thánh Tôn, Phường Bến Nghé',
+  'Quận 1',
+  'TP. Hồ Chí Minh',
+  10.778100,
+  106.702000,
+  '028 3822 5599',
+  'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&q=80',
+  true
+),
+(
+  'CINEMAX Metropolis Liễu Giai',
+  'Tầng 3, Vincom Center Metropolis, 29 Liễu Giai, Phường Ngọc Khánh',
+  'Quận Ba Đình',
+  'Hà Nội',
+  21.033600,
+  105.814500,
+  '024 3974 8899',
+  'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=800&q=80',
+  true
+),
+(
+  'CINEMAX Royal City',
+  'Tầng B2, Vincom Mega Mall Royal City, 72A Nguyễn Trãi, Phường Thượng Đình',
+  'Quận Thanh Xuân',
+  'Hà Nội',
+  20.999600,
+  105.815300,
+  '024 6664 2233',
+  'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=800&q=80',
+  true
+),
+(
+  'CINEMAX Sông Hàn',
+  'Tầng 4, Vincom Plaza Ngô Quyền, 910A Ngô Quyền, Phường An Hải Bắc',
+  'Quận Sơn Trà',
+  'Đà Nẵng',
+  16.071200,
+  108.232500,
+  '0236 3996 688',
+  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+  true
+)
+ON CONFLICT DO NOTHING;
+
+
+-- 5. PHÒNG CHIẾU (Rooms)
+INSERT INTO public.rooms (cinema_id, name, screen_type, total_rows, total_cols, status)
+SELECT c.id, r.name, r.screen_type::public.screen_type_t, r.total_rows, r.total_cols, 'ACTIVE'::public.room_status_t
+FROM public.cinemas c
+CROSS JOIN (
+  VALUES 
+    ('Phòng 01 - IMAX Laser', 'IMAX', 8, 12),
+    ('Phòng 02 - Cinema Gold', '2D', 7, 10),
+    ('Phòng 03 - 3D Atmos', '3D', 7, 10)
+) AS r(name, screen_type, total_rows, total_cols)
+ON CONFLICT (cinema_id, name) DO NOTHING;
+
+
+-- 6. SƠ ĐỒ GHẾ CHI TIẾT (Seats for each room)
+-- Tạo ma trận ghế tự động cho các phòng:
+-- Hàng A, B: Standard (Ghế thường)
+-- Hàng C, D, E, F: VIP (Ghế VIP - màu vàng gold)
+-- Hàng G: Couple (Ghế đôi - màu hồng)
+DO $$
+DECLARE
+  v_room record;
+  v_standard_id smallint;
+  v_vip_id smallint;
+  v_couple_id smallint;
+  v_row_char text;
+  v_row_idx int;
+  v_col_idx int;
+  v_type_id smallint;
+  v_seat_num int;
+BEGIN
+  SELECT id INTO v_standard_id FROM public.seat_types WHERE code = 'STANDARD';
+  SELECT id INTO v_vip_id FROM public.seat_types WHERE code = 'VIP';
+  SELECT id INTO v_couple_id FROM public.seat_types WHERE code = 'COUPLE';
+
+  FOR v_room IN SELECT id, total_rows, total_cols FROM public.rooms
+  LOOP
+    -- Chỉ sinh ghế nếu phòng đó chưa có ghế nào
+    IF NOT EXISTS (SELECT 1 FROM public.seats WHERE room_id = v_room.id) THEN
+      FOR v_row_idx IN 1..v_room.total_rows
+      LOOP
+        v_row_char := chr(64 + v_row_idx); -- 1 -> 'A', 2 -> 'B', etc.
+        
+        -- Phân loại ghế theo hàng
+        IF v_row_idx = v_room.total_rows THEN
+          v_type_id := v_couple_id; -- Hàng cuối là ghế đôi
+        ELSIF v_row_idx >= 3 THEN
+          v_type_id := v_vip_id; -- Hàng giữa là VIP
+        ELSE
+          v_type_id := v_standard_id; -- 2 hàng đầu là Standard
+        END IF;
+
+        IF v_type_id = v_couple_id THEN
+          -- Ghế đôi chiếm 2 ô hiển thị, bước nhảy cột = 2
+          v_seat_num := 1;
+          FOR v_col_idx IN 1..(v_room.total_cols / 2)
+          LOOP
+            INSERT INTO public.seats (
+              room_id, seat_type_id, row_label, seat_number, grid_row, grid_col, is_active
+            ) VALUES (
+              v_room.id, v_couple_id, v_row_char, v_seat_num, v_row_idx, (v_col_idx * 2 - 1), true
+            );
+            v_seat_num := v_seat_num + 1;
+          END LOOP;
+        ELSE
+          -- Ghế đơn bình thường
+          FOR v_col_idx IN 1..v_room.total_cols
+          LOOP
+            INSERT INTO public.seats (
+              room_id, seat_type_id, row_label, seat_number, grid_row, grid_col, is_active
+            ) VALUES (
+              v_room.id, v_type_id, v_row_char, v_col_idx, v_row_idx, v_col_idx, true
+            );
+          END LOOP;
+        END IF;
+
+      END LOOP;
+    END IF;
+  END LOOP;
+END;
+$$;
+
+
+-- 7. SUẤT CHIẾU (Showtimes cho 3 ngày tới)
+-- Suất chiếu không giao nhau theo ràng buộc showtimes_no_overlap
+DO $$
+DECLARE
+  v_dune_id bigint;
+  v_mai_id bigint;
+  v_godzilla_id bigint;
+  v_panda_id bigint;
+  v_latmat_id bigint;
+  v_room_imax int;
+  v_room_2d int;
+  v_day_offset int;
+  v_base_date date;
+  v_st_id bigint;
+BEGIN
+  SELECT id INTO v_dune_id FROM public.movies WHERE slug = 'dune-hanh-tinh-cat-phan-2';
+  SELECT id INTO v_mai_id FROM public.movies WHERE slug = 'mai';
+  SELECT id INTO v_godzilla_id FROM public.movies WHERE slug = 'godzilla-x-kong-de-che-moi';
+  SELECT id INTO v_panda_id FROM public.movies WHERE slug = 'kung-fu-panda-4';
+  SELECT id INTO v_latmat_id FROM public.movies WHERE slug = 'lat-mat-7-mot-dieu-uoc';
+
+  -- Lấy phòng mẫu tại rạp 1 (Landmark 81)
+  SELECT id INTO v_room_imax FROM public.rooms WHERE name LIKE '%IMAX%' LIMIT 1;
+  SELECT id INTO v_room_2d FROM public.rooms WHERE name LIKE '%Gold%' LIMIT 1;
+
+  IF v_room_imax IS NOT NULL AND v_dune_id IS NOT NULL THEN
+    FOR v_day_offset IN 0..2
+    LOOP
+      v_base_date := CURRENT_DATE + (v_day_offset || ' days')::interval;
+
+      -- Suất 1: 09:30 - 12:30 (Dune IMAX)
+      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
+      VALUES (v_dune_id, v_room_imax, v_base_date + TIME '09:30:00', v_base_date + TIME '12:30:00', 'SUBTITLED', 'OPEN')
+      RETURNING id INTO v_st_id;
+
+      -- Suất 2: 13:15 - 16:15 (Dune IMAX)
+      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
+      VALUES (v_dune_id, v_room_imax, v_base_date + TIME '13:15:00', v_base_date + TIME '16:15:00', 'SUBTITLED', 'OPEN');
+
+      -- Suất 3: 17:00 - 19:15 (Godzilla IMAX)
+      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
+      VALUES (v_godzilla_id, v_room_imax, v_base_date + TIME '17:00:00', v_base_date + TIME '19:15:00', 'SUBTITLED', 'OPEN');
+
+      -- Suất 4: 20:00 - 23:00 (Dune IMAX)
+      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
+      VALUES (v_dune_id, v_room_imax, v_base_date + TIME '20:00:00', v_base_date + TIME '23:00:00', 'SUBTITLED', 'OPEN');
+
+      -- Suất ở phòng 2D:
+      -- Suất 1: 10:00 - 12:30 (Mai)
+      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
+      VALUES (v_mai_id, v_room_2d, v_base_date + TIME '10:00:00', v_base_date + TIME '12:30:00', 'ORIGINAL', 'OPEN');
+
+      -- Suất 2: 13:00 - 14:45 (Kung Fu Panda 4 Lồng Tiếng)
+      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
+      VALUES (v_panda_id, v_room_2d, v_base_date + TIME '13:00:00', v_base_date + TIME '14:45:00', 'DUBBED', 'OPEN');
+
+      -- Suất 3: 15:30 - 18:00 (Lật Mặt 7)
+      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
+      VALUES (v_latmat_id, v_room_2d, v_base_date + TIME '15:30:00', v_base_date + TIME '18:00:00', 'ORIGINAL', 'OPEN');
+
+      -- Suất 4: 18:45 - 21:15 (Mai)
+      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
+      VALUES (v_mai_id, v_room_2d, v_base_date + TIME '18:45:00', v_base_date + TIME '21:15:00', 'ORIGINAL', 'OPEN');
+
+      -- Suất 5: 21:45 - 24:00 (Lật Mặt 7)
+      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
+      VALUES (v_latmat_id, v_room_2d, v_base_date + TIME '21:45:00', v_base_date + TIME '24:00:00', 'ORIGINAL', 'OPEN');
+    END LOOP;
+  END IF;
+END;
+$$;
+
+
+-- 8. BẢNG GIÁ VÉ CHO CÁC SUẤT CHIẾU (Showtime Prices)
+-- Gán giá vé cho từng loại ghế của tất cả suất chiếu hiện có
+INSERT INTO public.showtime_prices (showtime_id, seat_type_id, price)
+SELECT 
+  s.id AS showtime_id,
+  st.id AS seat_type_id,
+  CASE 
+    -- Suất IMAX
+    WHEN r.screen_type = 'IMAX' THEN
+      CASE 
+        WHEN st.code = 'STANDARD' THEN 140000
+        WHEN st.code = 'VIP' THEN 180000
+        WHEN st.code = 'COUPLE' THEN 320000
+      END
+    -- Suất 3D
+    WHEN r.screen_type = '3D' THEN
+      CASE 
+        WHEN st.code = 'STANDARD' THEN 110000
+        WHEN st.code = 'VIP' THEN 140000
+        WHEN st.code = 'COUPLE' THEN 250000
+      END
+    -- Suất 2D tiêu chuẩn
+    ELSE
+      CASE 
+        WHEN st.code = 'STANDARD' THEN 90000
+        WHEN st.code = 'VIP' THEN 115000
+        WHEN st.code = 'COUPLE' THEN 210000
+      END
+  END AS price
+FROM public.showtimes s
+JOIN public.rooms r ON s.room_id = r.id
+CROSS JOIN public.seat_types st
+ON CONFLICT (showtime_id, seat_type_id) DO UPDATE
+SET price = EXCLUDED.price;
+
+
+-- 9. ĐỒ ĂN & BẮP NƯỚC (Food Items)
+INSERT INTO public.food_items (name, category, description, price, image_url, is_active) VALUES
+(
+  'Bắp Ngọt Truyền Thống (Lớn)',
+  'POPCORN',
+  'Bắp rang bơ giòn rụm thơm lừng chuẩn vị rạp chiếu phim',
+  65000,
+  'https://images.unsplash.com/photo-1578849278619-e73505e9610f?auto=format&fit=crop&w=400&q=80',
+  true
+),
+(
+  'Bắp Phô Mai Thượng Hạng (Lớn)',
+  'POPCORN',
+  'Bắp rang áo đều lớp bột phô mai béo ngậy, đậm đà',
+  75000,
+  'https://images.unsplash.com/photo-1585647347483-22b66260dfff?auto=format&fit=crop&w=400&q=80',
+  true
+),
+(
+  'Bắp Caramel Đặc Biệt (Lớn)',
+  'POPCORN',
+  'Bắp ngọt phủ sốt caramel thơm lừng ngọt ngào',
+  75000,
+  'https://images.unsplash.com/photo-1505686994434-e3cc5abf1330?auto=format&fit=crop&w=400&q=80',
+  true
+),
+(
+  'Pepsi Mát Lạnh (Lớn)',
+  'DRINK',
+  'Nước ngọt có gas Pepsi 32oz sảng khoái',
+  35000,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80',
+  true
+),
+(
+  '7Up Chanh Mát Lạnh (Lớn)',
+  'DRINK',
+  'Nước giải khát vị chanh thanh mát 32oz',
+  35000,
+  'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?auto=format&fit=crop&w=400&q=80',
+  true
+),
+(
+  'Trà Sữa Trân Châu Phô Mai',
+  'DRINK',
+  'Trà sữa béo ngậy kèm trân châu giòn dai mát lạnh',
+  50000,
+  'https://images.unsplash.com/photo-1558857563-b37cf5a3bc32?auto=format&fit=crop&w=400&q=80',
+  true
+),
+(
+  'Combo Solo Tiết Kiệm',
+  'COMBO',
+  'Gồm 1 Bắp ngọt (Lớn) + 1 Nước ngọt có gas (Lớn)',
+  89000,
+  'https://images.unsplash.com/photo-1512149177596-f817c7ef5d4c?auto=format&fit=crop&w=400&q=80',
+  true
+),
+(
+  'Combo Couple Ngọt Ngào',
+  'COMBO',
+  'Gồm 1 Bắp 2 ngăn (Caramel + Phô mai) + 2 Nước ngọt (Lớn)',
+  135000,
+  'https://images.unsplash.com/photo-1572177812156-58036aae439c?auto=format&fit=crop&w=400&q=80',
+  true
+),
+(
+  'Combo Gia Đình Party',
+  'COMBO',
+  'Gồm 2 Bắp lớn đặc biệt + 4 Nước ngọt + 1 Snack khoai tây chiên',
+  229000,
+  'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?auto=format&fit=crop&w=400&q=80',
+  true
+)
+ON CONFLICT DO NOTHING;
+
+
+-- 10. MÃ KHUYẾN MÃI (Promotions)
+INSERT INTO public.promotions (
+  code, description, discount_type, discount_value, max_discount, min_order, usage_limit, per_user_limit, used_count, valid_from, valid_to, is_active
+) VALUES
+(
+  'CHAOBANMOI',
+  'Giảm 20% tối đa 40.000đ cho khách hàng mới đặt vé xem phim',
+  'PERCENT',
+  20,
+  40000,
+  100000,
+  1000,
+  1,
+  0,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '90 days',
+  true
+),
+(
+  'CINEMAX30K',
+  'Giảm ngay 30.000đ cho đơn hàng từ 150.000đ trở lên',
+  'FIXED',
+  30000,
+  NULL,
+  150000,
+  500,
+  1,
+  0,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '60 days',
+  true
+),
+(
+  'VNPAY20',
+  'Giảm 15% tối đa 35.000đ khi thanh toán qua cổng điện tử',
+  'PERCENT',
+  15,
+  35000,
+  120000,
+  500,
+  2,
+  0,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '60 days',
+  true
+),
+(
+  'HOCSINHSINHVIEN',
+  'Ưu đãi cố định 20.000đ dành cho học sinh, sinh viên yêu điện ảnh',
+  'FIXED',
+  20000,
+  NULL,
+  80000,
+  NULL,
+  5,
+  0,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '180 days',
+  true
+)
+ON CONFLICT (code) DO NOTHING;

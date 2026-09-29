@@ -1,0 +1,427 @@
+import { Movie, Cinema, Room, Seat, Showtime, FoodItem, Promotion } from './types';
+
+export const MOCK_GENRES = [
+  { id: 1, name: 'Hành Động', slug: 'hanh-dong' },
+  { id: 2, name: 'Phiêu Lưu', slug: 'phieu-luu' },
+  { id: 3, name: 'Khoa Học Viễn Tưởng', slug: 'khoa-hoc-vien-tuong' },
+  { id: 4, name: 'Hoạt Hình', slug: 'hoat-hinh' },
+  { id: 5, name: 'Hài Kịch', slug: 'hai-kich' },
+  { id: 6, name: 'Tâm Lý - Tình Cảm', slug: 'tam-ly-tinh-cam' },
+  { id: 7, name: 'Kinh Dị', slug: 'kinh-di' },
+  { id: 8, name: 'Gia Đình', slug: 'gia-dinh' },
+];
+
+export const MOCK_MOVIES: Movie[] = [
+  {
+    id: 1,
+    title: 'Dune: Hành Tinh Cát - Phần 2',
+    original_title: 'Dune: Part Two',
+    slug: 'dune-hanh-tinh-cat-phan-2',
+    synopsis: 'Paul Atreides hợp lực cùng Chani và tộc người Fremen để trả thù những kẻ đã hủy hoại gia đình anh, đồng thời nỗ lực ngăn chặn viễn cảnh tương lai tăm tối mà chỉ mình anh có thể thấy trước.',
+    duration_min: 148,
+    release_date: '15/10/2026',
+    age_rating: 'T13',
+    country: 'Mỹ',
+    director: 'Denis Villeneuve',
+    cast_list: 'Timothée Chalamet, Zendaya, Rebecca Ferguson, Javier Bardem',
+    poster_url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
+    banner_url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1440&q=80',
+    trailer_url: 'https://www.youtube.com/watch?v=Way9Dexny3w',
+    imdb_score: 8.1,
+    status: 'NOW_SHOWING',
+    is_deleted: false,
+    genres: [MOCK_GENRES[0], MOCK_GENRES[1]],
+  },
+  {
+    id: 2,
+    title: 'Mai',
+    original_title: 'Mai',
+    slug: 'mai',
+    synopsis: 'Mai là một phụ nữ ngoài 30 tuổi với quá khứ nhiều tổn thương. Khi gặp Dương - một chàng trai trẻ phóng khoáng, tình yêu chân thành bắt đầu nảy nở giữa định kiến xã hội.',
+    duration_min: 135,
+    release_date: '10/10/2026',
+    age_rating: 'T16',
+    country: 'Việt Nam',
+    director: 'Trấn Thành',
+    cast_list: 'Phương Anh Đào, Tuấn Trần, Trấn Thành, Hồng Đào',
+    poster_url: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=600&q=80',
+    banner_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1440&q=80',
+    trailer_url: 'https://www.youtube.com/watch?v=0j3Qk04_1eQ',
+    imdb_score: 7.5,
+    status: 'NOW_SHOWING',
+    is_deleted: false,
+    genres: [MOCK_GENRES[5], MOCK_GENRES[4]],
+  },
+  {
+    id: 3,
+    title: 'Kung Fu Panda 4',
+    original_title: 'Kung Fu Panda 4',
+    slug: 'kung-fu-panda-4',
+    synopsis: 'Gấu Po chuẩn bị trở thành Thủ lĩnh Tinh thần của Thung lũng Bình Yên và cần tìm một Thần Long Đại Hiệp kế vị, đồng thời phải đối đầu với phù thủy Tắc Kè Bông.',
+    duration_min: 98,
+    release_date: '08/10/2026',
+    age_rating: 'P',
+    country: 'Mỹ',
+    director: 'Mike Mitchell',
+    cast_list: 'Jack Black, Awkwafina, Dustin Hoffman, Viola Davis',
+    poster_url: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=600&q=80',
+    banner_url: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1440&q=80',
+    trailer_url: 'https://www.youtube.com/watch?v=_inKs4eeHiI',
+    imdb_score: 6.8,
+    status: 'NOW_SHOWING',
+    is_deleted: false,
+    genres: [MOCK_GENRES[3], MOCK_GENRES[7]],
+  },
+  {
+    id: 4,
+    title: 'Deadpool & Wolverine',
+    original_title: 'Deadpool & Wolverine',
+    slug: 'deadpool-va-wolverine',
+    synopsis: 'Thánh bựa Deadpool chính thức bước vào MCU và lôi kéo Wolverine đang chán nản cùng thực hiện một nhiệm vụ sống còn cứu vãn dòng thời gian.',
+    duration_min: 142,
+    release_date: '05/10/2026',
+    age_rating: 'T18',
+    country: 'Mỹ',
+    director: 'Shawn Levy',
+    cast_list: 'Ryan Reynolds, Hugh Jackman, Emma Corrin',
+    poster_url: 'https://images.unsplash.com/photo-1534809027769-b00d750a6bac?auto=format&fit=crop&w=600&q=80',
+    banner_url: 'https://images.unsplash.com/photo-1535016120720-40c646be5580?auto=format&fit=crop&w=1440&q=80',
+    trailer_url: 'https://www.youtube.com/watch?v=73_1biulkYk',
+    imdb_score: 8.0,
+    status: 'NOW_SHOWING',
+    is_deleted: false,
+    genres: [MOCK_GENRES[0], MOCK_GENRES[4]],
+  },
+  {
+    id: 5,
+    title: 'Lật Mặt 7: Một Điều Ước',
+    original_title: 'Face Off 7: One Wish',
+    slug: 'lat-mat-7-mot-dieu-uoc',
+    synopsis: 'Câu chuyện cảm động về người mẹ già 73 tuổi một mình nuôi 5 người con khôn lớn. Khi bà gặp nạn, 5 người con phải đối mặt với thử thách về chữ hiếu.',
+    duration_min: 105,
+    release_date: '01/10/2026',
+    age_rating: 'K',
+    country: 'Việt Nam',
+    director: 'Lý Hải',
+    cast_list: 'Thanh Hiền, Trương Minh Cường, Đinh Y Nhung',
+    poster_url: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80',
+    banner_url: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&w=1440&q=80',
+    trailer_url: 'https://www.youtube.com/watch?v=d_kS_Z9k2lY',
+    imdb_score: 7.7,
+    status: 'NOW_SHOWING',
+    is_deleted: false,
+    genres: [MOCK_GENRES[5], MOCK_GENRES[7]],
+  },
+  // Phim sắp chiếu (Screen 1 bottom)
+  {
+    id: 6,
+    title: 'Kẻ Trộm Mặt Trời (Furiosa)',
+    original_title: 'Furiosa: A Mad Max Saga',
+    slug: 'furiosa-ke-trom-mat-troi',
+    synopsis: 'Khi thế giới sụp đổ, cô gái trẻ Furiosa bị cướp khỏi Vùng Xanh của Nhiều Người Mẹ và rơi vào tay một Băng đảng Biker vĩ đại do Lãnh chúa Dementus cầm đầu.',
+    duration_min: 128,
+    release_date: '20/10/2026',
+    age_rating: 'T13',
+    country: 'Mỹ',
+    director: 'George Miller',
+    cast_list: 'Anya Taylor-Joy, Chris Hemsworth',
+    poster_url: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80',
+    status: 'COMING_SOON',
+    is_deleted: false,
+    genres: [MOCK_GENRES[0], MOCK_GENRES[1]],
+  },
+  {
+    id: 7,
+    title: 'Inside Out 2: Cảm Xúc Mới',
+    original_title: 'Inside Out 2',
+    slug: 'inside-out-2',
+    synopsis: 'Riley bước vào tuổi dậy thì, kéo theo sự xuất hiện của những cảm xúc mới tinh như Lo Âu, Ghen Tị, Xấu Hổ náo loạn trung tâm điều khiển não bộ.',
+    duration_min: 110,
+    release_date: '25/10/2026',
+    age_rating: 'T16',
+    country: 'Mỹ',
+    director: 'Kelsey Mann',
+    cast_list: 'Amy Poehler, Maya Hawke',
+    poster_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80',
+    status: 'COMING_SOON',
+    is_deleted: false,
+    genres: [MOCK_GENRES[3], MOCK_GENRES[7]],
+  },
+  {
+    id: 8,
+    title: 'Transformers Một',
+    original_title: 'Transformers One',
+    slug: 'transformers-one',
+    synopsis: 'Nguồn gốc chưa từng kể của Optimus Prime và Megatron, từ những người anh em thân thiết trở thành kẻ thù truyền kiếp.',
+    duration_min: 95,
+    release_date: '30/10/2026',
+    age_rating: 'P',
+    country: 'Mỹ',
+    director: 'Josh Cooley',
+    cast_list: 'Chris Hemsworth, Brian Tyree Henry, Scarlett Johansson',
+    poster_url: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=600&q=80',
+    status: 'COMING_SOON',
+    is_deleted: false,
+    genres: [MOCK_GENRES[0], MOCK_GENRES[2]],
+  },
+  {
+    id: 9,
+    title: 'Hành Tinh Khỉ: Vương Quốc Mới',
+    original_title: 'Kingdom of the Planet of the Apes',
+    slug: 'kingdom-of-the-planet-of-the-apes',
+    synopsis: 'Nhiều thế hệ sau triều đại của Caesar, loài khỉ trở thành giống loài thống trị trong khi loài người lùi về bóng tối.',
+    duration_min: 150,
+    release_date: '05/11/2026',
+    age_rating: 'T13',
+    country: 'Mỹ',
+    director: 'Wes Ball',
+    cast_list: 'Owen Teague, Freya Allan, Kevin Durand',
+    poster_url: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=600&q=80',
+    status: 'COMING_SOON',
+    is_deleted: false,
+    genres: [MOCK_GENRES[0], MOCK_GENRES[2]],
+  },
+  {
+    id: 10,
+    title: 'Chúa Tể Godzilla x Kong',
+    original_title: 'Godzilla x Kong',
+    slug: 'godzilla-x-kong',
+    synopsis: 'Hai quái thú khổng lồ huyền thoại sát cánh bên nhau chống lại mối đe dọa ẩn sâu trong lòng đất.',
+    duration_min: 102,
+    release_date: '12/11/2026',
+    age_rating: 'K',
+    country: 'Mỹ',
+    director: 'Adam Wingard',
+    cast_list: 'Rebecca Hall, Dan Stevens',
+    poster_url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80',
+    status: 'COMING_SOON',
+    is_deleted: false,
+    genres: [MOCK_GENRES[0], MOCK_GENRES[1]],
+  },
+];
+
+export const MOCK_CINEMAS: Cinema[] = [
+  {
+    id: 1,
+    name: 'Cinemax Hà Nội Centre',
+    address: 'Tầng 5, 123 Phố Huế, Hai Bà Trưng, Hà Nội',
+    city: 'Hà Nội',
+    is_active: true,
+  },
+  {
+    id: 2,
+    name: 'Cinemax Cầu Giấy',
+    address: 'Tầng 4, 45 Trần Thái Tông, Cầu Giấy, Hà Nội',
+    city: 'Hà Nội',
+    is_active: true,
+  },
+  {
+    id: 3,
+    name: 'Cinemax Landmark 81',
+    address: 'Tầng B1, Vincom Landmark 81, Bình Thạnh, TP. Hồ Chí Minh',
+    city: 'TP. Hồ Chí Minh',
+    is_active: true,
+  },
+];
+
+export const MOCK_ROOMS: Room[] = [
+  { id: 1, cinema_id: 1, name: 'Phòng 3 - 2D', screen_type: '2D', total_rows: 8, total_cols: 10, status: 'ACTIVE' },
+  { id: 2, cinema_id: 1, name: 'Phòng 1 - IMAX Laser', screen_type: 'IMAX', total_rows: 8, total_cols: 10, status: 'ACTIVE' },
+  { id: 3, cinema_id: 2, name: 'Phòng 2 - 2D', screen_type: '2D', total_rows: 8, total_cols: 10, status: 'ACTIVE' },
+];
+
+export const MOCK_SHOWTIMES: Showtime[] = [
+  {
+    id: 101,
+    movie_id: 1,
+    room_id: 1,
+    start_time: '2026-09-29T10:00:00+07:00',
+    end_time: '2026-09-29T12:28:00+07:00',
+    language_type: 'SUBTITLED',
+    status: 'OPEN',
+    movie: MOCK_MOVIES[0],
+    room: MOCK_ROOMS[0],
+    available_seats: 60,
+  },
+  {
+    id: 102,
+    movie_id: 1,
+    room_id: 1,
+    start_time: '2026-09-29T12:45:00+07:00',
+    end_time: '2026-09-29T15:13:00+07:00',
+    language_type: 'SUBTITLED',
+    status: 'OPEN',
+    movie: MOCK_MOVIES[0],
+    room: MOCK_ROOMS[0],
+    available_seats: 73,
+  },
+  {
+    id: 103,
+    movie_id: 1,
+    room_id: 1,
+    start_time: '2026-09-29T15:30:00+07:00',
+    end_time: '2026-09-29T17:58:00+07:00',
+    language_type: 'SUBTITLED',
+    status: 'OPEN',
+    movie: MOCK_MOVIES[0],
+    room: MOCK_ROOMS[0],
+    available_seats: 86,
+  },
+  {
+    id: 104,
+    movie_id: 1,
+    room_id: 1,
+    start_time: '2026-09-29T18:15:00+07:00',
+    end_time: '2026-09-29T20:43:00+07:00',
+    language_type: 'SUBTITLED',
+    status: 'OPEN',
+    movie: MOCK_MOVIES[0],
+    room: MOCK_ROOMS[0],
+    available_seats: 42,
+  },
+  {
+    id: 105,
+    movie_id: 1,
+    room_id: 1,
+    start_time: '2026-09-29T21:00:00+07:00',
+    end_time: '2026-09-29T23:28:00+07:00',
+    language_type: 'SUBTITLED',
+    status: 'OPEN',
+    movie: MOCK_MOVIES[0],
+    room: MOCK_ROOMS[0],
+    available_seats: 112,
+  },
+];
+
+// Food items matching Figma Screen 4 exactly
+export const MOCK_FOODS: FoodItem[] = [
+  {
+    id: 1,
+    name: 'Combo 1 bắp + 1 nước',
+    category: 'COMBO',
+    description: 'Bắp ngọt lớn thơm giòn kèm 1 ly nước ngọt 500ml',
+    price: 69000,
+    image_url: 'https://images.unsplash.com/photo-1512149177596-f817c7ef5d4c?auto=format&fit=crop&w=400&q=80',
+    is_active: true,
+  },
+  {
+    id: 2,
+    name: 'Bắp caramel lớn',
+    category: 'POPCORN',
+    description: 'Bắp ngọt phủ sốt caramel đặc biệt ngọt ngào béo ngậy',
+    price: 49000,
+    image_url: 'https://images.unsplash.com/photo-1505686994434-e3cc5abf1330?auto=format&fit=crop&w=400&q=80',
+    is_active: true,
+  },
+  {
+    id: 3,
+    name: 'Nước ngọt 500ml',
+    category: 'DRINK',
+    description: 'Pepsi, 7Up hoặc Mirinda mát lạnh giải khát',
+    price: 30000,
+    image_url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80',
+    is_active: true,
+  },
+];
+
+// Vouchers matching Figma Screen 4
+export const MOCK_PROMOTIONS: Promotion[] = [
+  {
+    id: 1,
+    code: 'GIAM20K',
+    description: 'Giảm ngay 20.000đ trực tiếp cho đơn vé xem phim',
+    discount_type: 'FIXED',
+    discount_value: 20000,
+    min_order: 100000,
+    per_user_limit: 1,
+    used_count: 50,
+    valid_from: '2026-01-01',
+    valid_to: '2026-12-31',
+    is_active: true,
+  },
+  {
+    id: 2,
+    code: 'CHAOBANMOI',
+    description: 'Giảm 20.000đ cho khách hàng mới',
+    discount_type: 'FIXED',
+    discount_value: 20000,
+    min_order: 100000,
+    per_user_limit: 1,
+    used_count: 85,
+    valid_from: '2026-01-01',
+    valid_to: '2026-12-31',
+    is_active: true,
+  },
+];
+
+// Sơ đồ ghế khớp chuẩn Figma Screen 3
+export function generateMockSeats(roomId: number = 1): Seat[] {
+  const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const seats: Seat[] = [];
+  let seatId = 1;
+
+  rows.forEach((row, rowIdx) => {
+    const isCouple = row === 'H';
+    const isVip = row === 'E' || row === 'F' || row === 'G';
+    const typeId = isCouple ? 3 : isVip ? 2 : 1;
+    const typeCode = isCouple ? 'COUPLE' : isVip ? 'VIP' : 'STANDARD';
+
+    if (isCouple) {
+      // 5 ghế đôi ở hàng H
+      for (let c = 1; c <= 5; c++) {
+        seats.push({
+          id: seatId++,
+          room_id: roomId,
+          seat_type_id: typeId,
+          row_label: row,
+          seat_number: c,
+          grid_row: rowIdx + 1,
+          grid_col: c,
+          is_active: true,
+          seat_type: {
+            id: typeId,
+            code: typeCode,
+            name: 'Ghế đôi',
+            capacity: 2,
+            color_code: '#F472B6',
+          },
+          status: 'AVAILABLE',
+        });
+      }
+    } else {
+      // 10 ghế mỗi hàng (5 ghế bên trái, 5 ghế bên phải)
+      for (let c = 1; c <= 10; c++) {
+        // Một số ghế đã bán theo Figma Screen 3
+        const isSold =
+          (row === 'A' && (c === 3 || c === 4)) ||
+          (row === 'B' && (c === 2 || c === 3)) ||
+          (row === 'C' && c === 4) ||
+          (row === 'D' && (c === 5 || c === 6)) ||
+          (row === 'E' && (c === 3 || c === 4 || c === 7)) ||
+          (row === 'F' && c === 5) ||
+          (row === 'G' && (c === 3 || c === 4));
+
+        seats.push({
+          id: seatId++,
+          room_id: roomId,
+          seat_type_id: typeId,
+          row_label: row,
+          seat_number: c,
+          grid_row: rowIdx + 1,
+          grid_col: c,
+          is_active: true,
+          seat_type: {
+            id: typeId,
+            code: typeCode,
+            name: isVip ? 'Ghế VIP' : 'Ghế thường',
+            capacity: 1,
+            color_code: isVip ? '#FABF2E' : '#9CA3AF',
+          },
+          status: isSold ? 'SOLD' : 'AVAILABLE',
+        });
+      }
+    }
+  });
+
+  return seats;
+}
