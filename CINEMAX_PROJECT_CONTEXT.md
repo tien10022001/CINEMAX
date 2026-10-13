@@ -13,14 +13,12 @@ Website bán vé xem phim cơ bản, đầy đủ luồng: xem phim → chọn s
 
 | Hạng mục | Trạng thái | Vị trí |
 |---|---|---|
-| Ý tưởng chức năng | Xong (mục 2) | File này |
-| Database (PostgreSQL) | **Đã tạo trên Supabase** (17 bảng) | Supabase project `cycuxhztpvezqcznifqh` |
-| ERD | Đã vẽ trong FigJam | [ERD FigJam Board](https://www.figma.com/board/dlbHpFuwCsSFTWsycdFrSC/ERD---Website-b%C3%A1n-v%C3%A9-xem-phim?node-id=0-1) |
+| Ý tưởng chức năng | Xong (mục 2) | File này & `THIET_KE_CSDL_VA_PHAN_QUYEN_CHUAN_HOA.md` |
+| Database Redesign (28 bảng) | **Đã hoàn thiện chuẩn hóa** | Excel `HK2T_1-rap_database-redesign.xlsx` & `THIET_KE_CSDL_VA_PHAN_QUYEN_CHUAN_HOA.md` |
+| Database cũ (17 bảng) | Bản tham khảo v1 | Supabase project `cycuxhztpvezqcznifqh` |
+| ERD & Kiến trúc chuẩn | Đã vẽ & Đặc tả chi tiết | [Tài liệu Kiến trúc Chuẩn Hóa](file:///c:/Users/Tien/Desktop/Cinemax_v1/CINEMAX/THIET_KE_CSDL_VA_PHAN_QUYEN_CHUAN_HOA.md) |
 | Thiết kế UI | 5 màn hình desktop | [Figma Prototype UI Design](https://www.figma.com/proto/LeISRokOLPtDIEkR4lfwKH/Website-b%C3%A1n-v%C3%A9-xem-phim---UI-Design?node-id=1-2) |
-
-| Database Migrations & Seeds | **Đã sẵn sàng** (Auth, RLS, RPC, Seeds) | Thư mục `supabase/migrations/` và `full_setup_single_file.sql` |
 | Tech Stack đã chọn | Next.js 15 (App Router, TS, Tailwind CSS) + Supabase SSR | Khởi tạo dự án |
-| Frontend | Đang tiến hành | Khởi tạo dự án Next.js |
 
 
 ---

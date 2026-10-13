@@ -1,185 +1,218 @@
 -- ====================================================================
--- CINEMAX - BƯỚC 2/5: THIẾT LẬP ROW LEVEL SECURITY (RLS) POLICIES
--- Bật quyền đọc công khai cho dữ liệu danh mục & bảo vệ dữ liệu cá nhân
+-- CINEMAX SUPABASE REDESIGN v3.0 - BƯỚC 2/4: ROW LEVEL SECURITY (RLS)
+-- Thiết lập kiểm soát truy cập cấp hàng nghiêm ngặt theo Ma trận RBAC
 -- ====================================================================
 
--- 1. Helper function kiểm tra quyền Admin hoặc Staff
-CREATE OR REPLACE FUNCTION public.is_admin_or_staff()
+-- 1. Kích hoạt RLS trên toàn bộ 28 bảng
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.staff_permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cinema_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.content_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.genres ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.movies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.movie_genres ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.auditoriums ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.showtimes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.showtime_prices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.showtime_seats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_components ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_modifiers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_movements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coupon_redemptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_item_fulfillments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shifts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.refunds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invoice_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.support_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_access_challenges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- 2. Helper Functions kiểm tra quyền người dùng hiện tại
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS public.user_role_t AS $$
+DECLARE
+    v_role public.user_role_t;
+BEGIN
+    SELECT role INTO v_role FROM public.profiles WHERE id = auth.uid();
+    RETURN COALESCE(v_role, 'user'::public.user_role_t);
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.has_staff_permission(p_perm public.staff_perm_t)
 RETURNS boolean AS $$
 BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.users u
-    JOIN public.roles r ON u.role_id = r.id
-    WHERE u.id = auth.uid() AND r.code IN ('ADMIN', 'STAFF')
-  );
+    IF public.current_user_role() = 'admin' THEN
+        RETURN true;
+    END IF;
+    RETURN EXISTS (
+        SELECT 1 FROM public.staff_permissions
+        WHERE staff_id = auth.uid() AND permission = p_perm AND active = true
+    );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS boolean AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.users u
-    JOIN public.roles r ON u.role_id = r.id
-    WHERE u.id = auth.uid() AND r.code = 'ADMIN'
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+-- 3. Policies cho từng bảng
 
--- --------------------------------------------------------------------
--- NHÓM 1: CÔNG KHAI ĐỌC (Public Read) - Danh mục rạp, phim, giá, ghế
--- --------------------------------------------------------------------
+-- 3.1. profiles
+CREATE POLICY "profiles_select_self_or_admin" ON public.profiles
+    FOR SELECT USING (auth.uid() = id OR public.current_user_role() = 'admin');
 
--- roles
-DROP POLICY IF EXISTS "Public roles read" ON public.roles;
-CREATE POLICY "Public roles read" ON public.roles FOR SELECT USING (true);
+CREATE POLICY "profiles_update_self_or_admin" ON public.profiles
+    FOR UPDATE USING (auth.uid() = id OR public.current_user_role() = 'admin');
 
--- genres
-DROP POLICY IF EXISTS "Public genres read" ON public.genres;
-CREATE POLICY "Public genres read" ON public.genres FOR SELECT USING (true);
+-- 3.2. staff_permissions
+CREATE POLICY "staff_permissions_admin_all" ON public.staff_permissions
+    FOR ALL USING (public.current_user_role() = 'admin');
 
--- movies (chỉ phim chưa bị xóa mềm)
-DROP POLICY IF EXISTS "Public movies read" ON public.movies;
-CREATE POLICY "Public movies read" ON public.movies FOR SELECT
-  USING (is_deleted = false OR public.is_admin_or_staff());
+CREATE POLICY "staff_permissions_self_read" ON public.staff_permissions
+    FOR SELECT USING (staff_id = auth.uid());
 
-DROP POLICY IF EXISTS "Admin movies write" ON public.movies;
-CREATE POLICY "Admin movies write" ON public.movies FOR ALL
-  USING (public.is_admin_or_staff());
+-- 3.3. cinema_settings
+CREATE POLICY "cinema_settings_public_read" ON public.cinema_settings
+    FOR SELECT USING (true);
 
--- movie_genres
-DROP POLICY IF EXISTS "Public movie_genres read" ON public.movie_genres;
-CREATE POLICY "Public movie_genres read" ON public.movie_genres FOR SELECT USING (true);
+CREATE POLICY "cinema_settings_admin_all" ON public.cinema_settings
+    FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin movie_genres write" ON public.movie_genres;
-CREATE POLICY "Admin movie_genres write" ON public.movie_genres FOR ALL
-  USING (public.is_admin_or_staff());
+-- 3.4. content_items, genres, movies, movie_genres
+CREATE POLICY "content_items_read" ON public.content_items
+    FOR SELECT USING (status = 'published' OR public.current_user_role() = 'admin');
+CREATE POLICY "content_items_admin" ON public.content_items
+    FOR ALL USING (public.current_user_role() = 'admin');
 
--- cinemas (chỉ rạp đang hoạt động)
-DROP POLICY IF EXISTS "Public cinemas read" ON public.cinemas;
-CREATE POLICY "Public cinemas read" ON public.cinemas FOR SELECT
-  USING (is_active = true OR public.is_admin_or_staff());
+CREATE POLICY "genres_read" ON public.genres FOR SELECT USING (true);
+CREATE POLICY "genres_admin" ON public.genres FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin cinemas write" ON public.cinemas;
-CREATE POLICY "Admin cinemas write" ON public.cinemas FOR ALL
-  USING (public.is_admin());
+CREATE POLICY "movies_read" ON public.movies
+    FOR SELECT USING (status IN ('coming_soon', 'now_showing') OR public.current_user_role() = 'admin');
+CREATE POLICY "movies_admin" ON public.movies FOR ALL USING (public.current_user_role() = 'admin');
 
--- rooms
-DROP POLICY IF EXISTS "Public rooms read" ON public.rooms;
-CREATE POLICY "Public rooms read" ON public.rooms FOR SELECT
-  USING (status = 'ACTIVE' OR public.is_admin_or_staff());
+CREATE POLICY "movie_genres_read" ON public.movie_genres FOR SELECT USING (true);
+CREATE POLICY "movie_genres_admin" ON public.movie_genres FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin rooms write" ON public.rooms;
-CREATE POLICY "Admin rooms write" ON public.rooms FOR ALL
-  USING (public.is_admin());
+-- 3.5. auditoriums, seats, showtimes, showtime_prices, showtime_seats
+CREATE POLICY "auditoriums_read" ON public.auditoriums FOR SELECT USING (true);
+CREATE POLICY "auditoriums_admin" ON public.auditoriums FOR ALL USING (public.current_user_role() = 'admin');
 
--- seat_types
-DROP POLICY IF EXISTS "Public seat_types read" ON public.seat_types;
-CREATE POLICY "Public seat_types read" ON public.seat_types FOR SELECT USING (true);
+CREATE POLICY "seats_read" ON public.seats FOR SELECT USING (true);
+CREATE POLICY "seats_admin" ON public.seats FOR ALL USING (public.current_user_role() = 'admin');
 
--- seats
-DROP POLICY IF EXISTS "Public seats read" ON public.seats;
-CREATE POLICY "Public seats read" ON public.seats FOR SELECT
-  USING (is_active = true OR public.is_admin_or_staff());
+CREATE POLICY "showtimes_read" ON public.showtimes FOR SELECT USING (true);
+CREATE POLICY "showtimes_admin" ON public.showtimes FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin seats write" ON public.seats;
-CREATE POLICY "Admin seats write" ON public.seats FOR ALL
-  USING (public.is_admin());
+CREATE POLICY "showtime_prices_read" ON public.showtime_prices FOR SELECT USING (true);
+CREATE POLICY "showtime_prices_admin" ON public.showtime_prices FOR ALL USING (public.current_user_role() = 'admin');
 
--- showtimes (chỉ suất chưa bị hủy)
-DROP POLICY IF EXISTS "Public showtimes read" ON public.showtimes;
-CREATE POLICY "Public showtimes read" ON public.showtimes FOR SELECT
-  USING (status != 'CANCELLED' OR public.is_admin_or_staff());
+CREATE POLICY "showtime_seats_read" ON public.showtime_seats FOR SELECT USING (true);
+-- Ghi showtime_seats chỉ cho phép qua Security Definer Stored Procedures
 
-DROP POLICY IF EXISTS "Admin showtimes write" ON public.showtimes;
-CREATE POLICY "Admin showtimes write" ON public.showtimes FOR ALL
-  USING (public.is_admin_or_staff());
+-- 3.6. products, product_components, product_modifiers
+CREATE POLICY "products_read" ON public.products FOR SELECT USING (active = true OR public.current_user_role() = 'admin');
+CREATE POLICY "products_admin" ON public.products FOR ALL USING (public.current_user_role() = 'admin');
 
--- showtime_prices
-DROP POLICY IF EXISTS "Public showtime_prices read" ON public.showtime_prices;
-CREATE POLICY "Public showtime_prices read" ON public.showtime_prices FOR SELECT USING (true);
+CREATE POLICY "product_components_read" ON public.product_components FOR SELECT USING (true);
+CREATE POLICY "product_components_admin" ON public.product_components FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin showtime_prices write" ON public.showtime_prices;
-CREATE POLICY "Admin showtime_prices write" ON public.showtime_prices FOR ALL
-  USING (public.is_admin_or_staff());
+CREATE POLICY "product_modifiers_read" ON public.product_modifiers FOR SELECT USING (active = true OR public.current_user_role() = 'admin');
+CREATE POLICY "product_modifiers_admin" ON public.product_modifiers FOR ALL USING (public.current_user_role() = 'admin');
 
--- food_items (chỉ món đang hoạt động)
-DROP POLICY IF EXISTS "Public food_items read" ON public.food_items;
-CREATE POLICY "Public food_items read" ON public.food_items FOR SELECT
-  USING (is_active = true OR public.is_admin_or_staff());
+-- 3.7. inventory_movements
+CREATE POLICY "inventory_movements_read" ON public.inventory_movements
+    FOR SELECT USING (public.current_user_role() = 'admin' OR public.has_staff_permission('CONCESSION'));
 
-DROP POLICY IF EXISTS "Admin food_items write" ON public.food_items;
-CREATE POLICY "Admin food_items write" ON public.food_items FOR ALL
-  USING (public.is_admin_or_staff());
+-- 3.8. coupons, coupon_redemptions
+CREATE POLICY "coupons_read" ON public.coupons FOR SELECT USING (active = true OR public.current_user_role() = 'admin');
+CREATE POLICY "coupons_admin" ON public.coupons FOR ALL USING (public.current_user_role() = 'admin');
 
--- promotions (chỉ khuyến mãi đang hoạt động)
-DROP POLICY IF EXISTS "Public promotions read" ON public.promotions;
-CREATE POLICY "Public promotions read" ON public.promotions FOR SELECT
-  USING (is_active = true OR public.is_admin_or_staff());
+CREATE POLICY "coupon_redemptions_admin" ON public.coupon_redemptions
+    FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin promotions write" ON public.promotions;
-CREATE POLICY "Admin promotions write" ON public.promotions FOR ALL
-  USING (public.is_admin());
+-- 3.9. orders, order_items, order_item_fulfillments
+CREATE POLICY "orders_select" ON public.orders
+    FOR SELECT USING (
+        user_id = auth.uid() OR
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('POS')
+    );
 
--- --------------------------------------------------------------------
--- NHÓM 2: DỮ LIỆU CÁ NHÂN & GIAO DỊCH (Bảo mật theo User)
--- --------------------------------------------------------------------
+CREATE POLICY "order_items_select" ON public.order_items
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.orders o
+            WHERE o.id = order_items.order_id AND (
+                o.user_id = auth.uid() OR
+                public.current_user_role() = 'admin' OR
+                public.has_staff_permission('POS') OR
+                public.has_staff_permission('CHECKIN') OR
+                public.has_staff_permission('CONCESSION')
+            )
+        )
+    );
 
--- users
-DROP POLICY IF EXISTS "Users read own profile" ON public.users;
-CREATE POLICY "Users read own profile" ON public.users FOR SELECT
-  USING (id = auth.uid() OR public.is_admin_or_staff());
+CREATE POLICY "fulfillments_select" ON public.order_item_fulfillments
+    FOR SELECT USING (public.current_user_role() = 'admin' OR public.has_staff_permission('CONCESSION'));
 
-DROP POLICY IF EXISTS "Users update own profile" ON public.users;
-CREATE POLICY "Users update own profile" ON public.users FOR UPDATE
-  USING (id = auth.uid() OR public.is_admin());
+-- 3.10. payments
+CREATE POLICY "payments_select" ON public.payments
+    FOR SELECT USING (
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('POS') OR
+        EXISTS (SELECT 1 FROM public.orders o WHERE o.id = payments.order_id AND o.user_id = auth.uid())
+    );
 
--- bookings
-DROP POLICY IF EXISTS "Users view own bookings" ON public.bookings;
-CREATE POLICY "Users view own bookings" ON public.bookings FOR SELECT
-  USING (user_id = auth.uid() OR public.is_admin_or_staff());
+-- 3.11. tickets
+CREATE POLICY "tickets_select" ON public.tickets
+    FOR SELECT USING (
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('CHECKIN') OR
+        public.has_staff_permission('POS') OR
+        EXISTS (
+            SELECT 1 FROM public.order_items oi
+            JOIN public.orders o ON o.id = oi.order_id
+            WHERE oi.id = tickets.order_item_id AND o.user_id = auth.uid()
+        )
+    );
 
-DROP POLICY IF EXISTS "Users create bookings" ON public.bookings;
-CREATE POLICY "Users create bookings" ON public.bookings FOR INSERT
-  WITH CHECK (user_id = auth.uid() OR public.is_admin_or_staff());
+-- 3.12. shifts
+CREATE POLICY "shifts_select" ON public.shifts
+    FOR SELECT USING (
+        staff_id = auth.uid() OR
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('SUPERVISOR')
+    );
 
-DROP POLICY IF EXISTS "Users update own bookings" ON public.bookings;
-CREATE POLICY "Users update own bookings" ON public.bookings FOR UPDATE
-  USING (user_id = auth.uid() OR public.is_admin_or_staff());
+-- 3.13. refunds, invoice_requests, support_requests
+CREATE POLICY "refunds_select" ON public.refunds
+    FOR SELECT USING (
+        requested_by = auth.uid() OR
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('SUPERVISOR')
+    );
 
--- tickets
--- Cho phép đọc trạng thái ghế (HELD/SOLD) để hiển thị sơ đồ ghế lúc chọn, nhưng chỉ chủ đơn/nhân viên xem chi tiết vé
-DROP POLICY IF EXISTS "Public read occupied tickets for seat map" ON public.tickets;
-CREATE POLICY "Public read occupied tickets for seat map" ON public.tickets FOR SELECT
-  USING (true);
+CREATE POLICY "invoice_requests_select" ON public.invoice_requests
+    FOR SELECT USING (
+        public.current_user_role() = 'admin' OR
+        EXISTS (SELECT 1 FROM public.orders o WHERE o.id = invoice_requests.order_id AND o.user_id = auth.uid())
+    );
 
-DROP POLICY IF EXISTS "Staff and Admin manage tickets" ON public.tickets;
-CREATE POLICY "Staff and Admin manage tickets" ON public.tickets FOR ALL
-  USING (public.is_admin_or_staff());
+CREATE POLICY "support_requests_select" ON public.support_requests
+    FOR SELECT USING (
+        created_by = auth.uid() OR
+        assigned_to = auth.uid() OR
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('POS')
+    );
 
--- booking_items
-DROP POLICY IF EXISTS "Users view own booking items" ON public.booking_items;
-CREATE POLICY "Users view own booking items" ON public.booking_items FOR SELECT
-  USING (
-    EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = booking_items.booking_id AND b.user_id = auth.uid())
-    OR public.is_admin_or_staff()
-  );
+-- 3.14. order_access_challenges, audit_logs
+CREATE POLICY "challenges_system_only" ON public.order_access_challenges
+    FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Users insert own booking items" ON public.booking_items;
-CREATE POLICY "Users insert own booking items" ON public.booking_items FOR INSERT
-  WITH CHECK (
-    EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = booking_items.booking_id AND b.user_id = auth.uid())
-    OR public.is_admin_or_staff()
-  );
-
--- payments
-DROP POLICY IF EXISTS "Users view own payments" ON public.payments;
-CREATE POLICY "Users view own payments" ON public.payments FOR SELECT
-  USING (
-    EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = payments.booking_id AND b.user_id = auth.uid())
-    OR public.is_admin_or_staff()
-  );
-
-DROP POLICY IF EXISTS "Staff and Admin manage payments" ON public.payments;
-CREATE POLICY "Staff and Admin manage payments" ON public.payments FOR ALL
-  USING (public.is_admin_or_staff());
+CREATE POLICY "audit_logs_admin_only" ON public.audit_logs
+    FOR SELECT USING (public.current_user_role() = 'admin');

@@ -1,1362 +1,1380 @@
 -- ====================================================================
--- CINEMAX - BƯỚC 1/5: TÍCH HỢP SUPABASE AUTH & HỒ SƠ NGƯỜI DÙNG
--- Chuyển đổi users thành bảng hồ sơ liên kết auth.users, bỏ password_hash
+-- CINEMAX SUPABASE MASTER SETUP - FULL DATABASE REDESIGN v3.0
+-- File duy nhất tổng hợp toàn bộ: Schema, RLS Policies, Stored Procedures, Seed Data
+-- Dán toàn bộ file này vào Supabase SQL Editor và nhấn RUN
 -- ====================================================================
 
--- 1. Bỏ NOT NULL ở password_hash để chuyển giao việc hash mật khẩu cho Supabase Auth
-ALTER TABLE public.users ALTER COLUMN password_hash DROP NOT NULL;
+-- ====================================================================
+-- CINEMAX SUPABASE REDESIGN v3.0 - BƯỚC 1/4: SCHEMA, TYPES & TABLES
+-- Kiến trúc 1 Rạp Tiêu Chuẩn (Single Theater) - 28 Bảng Nghiệp Vụ Chuẩn Hóa
+-- ====================================================================
 
--- 2. Đổi users.id sang UUID liên kết với auth.users(id)
--- Do chưa có dữ liệu ở bookings và showtimes, chúng ta gỡ khóa ngoại và chuyển kiểu an toàn:
-ALTER TABLE public.bookings DROP CONSTRAINT IF EXISTS bookings_user_id_fkey;
-ALTER TABLE public.showtimes DROP CONSTRAINT IF EXISTS showtimes_created_by_fkey;
+-- 1. Bật Extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "btree_gist";
 
--- Thay đổi kiểu cột ở các bảng liên quan
-ALTER TABLE public.bookings ALTER COLUMN user_id TYPE uuid USING gen_random_uuid();
-ALTER TABLE public.showtimes ALTER COLUMN created_by TYPE uuid USING NULL;
+-- 2. Dọn dẹp an toàn các bảng cũ nếu tồn tại
+DROP TABLE IF EXISTS public.audit_logs CASCADE;
+DROP TABLE IF EXISTS public.order_access_challenges CASCADE;
+DROP TABLE IF EXISTS public.support_requests CASCADE;
+DROP TABLE IF EXISTS public.invoice_requests CASCADE;
+DROP TABLE IF EXISTS public.refunds CASCADE;
+DROP TABLE IF EXISTS public.shifts CASCADE;
+DROP TABLE IF EXISTS public.tickets CASCADE;
+DROP TABLE IF EXISTS public.payments CASCADE;
+DROP TABLE IF EXISTS public.order_item_fulfillments CASCADE;
+DROP TABLE IF EXISTS public.order_items CASCADE;
+DROP TABLE IF EXISTS public.orders CASCADE;
+DROP TABLE IF EXISTS public.coupon_redemptions CASCADE;
+DROP TABLE IF EXISTS public.coupons CASCADE;
+DROP TABLE IF EXISTS public.inventory_movements CASCADE;
+DROP TABLE IF EXISTS public.product_modifiers CASCADE;
+DROP TABLE IF EXISTS public.product_components CASCADE;
+DROP TABLE IF EXISTS public.products CASCADE;
+DROP TABLE IF EXISTS public.showtime_seats CASCADE;
+DROP TABLE IF EXISTS public.showtime_prices CASCADE;
+DROP TABLE IF EXISTS public.showtimes CASCADE;
+DROP TABLE IF EXISTS public.seats CASCADE;
+DROP TABLE IF EXISTS public.auditoriums CASCADE;
+DROP TABLE IF EXISTS public.movie_genres CASCADE;
+DROP TABLE IF EXISTS public.movies CASCADE;
+DROP TABLE IF EXISTS public.genres CASCADE;
+DROP TABLE IF EXISTS public.content_items CASCADE;
+DROP TABLE IF EXISTS public.cinema_settings CASCADE;
+DROP TABLE IF EXISTS public.staff_permissions CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
 
--- Xóa identity ở users.id và đổi sang uuid
-ALTER TABLE public.users ALTER COLUMN id DROP IDENTITY IF EXISTS;
-ALTER TABLE public.users ALTER COLUMN id TYPE uuid USING gen_random_uuid();
+-- Dọn các bảng phiên bản cũ (v1) nếu còn sót
+DROP TABLE IF EXISTS public.booking_items CASCADE;
+DROP TABLE IF EXISTS public.bookings CASCADE;
+DROP TABLE IF EXISTS public.food_items CASCADE;
+DROP TABLE IF EXISTS public.promotions CASCADE;
+DROP TABLE IF EXISTS public.seat_types CASCADE;
+DROP TABLE IF EXISTS public.rooms CASCADE;
+DROP TABLE IF EXISTS public.cinemas CASCADE;
+DROP TABLE IF EXISTS public.users CASCADE;
+DROP TABLE IF EXISTS public.roles CASCADE;
 
--- Thiết lập khóa ngoại users.id -> auth.users(id) ON DELETE CASCADE
-ALTER TABLE public.users
-  ADD CONSTRAINT users_id_fkey 
-  FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+-- 3. Xóa và tạo lại các kiểu dữ liệu ENUM
+DROP TYPE IF EXISTS public.user_role_t CASCADE;
+DROP TYPE IF EXISTS public.account_status_t CASCADE;
+DROP TYPE IF EXISTS public.staff_perm_t CASCADE;
+DROP TYPE IF EXISTS public.content_type_t CASCADE;
+DROP TYPE IF EXISTS public.content_status_t CASCADE;
+DROP TYPE IF EXISTS public.age_rating_t CASCADE;
+DROP TYPE IF EXISTS public.movie_status_t CASCADE;
+DROP TYPE IF EXISTS public.screen_type_t CASCADE;
+DROP TYPE IF EXISTS public.room_status_t CASCADE;
+DROP TYPE IF EXISTS public.seat_type_t CASCADE;
+DROP TYPE IF EXISTS public.seat_status_t CASCADE;
+DROP TYPE IF EXISTS public.showtime_status_t CASCADE;
+DROP TYPE IF EXISTS public.audience_type_t CASCADE;
+DROP TYPE IF EXISTS public.showtime_seat_status_t CASCADE;
+DROP TYPE IF EXISTS public.product_type_t CASCADE;
+DROP TYPE IF EXISTS public.movement_type_t CASCADE;
+DROP TYPE IF EXISTS public.discount_type_t CASCADE;
+DROP TYPE IF EXISTS public.coupon_scope_t CASCADE;
+DROP TYPE IF EXISTS public.order_channel_t CASCADE;
+DROP TYPE IF EXISTS public.order_status_t CASCADE;
+DROP TYPE IF EXISTS public.order_item_type_t CASCADE;
+DROP TYPE IF EXISTS public.payment_provider_t CASCADE;
+DROP TYPE IF EXISTS public.payment_status_t CASCADE;
+DROP TYPE IF EXISTS public.ticket_status_t CASCADE;
+DROP TYPE IF EXISTS public.shift_status_t CASCADE;
+DROP TYPE IF EXISTS public.refund_type_t CASCADE;
+DROP TYPE IF EXISTS public.refund_status_t CASCADE;
+DROP TYPE IF EXISTS public.invoice_status_t CASCADE;
+DROP TYPE IF EXISTS public.support_type_t CASCADE;
+DROP TYPE IF EXISTS public.support_status_t CASCADE;
+DROP TYPE IF EXISTS public.challenge_channel_t CASCADE;
 
--- Thiết lập lại khóa ngoại ở bookings và showtimes
-ALTER TABLE public.bookings
-  ADD CONSTRAINT bookings_user_id_fkey 
-  FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+CREATE TYPE public.user_role_t AS ENUM ('admin', 'staff', 'user');
+CREATE TYPE public.account_status_t AS ENUM ('active', 'blocked');
+CREATE TYPE public.staff_perm_t AS ENUM ('POS', 'CHECKIN', 'CONCESSION', 'SUPERVISOR');
+CREATE TYPE public.content_type_t AS ENUM ('banner', 'post', 'promotion');
+CREATE TYPE public.content_status_t AS ENUM ('draft', 'published', 'archived');
+CREATE TYPE public.age_rating_t AS ENUM ('P', 'K', 'T13', 'T16', 'T18');
+CREATE TYPE public.movie_status_t AS ENUM ('draft', 'coming_soon', 'now_showing', 'ended');
+CREATE TYPE public.screen_type_t AS ENUM ('2D', '3D', 'IMAX', '4DX');
+CREATE TYPE public.room_status_t AS ENUM ('active', 'maintenance');
+CREATE TYPE public.seat_type_t AS ENUM ('STANDARD', 'VIP', 'COUPLE', 'WHEELCHAIR');
+CREATE TYPE public.seat_status_t AS ENUM ('ACTIVE', 'BLOCKED');
+CREATE TYPE public.showtime_status_t AS ENUM ('scheduled', 'open', 'closed', 'cancelled', 'finished');
+CREATE TYPE public.audience_type_t AS ENUM ('ADULT', 'STUDENT_U22', 'CHILD', 'SENIOR');
+CREATE TYPE public.showtime_seat_status_t AS ENUM ('available', 'held', 'sold', 'blocked');
+CREATE TYPE public.product_type_t AS ENUM ('FOOD', 'BEVERAGE', 'COMBO');
+CREATE TYPE public.movement_type_t AS ENUM ('IMPORT', 'SALE', 'LOSS', 'ADJUSTMENT');
+CREATE TYPE public.discount_type_t AS ENUM ('PERCENT', 'FIXED');
+CREATE TYPE public.coupon_scope_t AS ENUM ('ALL', 'TICKET_ONLY', 'COMBO_ONLY');
+CREATE TYPE public.order_channel_t AS ENUM ('online', 'pos');
+CREATE TYPE public.order_status_t AS ENUM ('pending', 'paid', 'cancelled', 'expired', 'refunded');
+CREATE TYPE public.order_item_type_t AS ENUM ('ticket', 'product');
+CREATE TYPE public.payment_provider_t AS ENUM ('CASH', 'MOMO', 'VNPAY', 'ZALOPAY', 'CARD');
+CREATE TYPE public.payment_status_t AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'REFUNDED');
+CREATE TYPE public.ticket_status_t AS ENUM ('issued', 'used', 'cancelled', 'refunded');
+CREATE TYPE public.shift_status_t AS ENUM ('open', 'submitted', 'closed');
+CREATE TYPE public.refund_type_t AS ENUM ('CUSTOMER_REQUEST', 'SYSTEM_SHOWTIME_CANCEL', 'EXCHANGE');
+CREATE TYPE public.refund_status_t AS ENUM ('pending', 'approved', 'rejected', 'completed');
+CREATE TYPE public.invoice_status_t AS ENUM ('pending', 'issued', 'rejected');
+CREATE TYPE public.support_type_t AS ENUM ('lost_ticket', 'contact_change', 'payment_pending', 'cancellation', 'seat_exchange');
+CREATE TYPE public.support_status_t AS ENUM ('pending', 'in_progress', 'resolved', 'closed');
+CREATE TYPE public.challenge_channel_t AS ENUM ('email', 'sms');
 
-ALTER TABLE public.showtimes
-  ADD CONSTRAINT showtimes_created_by_fkey 
-  FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+-- ====================================================================
+-- 4. TẠO CÁC BẢNG DỮ LIỆU
+-- ====================================================================
 
--- 3. Tạo Trigger tự động tạo hồ sơ public.users khi có tài khoản mới đăng ký ở auth.users
+-- 4.1. Hồ sơ người dùng nội bộ và thành viên
+CREATE TABLE public.profiles (
+    id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    role public.user_role_t NOT NULL DEFAULT 'user',
+    full_name text NOT NULL,
+    phone varchar(20) UNIQUE,
+    loyalty_points int NOT NULL DEFAULT 0 CHECK (loyalty_points >= 0),
+    membership_tier varchar(20) NOT NULL DEFAULT 'MEMBER',
+    status public.account_status_t NOT NULL DEFAULT 'active',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 4.2. Phân công nhiệm vụ Staff
+CREATE TABLE public.staff_permissions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    permission public.staff_perm_t NOT NULL,
+    active boolean NOT NULL DEFAULT true,
+    assigned_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    assigned_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT uq_staff_permission UNIQUE (staff_id, permission)
+);
+
+-- 4.3. Cấu hình vận hành rạp
+CREATE TABLE public.cinema_settings (
+    setting_key varchar(50) PRIMARY KEY,
+    setting_value jsonb NOT NULL,
+    updated_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 4.4. Truyền thông, tin tức, khuyến mãi
+CREATE TABLE public.content_items (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    type public.content_type_t NOT NULL,
+    title text NOT NULL,
+    body text,
+    image_url text,
+    link_url text,
+    published_at timestamptz,
+    expires_at timestamptz,
+    status public.content_status_t NOT NULL DEFAULT 'draft',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 4.5. Thể loại phim
+CREATE TABLE public.genres (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name varchar(50) NOT NULL,
+    slug varchar(60) UNIQUE NOT NULL,
+    active boolean NOT NULL DEFAULT true,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 4.6. Danh mục phim chiếu rạp
+CREATE TABLE public.movies (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    title text NOT NULL,
+    slug varchar(120) UNIQUE NOT NULL,
+    synopsis text,
+    director varchar(100),
+    cast_list text,
+    language varchar(50) DEFAULT 'Tiếng Việt',
+    duration_minutes smallint NOT NULL CHECK (duration_minutes > 0),
+    age_rating public.age_rating_t NOT NULL DEFAULT 'P',
+    poster_url text,
+    banner_url text,
+    trailer_url text,
+    release_date date,
+    end_date date,
+    status public.movie_status_t NOT NULL DEFAULT 'coming_soon',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 4.7. Phim - Thể loại (N-N)
+CREATE TABLE public.movie_genres (
+    movie_id uuid NOT NULL REFERENCES public.movies(id) ON DELETE CASCADE,
+    genre_id uuid NOT NULL REFERENCES public.genres(id) ON DELETE CASCADE,
+    PRIMARY KEY (movie_id, genre_id)
+);
+
+-- 4.8. Phòng chiếu của rạp
+CREATE TABLE public.auditoriums (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name varchar(50) UNIQUE NOT NULL,
+    screen_type public.screen_type_t NOT NULL DEFAULT '2D',
+    sound_system varchar(50) NOT NULL DEFAULT 'Dolby 7.1',
+    total_seats smallint NOT NULL CHECK (total_seats > 0),
+    cleaning_buffer_minutes smallint NOT NULL DEFAULT 15,
+    status public.room_status_t NOT NULL DEFAULT 'active',
+    seat_map_version int NOT NULL DEFAULT 1,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 4.9. Sơ đồ ghế mẫu của phòng
+CREATE TABLE public.seats (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    auditorium_id uuid NOT NULL REFERENCES public.auditoriums(id) ON DELETE CASCADE,
+    row_label varchar(3) NOT NULL,
+    seat_number smallint NOT NULL,
+    grid_row smallint NOT NULL,
+    grid_col smallint NOT NULL,
+    seat_type public.seat_type_t NOT NULL DEFAULT 'STANDARD',
+    seat_group varchar(20) NULL,
+    status public.seat_status_t NOT NULL DEFAULT 'ACTIVE',
+    block_reason varchar(100) NULL,
+    CONSTRAINT uq_auditorium_seat UNIQUE (auditorium_id, row_label, seat_number)
+);
+
+-- 4.10. Suất chiếu phim
+CREATE TABLE public.showtimes (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    movie_id uuid NOT NULL REFERENCES public.movies(id) ON DELETE RESTRICT,
+    auditorium_id uuid NOT NULL REFERENCES public.auditoriums(id) ON DELETE RESTRICT,
+    format varchar(20) NOT NULL DEFAULT '2D',
+    language_version varchar(50) NOT NULL DEFAULT 'Phụ đề Tiếng Việt',
+    starts_at timestamptz NOT NULL,
+    ends_at timestamptz NOT NULL,
+    booking_opens_at timestamptz,
+    booking_closes_at timestamptz,
+    status public.showtime_status_t NOT NULL DEFAULT 'scheduled',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT chk_showtime_time CHECK (ends_at > starts_at),
+    CONSTRAINT showtimes_no_overlap EXCLUDE USING gist (
+        auditorium_id WITH =,
+        tstzrange(starts_at, ends_at) WITH &&
+    ) WHERE (status != 'cancelled')
+);
+
+-- 4.11. Bảng giá vé phân tầng đa chiều
+CREATE TABLE public.showtime_prices (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    showtime_id uuid NOT NULL REFERENCES public.showtimes(id) ON DELETE CASCADE,
+    seat_type public.seat_type_t NOT NULL,
+    audience_type public.audience_type_t NOT NULL DEFAULT 'ADULT',
+    price numeric(12,0) NOT NULL CHECK (price >= 0),
+    currency char(3) NOT NULL DEFAULT 'VND',
+    CONSTRAINT uq_showtime_seat_price UNIQUE (showtime_id, seat_type, audience_type)
+);
+
+-- 4.13. Bắp nước và Combo F&B
+CREATE TABLE public.products (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name varchar(100) NOT NULL,
+    product_type public.product_type_t NOT NULL,
+    base_price numeric(12,0) NOT NULL CHECK (base_price >= 0),
+    inventory_tracking boolean NOT NULL DEFAULT true,
+    available_stock int NOT NULL DEFAULT 0 CHECK (available_stock >= 0),
+    active boolean NOT NULL DEFAULT true,
+    image_url text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 4.14. Thành phần Combo
+CREATE TABLE public.product_components (
+    combo_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    component_id uuid NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
+    quantity smallint NOT NULL CHECK (quantity > 0),
+    PRIMARY KEY (combo_id, component_id),
+    CONSTRAINT chk_combo_self_contain CHECK (combo_id != component_id)
+);
+
+-- 4.15. Tùy chọn đổi vị / size Bắp nước (Modifiers)
+CREATE TABLE public.product_modifiers (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    modifier_group varchar(50) NOT NULL,
+    option_name varchar(50) NOT NULL,
+    extra_price numeric(12,0) NOT NULL DEFAULT 0 CHECK (extra_price >= 0),
+    is_default boolean NOT NULL DEFAULT false,
+    active boolean NOT NULL DEFAULT true
+);
+
+-- 4.17. Chính sách mã giảm giá
+CREATE TABLE public.coupons (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code varchar(30) UNIQUE NOT NULL,
+    discount_type public.discount_type_t NOT NULL,
+    discount_value numeric(12,0) NOT NULL CHECK (discount_value > 0),
+    max_discount numeric(12,0) NULL,
+    min_order_amount numeric(12,0) NOT NULL DEFAULT 0,
+    apply_scope public.coupon_scope_t NOT NULL DEFAULT 'ALL',
+    starts_at timestamptz NOT NULL,
+    ends_at timestamptz NOT NULL,
+    usage_limit int NULL,
+    per_user_limit int NOT NULL DEFAULT 1,
+    active boolean NOT NULL DEFAULT true,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT chk_coupon_dates CHECK (ends_at > starts_at)
+);
+
+-- 4.19. Đơn đặt vé tổng thể (Orders)
+CREATE TABLE public.orders (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_code varchar(20) UNIQUE NOT NULL,
+    user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    guest_access_hash text NULL,
+    channel public.order_channel_t NOT NULL DEFAULT 'online',
+    created_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    status public.order_status_t NOT NULL DEFAULT 'pending',
+    contact_name varchar(100) NOT NULL,
+    contact_email varchar(100) NOT NULL,
+    contact_phone varchar(20) NOT NULL,
+    subtotal numeric(12,0) NOT NULL,
+    discount_amount numeric(12,0) NOT NULL DEFAULT 0,
+    loyalty_points_used int NOT NULL DEFAULT 0 CHECK (loyalty_points_used >= 0),
+    loyalty_discount_amount numeric(12,0) NOT NULL DEFAULT 0,
+    total_amount numeric(12,0) NOT NULL CHECK (total_amount >= 0),
+    coupon_id uuid REFERENCES public.coupons(id) ON DELETE SET NULL,
+    expires_at timestamptz NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 4.12. Nguồn sự thật trạng thái ghế theo từng suất chiếu
+CREATE TABLE public.showtime_seats (
+    showtime_id uuid NOT NULL REFERENCES public.showtimes(id) ON DELETE CASCADE,
+    seat_id uuid NOT NULL REFERENCES public.seats(id) ON DELETE CASCADE,
+    status public.showtime_seat_status_t NOT NULL DEFAULT 'available',
+    held_until timestamptz NULL,
+    order_id uuid REFERENCES public.orders(id) ON DELETE SET NULL,
+    PRIMARY KEY (showtime_id, seat_id)
+);
+
+-- 4.18. Lịch sử dùng mã giảm giá
+CREATE TABLE public.coupon_redemptions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    coupon_id uuid NOT NULL REFERENCES public.coupons(id) ON DELETE CASCADE,
+    order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    redeemed_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT uq_coupon_order UNIQUE (coupon_id, order_id)
+);
+
+-- 4.20. Dòng vé xem phim & Hàng hóa chi tiết
+CREATE TABLE public.order_items (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    item_type public.order_item_type_t NOT NULL,
+    showtime_id uuid NULL,
+    seat_id uuid NULL,
+    product_id uuid REFERENCES public.products(id) ON DELETE RESTRICT,
+    audience_type public.audience_type_t NULL,
+    selected_modifiers jsonb NULL,
+    quantity smallint NOT NULL CHECK (quantity > 0),
+    unit_price numeric(12,0) NOT NULL CHECK (unit_price >= 0),
+    line_total numeric(12,0) NOT NULL CHECK (line_total >= 0),
+    item_snapshot jsonb NOT NULL,
+    CONSTRAINT fk_order_item_showtime_seat FOREIGN KEY (showtime_id, seat_id)
+        REFERENCES public.showtime_seats(showtime_id, seat_id) ON DELETE SET NULL
+);
+
+-- 4.16. Sổ biến động kho bắp nước (Append-only)
+CREATE TABLE public.inventory_movements (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
+    movement_type public.movement_type_t NOT NULL,
+    quantity int NOT NULL,
+    reason text NOT NULL,
+    reference_order_item_id uuid REFERENCES public.order_items(id) ON DELETE SET NULL,
+    created_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 4.21. Xác nhận giao nhận bắp nước tại quầy (Fulfillment)
+CREATE TABLE public.order_item_fulfillments (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_item_id uuid NOT NULL REFERENCES public.order_items(id) ON DELETE CASCADE,
+    quantity smallint NOT NULL CHECK (quantity > 0),
+    delivered_at timestamptz NOT NULL DEFAULT now(),
+    delivered_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL
+);
+
+-- 4.24. Quản lý ca trực tiền mặt quầy vé & F&B
+CREATE TABLE public.shifts (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
+    pos_terminal varchar(30) NOT NULL,
+    shift_type varchar(20) NOT NULL DEFAULT 'MORNING',
+    opened_at timestamptz NOT NULL DEFAULT now(),
+    closed_at timestamptz NULL,
+    opening_cash numeric(12,0) NOT NULL DEFAULT 0,
+    expected_cash numeric(12,0) NOT NULL DEFAULT 0,
+    counted_cash numeric(12,0) NULL,
+    variance_reason text NULL,
+    supervisor_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    approved_at timestamptz NULL,
+    status public.shift_status_t NOT NULL DEFAULT 'open'
+);
+
+-- 4.22. Giao dịch thanh toán
+CREATE TABLE public.payments (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    shift_id uuid REFERENCES public.shifts(id) ON DELETE SET NULL,
+    received_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    provider public.payment_provider_t NOT NULL,
+    provider_txn_id text UNIQUE NULL,
+    amount numeric(12,0) NOT NULL CHECK (amount > 0),
+    status public.payment_status_t NOT NULL DEFAULT 'PENDING',
+    payload jsonb NULL,
+    paid_at timestamptz NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 4.23. Vé điện tử QR Code
+CREATE TABLE public.tickets (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_item_id uuid NOT NULL REFERENCES public.order_items(id) ON DELETE CASCADE UNIQUE,
+    qr_token_hash text NOT NULL UNIQUE,
+    status public.ticket_status_t NOT NULL DEFAULT 'issued',
+    age_check_passed boolean NOT NULL DEFAULT true,
+    checked_in_at timestamptz NULL,
+    checked_in_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL
+);
+
+-- 4.25. Hồ sơ yêu cầu và xử lý hoàn tiền
+CREATE TABLE public.refunds (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    payment_id uuid REFERENCES public.payments(id) ON DELETE SET NULL,
+    refund_type public.refund_type_t NOT NULL DEFAULT 'CUSTOMER_REQUEST',
+    requested_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    reason text NOT NULL,
+    amount numeric(12,0) NOT NULL CHECK (amount > 0),
+    status public.refund_status_t NOT NULL DEFAULT 'pending',
+    approved_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    provider_ref text NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    resolved_at timestamptz NULL
+);
+
+-- 4.26. Yêu cầu xuất hóa đơn VAT điện tử
+CREATE TABLE public.invoice_requests (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE UNIQUE,
+    tax_code varchar(30) NOT NULL,
+    company_name text NOT NULL,
+    address text NOT NULL,
+    email varchar(100) NOT NULL,
+    status public.invoice_status_t NOT NULL DEFAULT 'pending',
+    invoice_ref text NULL,
+    requested_at timestamptz NOT NULL DEFAULT now(),
+    resolved_at timestamptz NULL
+);
+
+-- 4.27. Hỗ trợ khách hàng & Khiếu nại
+CREATE TABLE public.support_requests (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    type public.support_type_t NOT NULL,
+    description text NOT NULL,
+    status public.support_status_t NOT NULL DEFAULT 'pending',
+    created_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    guest_access_hash text NULL,
+    assigned_to uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    resolved_at timestamptz NULL
+);
+
+-- 4.28. Xác thực OTP tra cứu cho Khách vãng lai (Zero-Leakage)
+CREATE TABLE public.order_access_challenges (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    channel public.challenge_channel_t NOT NULL DEFAULT 'email',
+    destination_hash text NOT NULL,
+    otp_hash text NOT NULL,
+    token_hash text NOT NULL,
+    expires_at timestamptz NOT NULL,
+    attempts smallint NOT NULL DEFAULT 0 CHECK (attempts <= 5),
+    verified_at timestamptz NULL
+);
+
+-- 4.29. Nhật ký kiểm toán an toàn hệ thống (Append-only)
+CREATE TABLE public.audit_logs (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    actor_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    action varchar(100) NOT NULL,
+    entity_type varchar(50) NOT NULL,
+    entity_id text NOT NULL,
+    before_data jsonb NULL,
+    after_data jsonb NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- ====================================================================
+-- 5. TRIGGERS CƠ BẢN
+-- ====================================================================
+
+-- 5.1. Trigger tự cập nhật updated_at
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_movies_updated_at BEFORE UPDATE ON public.movies FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_showtimes_updated_at BEFORE UPDATE ON public.showtimes FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_orders_updated_at BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- 5.2. Trigger tự tạo profile khi người dùng đăng ký qua Supabase Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
-DECLARE
-  v_role_id smallint;
 BEGIN
-  -- Lấy role CUSTOMER mặc định
-  SELECT id INTO v_role_id FROM public.roles WHERE code = 'CUSTOMER';
-  IF v_role_id IS NULL THEN
-    v_role_id := 1;
-  END IF;
-
-  INSERT INTO public.users (
-    id,
-    role_id,
-    full_name,
-    email,
-    phone,
-    avatar_url,
-    email_verified_at,
-    created_at,
-    updated_at
-  ) VALUES (
-    NEW.id,
-    v_role_id,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-    NEW.email,
-    NEW.raw_user_meta_data->>'phone',
-    NEW.raw_user_meta_data->>'avatar_url',
-    NEW.email_confirmed_at,
-    NOW(),
-    NOW()
-  )
-  ON CONFLICT (id) DO UPDATE
-  SET
-    full_name = EXCLUDED.full_name,
-    email = EXCLUDED.email,
-    updated_at = NOW();
-
-  RETURN NEW;
+    INSERT INTO public.profiles (id, full_name, role, created_at, updated_at)
+    VALUES (
+        NEW.id,
+        COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+        'user',
+        now(),
+        now()
+    )
+    ON CONFLICT (id) DO NOTHING;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Gắn trigger vào auth.users
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
-  AFTER INSERT OR UPDATE OF email_confirmed_at ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
-COMMENT ON FUNCTION public.handle_new_user() IS 'Tự động tạo hoặc cập nhật hồ sơ người dùng trong public.users khi đăng ký qua Supabase Auth';
+-- 5.3. Trigger cập nhật available_stock từ inventory_movements
+CREATE OR REPLACE FUNCTION public.sync_inventory_stock()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.products
+    SET available_stock = GREATEST(0, available_stock + NEW.quantity)
+    WHERE id = NEW.product_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sync_inventory_stock
+    AFTER INSERT ON public.inventory_movements
+    FOR EACH ROW EXECUTE FUNCTION public.sync_inventory_stock();
+
+-- 5.4. Cấp quyền truy cập schema và bảng cho các vai trò Supabase
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
 
 
 -- ====================================================================
--- CINEMAX - BƯỚC 2/5: THIẾT LẬP ROW LEVEL SECURITY (RLS) POLICIES
--- Bật quyền đọc công khai cho dữ liệu danh mục & bảo vệ dữ liệu cá nhân
+-- CINEMAX SUPABASE REDESIGN v3.0 - BƯỚC 2/4: ROW LEVEL SECURITY (RLS)
+-- Thiết lập kiểm soát truy cập cấp hàng nghiêm ngặt theo Ma trận RBAC
 -- ====================================================================
 
--- 1. Helper function kiểm tra quyền Admin hoặc Staff
-CREATE OR REPLACE FUNCTION public.is_admin_or_staff()
+-- 1. Kích hoạt RLS trên toàn bộ 28 bảng
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.staff_permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cinema_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.content_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.genres ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.movies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.movie_genres ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.auditoriums ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.showtimes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.showtime_prices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.showtime_seats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_components ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_modifiers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_movements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coupon_redemptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_item_fulfillments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shifts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.refunds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invoice_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.support_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_access_challenges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- 2. Helper Functions kiểm tra quyền người dùng hiện tại
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS public.user_role_t AS $$
+DECLARE
+    v_role public.user_role_t;
+BEGIN
+    SELECT role INTO v_role FROM public.profiles WHERE id = auth.uid();
+    RETURN COALESCE(v_role, 'user'::public.user_role_t);
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.has_staff_permission(p_perm public.staff_perm_t)
 RETURNS boolean AS $$
 BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.users u
-    JOIN public.roles r ON u.role_id = r.id
-    WHERE u.id = auth.uid() AND r.code IN ('ADMIN', 'STAFF')
-  );
+    IF public.current_user_role() = 'admin' THEN
+        RETURN true;
+    END IF;
+    RETURN EXISTS (
+        SELECT 1 FROM public.staff_permissions
+        WHERE staff_id = auth.uid() AND permission = p_perm AND active = true
+    );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS boolean AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.users u
-    JOIN public.roles r ON u.role_id = r.id
-    WHERE u.id = auth.uid() AND r.code = 'ADMIN'
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+-- 3. Policies cho từng bảng
 
--- --------------------------------------------------------------------
--- NHÓM 1: CÔNG KHAI ĐỌC (Public Read) - Danh mục rạp, phim, giá, ghế
--- --------------------------------------------------------------------
+-- 3.1. profiles
+CREATE POLICY "profiles_select_self_or_admin" ON public.profiles
+    FOR SELECT USING (auth.uid() = id OR public.current_user_role() = 'admin');
 
--- roles
-DROP POLICY IF EXISTS "Public roles read" ON public.roles;
-CREATE POLICY "Public roles read" ON public.roles FOR SELECT USING (true);
+CREATE POLICY "profiles_update_self_or_admin" ON public.profiles
+    FOR UPDATE USING (auth.uid() = id OR public.current_user_role() = 'admin');
 
--- genres
-DROP POLICY IF EXISTS "Public genres read" ON public.genres;
-CREATE POLICY "Public genres read" ON public.genres FOR SELECT USING (true);
+-- 3.2. staff_permissions
+CREATE POLICY "staff_permissions_admin_all" ON public.staff_permissions
+    FOR ALL USING (public.current_user_role() = 'admin');
 
--- movies (chỉ phim chưa bị xóa mềm)
-DROP POLICY IF EXISTS "Public movies read" ON public.movies;
-CREATE POLICY "Public movies read" ON public.movies FOR SELECT
-  USING (is_deleted = false OR public.is_admin_or_staff());
+CREATE POLICY "staff_permissions_self_read" ON public.staff_permissions
+    FOR SELECT USING (staff_id = auth.uid());
 
-DROP POLICY IF EXISTS "Admin movies write" ON public.movies;
-CREATE POLICY "Admin movies write" ON public.movies FOR ALL
-  USING (public.is_admin_or_staff());
+-- 3.3. cinema_settings
+CREATE POLICY "cinema_settings_public_read" ON public.cinema_settings
+    FOR SELECT USING (true);
 
--- movie_genres
-DROP POLICY IF EXISTS "Public movie_genres read" ON public.movie_genres;
-CREATE POLICY "Public movie_genres read" ON public.movie_genres FOR SELECT USING (true);
+CREATE POLICY "cinema_settings_admin_all" ON public.cinema_settings
+    FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin movie_genres write" ON public.movie_genres;
-CREATE POLICY "Admin movie_genres write" ON public.movie_genres FOR ALL
-  USING (public.is_admin_or_staff());
+-- 3.4. content_items, genres, movies, movie_genres
+CREATE POLICY "content_items_read" ON public.content_items
+    FOR SELECT USING (status = 'published' OR public.current_user_role() = 'admin');
+CREATE POLICY "content_items_admin" ON public.content_items
+    FOR ALL USING (public.current_user_role() = 'admin');
 
--- cinemas (chỉ rạp đang hoạt động)
-DROP POLICY IF EXISTS "Public cinemas read" ON public.cinemas;
-CREATE POLICY "Public cinemas read" ON public.cinemas FOR SELECT
-  USING (is_active = true OR public.is_admin_or_staff());
+CREATE POLICY "genres_read" ON public.genres FOR SELECT USING (true);
+CREATE POLICY "genres_admin" ON public.genres FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin cinemas write" ON public.cinemas;
-CREATE POLICY "Admin cinemas write" ON public.cinemas FOR ALL
-  USING (public.is_admin());
+CREATE POLICY "movies_read" ON public.movies
+    FOR SELECT USING (status IN ('coming_soon', 'now_showing') OR public.current_user_role() = 'admin');
+CREATE POLICY "movies_admin" ON public.movies FOR ALL USING (public.current_user_role() = 'admin');
 
--- rooms
-DROP POLICY IF EXISTS "Public rooms read" ON public.rooms;
-CREATE POLICY "Public rooms read" ON public.rooms FOR SELECT
-  USING (status = 'ACTIVE' OR public.is_admin_or_staff());
+CREATE POLICY "movie_genres_read" ON public.movie_genres FOR SELECT USING (true);
+CREATE POLICY "movie_genres_admin" ON public.movie_genres FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin rooms write" ON public.rooms;
-CREATE POLICY "Admin rooms write" ON public.rooms FOR ALL
-  USING (public.is_admin());
+-- 3.5. auditoriums, seats, showtimes, showtime_prices, showtime_seats
+CREATE POLICY "auditoriums_read" ON public.auditoriums FOR SELECT USING (true);
+CREATE POLICY "auditoriums_admin" ON public.auditoriums FOR ALL USING (public.current_user_role() = 'admin');
 
--- seat_types
-DROP POLICY IF EXISTS "Public seat_types read" ON public.seat_types;
-CREATE POLICY "Public seat_types read" ON public.seat_types FOR SELECT USING (true);
+CREATE POLICY "seats_read" ON public.seats FOR SELECT USING (true);
+CREATE POLICY "seats_admin" ON public.seats FOR ALL USING (public.current_user_role() = 'admin');
 
--- seats
-DROP POLICY IF EXISTS "Public seats read" ON public.seats;
-CREATE POLICY "Public seats read" ON public.seats FOR SELECT
-  USING (is_active = true OR public.is_admin_or_staff());
+CREATE POLICY "showtimes_read" ON public.showtimes FOR SELECT USING (true);
+CREATE POLICY "showtimes_admin" ON public.showtimes FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin seats write" ON public.seats;
-CREATE POLICY "Admin seats write" ON public.seats FOR ALL
-  USING (public.is_admin());
+CREATE POLICY "showtime_prices_read" ON public.showtime_prices FOR SELECT USING (true);
+CREATE POLICY "showtime_prices_admin" ON public.showtime_prices FOR ALL USING (public.current_user_role() = 'admin');
 
--- showtimes (chỉ suất chưa bị hủy)
-DROP POLICY IF EXISTS "Public showtimes read" ON public.showtimes;
-CREATE POLICY "Public showtimes read" ON public.showtimes FOR SELECT
-  USING (status != 'CANCELLED' OR public.is_admin_or_staff());
+CREATE POLICY "showtime_seats_read" ON public.showtime_seats FOR SELECT USING (true);
+-- Ghi showtime_seats chỉ cho phép qua Security Definer Stored Procedures
 
-DROP POLICY IF EXISTS "Admin showtimes write" ON public.showtimes;
-CREATE POLICY "Admin showtimes write" ON public.showtimes FOR ALL
-  USING (public.is_admin_or_staff());
+-- 3.6. products, product_components, product_modifiers
+CREATE POLICY "products_read" ON public.products FOR SELECT USING (active = true OR public.current_user_role() = 'admin');
+CREATE POLICY "products_admin" ON public.products FOR ALL USING (public.current_user_role() = 'admin');
 
--- showtime_prices
-DROP POLICY IF EXISTS "Public showtime_prices read" ON public.showtime_prices;
-CREATE POLICY "Public showtime_prices read" ON public.showtime_prices FOR SELECT USING (true);
+CREATE POLICY "product_components_read" ON public.product_components FOR SELECT USING (true);
+CREATE POLICY "product_components_admin" ON public.product_components FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin showtime_prices write" ON public.showtime_prices;
-CREATE POLICY "Admin showtime_prices write" ON public.showtime_prices FOR ALL
-  USING (public.is_admin_or_staff());
+CREATE POLICY "product_modifiers_read" ON public.product_modifiers FOR SELECT USING (active = true OR public.current_user_role() = 'admin');
+CREATE POLICY "product_modifiers_admin" ON public.product_modifiers FOR ALL USING (public.current_user_role() = 'admin');
 
--- food_items (chỉ món đang hoạt động)
-DROP POLICY IF EXISTS "Public food_items read" ON public.food_items;
-CREATE POLICY "Public food_items read" ON public.food_items FOR SELECT
-  USING (is_active = true OR public.is_admin_or_staff());
+-- 3.7. inventory_movements
+CREATE POLICY "inventory_movements_read" ON public.inventory_movements
+    FOR SELECT USING (public.current_user_role() = 'admin' OR public.has_staff_permission('CONCESSION'));
 
-DROP POLICY IF EXISTS "Admin food_items write" ON public.food_items;
-CREATE POLICY "Admin food_items write" ON public.food_items FOR ALL
-  USING (public.is_admin_or_staff());
+-- 3.8. coupons, coupon_redemptions
+CREATE POLICY "coupons_read" ON public.coupons FOR SELECT USING (active = true OR public.current_user_role() = 'admin');
+CREATE POLICY "coupons_admin" ON public.coupons FOR ALL USING (public.current_user_role() = 'admin');
 
--- promotions (chỉ khuyến mãi đang hoạt động)
-DROP POLICY IF EXISTS "Public promotions read" ON public.promotions;
-CREATE POLICY "Public promotions read" ON public.promotions FOR SELECT
-  USING (is_active = true OR public.is_admin_or_staff());
+CREATE POLICY "coupon_redemptions_admin" ON public.coupon_redemptions
+    FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Admin promotions write" ON public.promotions;
-CREATE POLICY "Admin promotions write" ON public.promotions FOR ALL
-  USING (public.is_admin());
+-- 3.9. orders, order_items, order_item_fulfillments
+CREATE POLICY "orders_select" ON public.orders
+    FOR SELECT USING (
+        user_id = auth.uid() OR
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('POS')
+    );
 
--- --------------------------------------------------------------------
--- NHÓM 2: DỮ LIỆU CÁ NHÂN & GIAO DỊCH (Bảo mật theo User)
--- --------------------------------------------------------------------
+CREATE POLICY "order_items_select" ON public.order_items
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.orders o
+            WHERE o.id = order_items.order_id AND (
+                o.user_id = auth.uid() OR
+                public.current_user_role() = 'admin' OR
+                public.has_staff_permission('POS') OR
+                public.has_staff_permission('CHECKIN') OR
+                public.has_staff_permission('CONCESSION')
+            )
+        )
+    );
 
--- users
-DROP POLICY IF EXISTS "Users read own profile" ON public.users;
-CREATE POLICY "Users read own profile" ON public.users FOR SELECT
-  USING (id = auth.uid() OR public.is_admin_or_staff());
+CREATE POLICY "fulfillments_select" ON public.order_item_fulfillments
+    FOR SELECT USING (public.current_user_role() = 'admin' OR public.has_staff_permission('CONCESSION'));
 
-DROP POLICY IF EXISTS "Users update own profile" ON public.users;
-CREATE POLICY "Users update own profile" ON public.users FOR UPDATE
-  USING (id = auth.uid() OR public.is_admin());
+-- 3.10. payments
+CREATE POLICY "payments_select" ON public.payments
+    FOR SELECT USING (
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('POS') OR
+        EXISTS (SELECT 1 FROM public.orders o WHERE o.id = payments.order_id AND o.user_id = auth.uid())
+    );
 
--- bookings
-DROP POLICY IF EXISTS "Users view own bookings" ON public.bookings;
-CREATE POLICY "Users view own bookings" ON public.bookings FOR SELECT
-  USING (user_id = auth.uid() OR public.is_admin_or_staff());
+-- 3.11. tickets
+CREATE POLICY "tickets_select" ON public.tickets
+    FOR SELECT USING (
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('CHECKIN') OR
+        public.has_staff_permission('POS') OR
+        EXISTS (
+            SELECT 1 FROM public.order_items oi
+            JOIN public.orders o ON o.id = oi.order_id
+            WHERE oi.id = tickets.order_item_id AND o.user_id = auth.uid()
+        )
+    );
 
-DROP POLICY IF EXISTS "Users create bookings" ON public.bookings;
-CREATE POLICY "Users create bookings" ON public.bookings FOR INSERT
-  WITH CHECK (user_id = auth.uid() OR public.is_admin_or_staff());
+-- 3.12. shifts
+CREATE POLICY "shifts_select" ON public.shifts
+    FOR SELECT USING (
+        staff_id = auth.uid() OR
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('SUPERVISOR')
+    );
 
-DROP POLICY IF EXISTS "Users update own bookings" ON public.bookings;
-CREATE POLICY "Users update own bookings" ON public.bookings FOR UPDATE
-  USING (user_id = auth.uid() OR public.is_admin_or_staff());
+-- 3.13. refunds, invoice_requests, support_requests
+CREATE POLICY "refunds_select" ON public.refunds
+    FOR SELECT USING (
+        requested_by = auth.uid() OR
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('SUPERVISOR')
+    );
 
--- tickets
--- Cho phép đọc trạng thái ghế (HELD/SOLD) để hiển thị sơ đồ ghế lúc chọn, nhưng chỉ chủ đơn/nhân viên xem chi tiết vé
-DROP POLICY IF EXISTS "Public read occupied tickets for seat map" ON public.tickets;
-CREATE POLICY "Public read occupied tickets for seat map" ON public.tickets FOR SELECT
-  USING (true);
+CREATE POLICY "invoice_requests_select" ON public.invoice_requests
+    FOR SELECT USING (
+        public.current_user_role() = 'admin' OR
+        EXISTS (SELECT 1 FROM public.orders o WHERE o.id = invoice_requests.order_id AND o.user_id = auth.uid())
+    );
 
-DROP POLICY IF EXISTS "Staff and Admin manage tickets" ON public.tickets;
-CREATE POLICY "Staff and Admin manage tickets" ON public.tickets FOR ALL
-  USING (public.is_admin_or_staff());
+CREATE POLICY "support_requests_select" ON public.support_requests
+    FOR SELECT USING (
+        created_by = auth.uid() OR
+        assigned_to = auth.uid() OR
+        public.current_user_role() = 'admin' OR
+        public.has_staff_permission('POS')
+    );
 
--- booking_items
-DROP POLICY IF EXISTS "Users view own booking items" ON public.booking_items;
-CREATE POLICY "Users view own booking items" ON public.booking_items FOR SELECT
-  USING (
-    EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = booking_items.booking_id AND b.user_id = auth.uid())
-    OR public.is_admin_or_staff()
-  );
+-- 3.14. order_access_challenges, audit_logs
+CREATE POLICY "challenges_system_only" ON public.order_access_challenges
+    FOR ALL USING (public.current_user_role() = 'admin');
 
-DROP POLICY IF EXISTS "Users insert own booking items" ON public.booking_items;
-CREATE POLICY "Users insert own booking items" ON public.booking_items FOR INSERT
-  WITH CHECK (
-    EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = booking_items.booking_id AND b.user_id = auth.uid())
-    OR public.is_admin_or_staff()
-  );
-
--- payments
-DROP POLICY IF EXISTS "Users view own payments" ON public.payments;
-CREATE POLICY "Users view own payments" ON public.payments FOR SELECT
-  USING (
-    EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = payments.booking_id AND b.user_id = auth.uid())
-    OR public.is_admin_or_staff()
-  );
-
-DROP POLICY IF EXISTS "Staff and Admin manage payments" ON public.payments;
-CREATE POLICY "Staff and Admin manage payments" ON public.payments FOR ALL
-  USING (public.is_admin_or_staff());
+CREATE POLICY "audit_logs_admin_only" ON public.audit_logs
+    FOR SELECT USING (public.current_user_role() = 'admin');
 
 
 -- ====================================================================
--- CINEMAX - BƯỚC 3/5: HÀM DB ATOMIC (STORED PROCEDURES / RPC)
--- Đảm bảo toàn vẹn nghiệp vụ: Giữ ghế 10p, Thanh toán, Hủy vé, Soát vé
+-- CINEMAX SUPABASE REDESIGN v3.0 - BƯỚC 3/4: STORED PROCEDURES / RPC
+-- Các hàm giao dịch nguyên tử (ACID Transactions) chống Race Condition
 -- ====================================================================
 
--- 1. HÀM GIỮ GHẾ VÀ TẠO ĐƠN (Atomic Hold Seats)
--- Đảm bảo trong 1 transaction: kiểm tra ghế trống, tạo booking PENDING (hết hạn 10 phút), tạo tickets HELD
-CREATE OR REPLACE FUNCTION public.hold_seats_and_create_booking(
-  p_showtime_id bigint,
-  p_seat_ids int[],
-  p_user_id uuid,
-  p_contact_email text,
-  p_contact_phone text
+-- 1. GIỮ GHẾ THỜI GIAN THỰC (hold_seats)
+-- Chống hai người đặt trùng 1 ghế, bắt buộc chọn cả cặp ghế đôi, chống ghế trống đơn độc (orphan seat)
+CREATE OR REPLACE FUNCTION public.hold_seats(
+    p_showtime_id uuid,
+    p_seat_ids uuid[],
+    p_user_id uuid,
+    p_channel public.order_channel_t,
+    p_contact_name text,
+    p_contact_email text,
+    p_contact_phone text
 )
 RETURNS jsonb AS $$
 DECLARE
-  v_showtime record;
-  v_seat record;
-  v_booking_id bigint;
-  v_booking_code text;
-  v_ticket_code text;
-  v_price numeric(12,0);
-  v_subtotal numeric(12,0) := 0;
-  v_expires_at timestamptz;
-  v_conflict_count int;
-  v_seat_id int;
+    v_seat_count int;
+    v_order_id uuid;
+    v_order_code varchar(20);
+    v_expires_at timestamptz;
+    v_held_until timestamptz;
+    v_guest_hash text;
+    v_subtotal numeric(12,0) := 0;
+    v_seat_record RECORD;
+    v_pair_group text;
+    v_other_pair_count int;
 BEGIN
-  -- 1. Kiểm tra suất chiếu hợp lệ
-  SELECT * INTO v_showtime 
-  FROM public.showtimes 
-  WHERE id = p_showtime_id AND status = 'OPEN';
+    v_seat_count := array_length(p_seat_ids, 1);
+    IF v_seat_count IS NULL OR v_seat_count = 0 THEN
+        RAISE EXCEPTION 'Danh sách ghế không được để trống';
+    END IF;
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Suất chiếu không tồn tại hoặc đã đóng' USING ERRCODE = 'P0001';
-  END IF;
+    -- 1. Kiểm tra ràng buộc Ghế Đôi (Couple): Nếu chọn ghế đôi thì phải chọn cả cặp cùng group
+    FOR v_pair_group IN
+        SELECT DISTINCT s.seat_group
+        FROM public.seats s
+        WHERE s.id = ANY(p_seat_ids) AND s.seat_type = 'COUPLE' AND s.seat_group IS NOT NULL
+    LOOP
+        SELECT count(*) INTO v_other_pair_count
+        FROM public.seats s
+        WHERE s.auditorium_id = (SELECT auditorium_id FROM public.showtimes WHERE id = p_showtime_id)
+          AND s.seat_group = v_pair_group
+          AND s.id != ALL(p_seat_ids);
 
-  -- 2. Kiểm tra xung đột ghế (đã có vé HELD, SOLD, USED của suất này)
-  SELECT count(*) INTO v_conflict_count
-  FROM public.tickets
-  WHERE showtime_id = p_showtime_id
-    AND seat_id = ANY(p_seat_ids)
-    AND status IN ('HELD', 'SOLD', 'USED');
+        IF v_other_pair_count > 0 THEN
+            RAISE EXCEPTION 'Ghế đôi bắt buộc phải chọn trọn cặp cùng nhau!';
+        END IF;
+    END LOOP;
 
-  IF v_conflict_count > 0 THEN
-    RAISE EXCEPTION 'Một hoặc nhiều ghế bạn chọn vừa có người đặt. Vui lòng chọn ghế khác!' USING ERRCODE = 'P0002';
-  END IF;
+    -- 2. Khóa các ghế trong showtime_seats để chống Race Condition (FOR UPDATE)
+    PERFORM 1
+    FROM public.showtime_seats ss
+    WHERE ss.showtime_id = p_showtime_id
+      AND ss.seat_id = ANY(p_seat_ids)
+    FOR UPDATE;
 
-  -- 3. Tạo mã booking_code ngẫu nhiên (ví dụ: CMX849201)
-  v_booking_code := 'CMX' || upper(substring(md5(random()::text || clock_timestamp()::text) from 1 for 7));
-  v_expires_at := NOW() + INTERVAL '10 minutes';
+    -- Kiểm tra xem có ghế nào không available (held chưa hết hạn hoặc đã sold/blocked)
+    IF EXISTS (
+        SELECT 1 FROM public.showtime_seats ss
+        WHERE ss.showtime_id = p_showtime_id
+          AND ss.seat_id = ANY(p_seat_ids)
+          AND (
+              ss.status = 'sold' OR
+              ss.status = 'blocked' OR
+              (ss.status = 'held' AND ss.held_until > now())
+          )
+    ) THEN
+        RAISE EXCEPTION 'Một hoặc nhiều ghế bạn chọn vừa có người khác giữ chỗ. Vui lòng chọn ghế khác!';
+    END IF;
 
-  -- 4. Tạo bản ghi bookings PENDING
-  INSERT INTO public.bookings (
-    booking_code,
-    user_id,
-    showtime_id,
-    ticket_subtotal,
-    food_subtotal,
-    discount_amount,
-    total_amount,
-    status,
-    expires_at,
-    contact_email,
-    contact_phone,
-    created_at,
-    updated_at
-  ) VALUES (
-    v_booking_code,
-    p_user_id,
-    p_showtime_id,
-    0,
-    0,
-    0,
-    0,
-    'PENDING',
-    v_expires_at,
-    p_contact_email,
-    p_contact_phone,
-    NOW(),
-    NOW()
-  ) RETURNING id INTO v_booking_id;
+    -- 3. Tính tiền tạm thời từ showtime_prices
+    FOR v_seat_record IN
+        SELECT s.id AS seat_id, s.seat_type, COALESCE(sp.price, 80000) AS price
+        FROM public.seats s
+        LEFT JOIN public.showtime_prices sp 
+          ON sp.showtime_id = p_showtime_id 
+         AND sp.seat_type = s.seat_type 
+         AND sp.audience_type = 'ADULT'
+        WHERE s.id = ANY(p_seat_ids)
+    LOOP
+        v_subtotal := v_subtotal + v_seat_record.price;
+    END LOOP;
 
-  -- 5. Lặp qua từng ghế để tính giá và tạo vé HELD
-  FOREACH v_seat_id IN ARRAY p_seat_ids
-  LOOP
-    -- Tìm loại ghế
-    SELECT s.id, s.seat_type_id INTO v_seat
-    FROM public.seats s
-    WHERE s.id = v_seat_id;
+    -- 4. Tạo mã đơn hàng ngẫu nhiên và thời hạn giữ ghế (10 phút)
+    v_order_code := 'CNM' || to_char(now(), 'YYMMDD') || '-' || upper(substring(md5(random()::text) from 1 for 5));
+    v_expires_at := now() + interval '10 minutes';
+    v_held_until := v_expires_at;
+
+    IF p_user_id IS NULL THEN
+        v_guest_hash := encode(digest(v_order_code || p_contact_phone || gen_random_uuid()::text, 'sha256'), 'hex');
+    END IF;
+
+    INSERT INTO public.orders (
+        order_code,
+        user_id,
+        guest_access_hash,
+        channel,
+        status,
+        contact_name,
+        contact_email,
+        contact_phone,
+        subtotal,
+        total_amount,
+        expires_at
+    ) VALUES (
+        v_order_code,
+        p_user_id,
+        v_guest_hash,
+        p_channel,
+        'pending',
+        p_contact_name,
+        p_contact_email,
+        p_contact_phone,
+        v_subtotal,
+        v_subtotal,
+        v_expires_at
+    ) RETURNING id INTO v_order_id;
+
+    -- 5. Cập nhật showtime_seats sang held
+    UPDATE public.showtime_seats
+    SET status = 'held',
+        held_until = v_held_until,
+        order_id = v_order_id
+    WHERE showtime_id = p_showtime_id
+      AND seat_id = ANY(p_seat_ids);
+
+    -- 6. Tạo chi tiết order_items cho từng ghế
+    FOR v_seat_record IN
+        SELECT s.id AS seat_id, s.row_label, s.seat_number, s.seat_type, COALESCE(sp.price, 80000) AS price
+        FROM public.seats s
+        LEFT JOIN public.showtime_prices sp 
+          ON sp.showtime_id = p_showtime_id 
+         AND sp.seat_type = s.seat_type 
+         AND sp.audience_type = 'ADULT'
+        WHERE s.id = ANY(p_seat_ids)
+    LOOP
+        INSERT INTO public.order_items (
+            order_id,
+            item_type,
+            showtime_id,
+            seat_id,
+            audience_type,
+            quantity,
+            unit_price,
+            line_total,
+            item_snapshot
+        ) VALUES (
+            v_order_id,
+            'ticket',
+            p_showtime_id,
+            v_seat_record.seat_id,
+            'ADULT',
+            1,
+            v_seat_record.price,
+            v_seat_record.price,
+            jsonb_build_object(
+                'seat_label', v_seat_record.row_label || v_seat_record.seat_number::text,
+                'seat_type', v_seat_record.seat_type,
+                'showtime_id', p_showtime_id
+            )
+        );
+    END LOOP;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'order_id', v_order_id,
+        'order_code', v_order_code,
+        'guest_access_hash', v_guest_hash,
+        'subtotal', v_subtotal,
+        'expires_at', v_expires_at
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- 2. XÁC NHẬN THANH TOÁN THÀNH CÔNG (confirm_order_payment)
+CREATE OR REPLACE FUNCTION public.confirm_order_payment(
+    p_order_id uuid,
+    p_provider public.payment_provider_t,
+    p_provider_txn_id text,
+    p_shift_id uuid DEFAULT NULL,
+    p_received_by uuid DEFAULT NULL
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_order RECORD;
+    v_item RECORD;
+    v_qr_token text;
+    v_qr_hash text;
+    v_points_earned int;
+BEGIN
+    SELECT * INTO v_order FROM public.orders WHERE id = p_order_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Đơn hàng không tồn tại';
+    END IF;
+
+    IF v_order.status = 'paid' THEN
+        RETURN jsonb_build_object('success', true, 'message', 'Đơn hàng đã được xác nhận trước đó');
+    END IF;
+
+    -- 1. Cập nhật trạng thái đơn sang paid
+    UPDATE public.orders
+    SET status = 'paid', updated_at = now()
+    WHERE id = p_order_id;
+
+    -- 2. Đổi trạng thái showtime_seats từ held sang sold
+    UPDATE public.showtime_seats
+    SET status = 'sold', held_until = NULL
+    WHERE order_id = p_order_id;
+
+    -- 3. Tạo bản ghi payments
+    INSERT INTO public.payments (
+        order_id,
+        shift_id,
+        received_by,
+        provider,
+        provider_txn_id,
+        amount,
+        status,
+        paid_at
+    ) VALUES (
+        p_order_id,
+        p_shift_id,
+        p_received_by,
+        p_provider,
+        p_provider_txn_id,
+        v_order.total_amount,
+        'SUCCESS',
+        now()
+    );
+
+    -- 4. Phát hành vé QR (tickets) cho các dòng vé trong đơn
+    FOR v_item IN
+        SELECT oi.id AS order_item_id, oi.showtime_id, oi.seat_id
+        FROM public.order_items oi
+        WHERE oi.order_id = p_order_id AND oi.item_type = 'ticket'
+    LOOP
+        v_qr_token := 'TKT-' || v_order.order_code || '-' || substring(gen_random_uuid()::text from 1 for 8);
+        v_qr_hash := encode(digest(v_qr_token, 'sha256'), 'hex');
+
+        INSERT INTO public.tickets (
+            order_item_id,
+            qr_token_hash,
+            status,
+            age_check_passed
+        ) VALUES (
+            v_item.order_item_id,
+            v_qr_hash,
+            'issued',
+            true
+        )
+        ON CONFLICT (order_item_id) DO NOTHING;
+    END LOOP;
+
+    -- 5. Trừ tồn kho bắp nước nếu đơn có mua combo
+    FOR v_item IN
+        SELECT oi.id AS order_item_id, oi.product_id, oi.quantity
+        FROM public.order_items oi
+        WHERE oi.order_id = p_order_id AND oi.item_type = 'product' AND oi.product_id IS NOT NULL
+    LOOP
+        INSERT INTO public.inventory_movements (
+            product_id,
+            movement_type,
+            quantity,
+            reason,
+            reference_order_item_id,
+            created_at
+        ) VALUES (
+            v_item.product_id,
+            'SALE',
+            -v_item.quantity,
+            'Xuất bán tự động theo đơn hàng ' || v_order.order_code,
+            v_item.order_item_id,
+            now()
+        );
+    END LOOP;
+
+    -- 6. Tích lũy điểm hội viên nếu có tài khoản
+    IF v_order.user_id IS NOT NULL THEN
+        v_points_earned := floor(v_order.total_amount * 0.05); -- Tích 5% giá trị đơn
+        IF v_points_earned > 0 THEN
+            UPDATE public.profiles
+            SET loyalty_points = loyalty_points + v_points_earned
+            WHERE id = v_order.user_id;
+        END IF;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'order_code', v_order.order_code,
+        'total_amount', v_order.total_amount
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- 3. SOÁT VÉ TẠI CỬA PHÒNG CHIẾU (check_in_ticket)
+CREATE OR REPLACE FUNCTION public.check_in_ticket(
+    p_qr_hash text,
+    p_staff_id uuid,
+    p_age_check_passed boolean DEFAULT true
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_ticket RECORD;
+BEGIN
+    SELECT t.*, oi.item_snapshot, m.age_rating, m.title AS movie_title
+    INTO v_ticket
+    FROM public.tickets t
+    JOIN public.order_items oi ON oi.id = t.order_item_id
+    JOIN public.showtimes st ON st.id = oi.showtime_id
+    JOIN public.movies m ON m.id = st.movie_id
+    WHERE t.qr_token_hash = p_qr_hash
+    FOR UPDATE;
 
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'Ghế ID % không tồn tại', v_seat_id USING ERRCODE = 'P0003';
+        RAISE EXCEPTION 'Mã vé QR không tồn tại trong hệ thống!';
     END IF;
 
-    -- Lấy giá vé theo suất chiếu và loại ghế
-    SELECT price INTO v_price
-    FROM public.showtime_prices
-    WHERE showtime_id = p_showtime_id AND seat_type_id = v_seat.seat_type_id;
-
-    IF v_price IS NULL THEN
-      -- Nếu chưa set giá chi tiết thì fallback giá mặc định 90.000đ
-      v_price := 90000;
+    IF v_ticket.status = 'used' THEN
+        RAISE EXCEPTION 'Vé này ĐÃ ĐƯỢC SOÁT vào lúc % bởi nhân viên %', 
+            to_char(v_ticket.checked_in_at, 'HH24:MI DD/MM/YYYY'), v_ticket.checked_in_by;
     END IF;
 
-    v_ticket_code := 'TK' || upper(substring(md5(random()::text || clock_timestamp()::text || v_seat_id::text) from 1 for 10));
+    IF v_ticket.status != 'issued' THEN
+        RAISE EXCEPTION 'Vé này đã bị hủy hoặc hoàn tiền, không có giá trị vào phòng chiếu!';
+    END IF;
 
-    -- Tạo vé
-    INSERT INTO public.tickets (
-      booking_id,
-      showtime_id,
-      seat_id,
-      ticket_code,
-      price,
-      status,
-      created_at
-    ) VALUES (
-      v_booking_id,
-      p_showtime_id,
-      v_seat_id,
-      v_ticket_code,
-      v_price,
-      'HELD',
-      NOW()
+    IF p_age_check_passed = false THEN
+        RAISE EXCEPTION 'Khách hàng không đủ độ tuổi xem phim (%)! Vui lòng hướng dẫn qua quầy POS xử lý.', v_ticket.age_rating;
+    END IF;
+
+    UPDATE public.tickets
+    SET status = 'used',
+        checked_in_at = now(),
+        checked_in_by = p_staff_id,
+        age_check_passed = true
+    WHERE id = v_ticket.id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'movie_title', v_ticket.movie_title,
+        'age_rating', v_ticket.age_rating,
+        'item_snapshot', v_ticket.item_snapshot,
+        'checked_in_at', now()
     );
-
-    v_subtotal := v_subtotal + v_price;
-  END LOOP;
-
-  -- 6. Cập nhật lại tổng tiền vé vào booking
-  UPDATE public.bookings
-  SET 
-    ticket_subtotal = v_subtotal,
-    total_amount = v_subtotal,
-    updated_at = NOW()
-  WHERE id = v_booking_id;
-
-  RETURN jsonb_build_object(
-    'booking_id', v_booking_id,
-    'booking_code', v_booking_code,
-    'expires_at', v_expires_at,
-    'ticket_subtotal', v_subtotal,
-    'total_amount', v_subtotal
-  );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- 2. HÀM CHỌN BẮP NƯỚC / COMBO (Add Booking Foods)
-CREATE OR REPLACE FUNCTION public.add_booking_foods(
-  p_booking_id bigint,
-  p_items jsonb, -- Mảng object: [{"food_item_id": 1, "quantity": 2}, ...]
-  p_user_id uuid
-)
-RETURNS jsonb AS $$
-DECLARE
-  v_booking record;
-  v_item record;
-  v_unit_price numeric(12,0);
-  v_food_subtotal numeric(12,0) := 0;
-  v_total numeric(12,0);
-BEGIN
-  -- Kiểm tra booking
-  SELECT * INTO v_booking
-  FROM public.bookings
-  WHERE id = p_booking_id AND user_id = p_user_id AND status = 'PENDING';
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Đơn hàng không tồn tại hoặc đã hết hạn' USING ERRCODE = 'P0004';
-  END IF;
-
-  -- Xóa các combo đã chọn trước đó (nếu chọn lại)
-  DELETE FROM public.booking_items WHERE booking_id = p_booking_id;
-
-  -- Thêm từng món
-  FOR v_item IN SELECT * FROM jsonb_to_recordset(p_items) AS x(food_item_id int, quantity smallint)
-  LOOP
-    IF v_item.quantity > 0 THEN
-      SELECT price INTO v_unit_price FROM public.food_items WHERE id = v_item.food_item_id;
-      IF v_unit_price IS NOT NULL THEN
-        INSERT INTO public.booking_items (booking_id, food_item_id, quantity, unit_price)
-        VALUES (p_booking_id, v_item.food_item_id, v_item.quantity, v_unit_price);
-
-        v_food_subtotal := v_food_subtotal + (v_unit_price * v_item.quantity);
-      END IF;
-    END IF;
-  END LOOP;
-
-  -- Tính lại total_amount
-  v_total := v_booking.ticket_subtotal + v_food_subtotal - v_booking.discount_amount;
-  IF v_total < 0 THEN v_total := 0; END IF;
-
-  UPDATE public.bookings
-  SET 
-    food_subtotal = v_food_subtotal,
-    total_amount = v_total,
-    updated_at = NOW()
-  WHERE id = p_booking_id;
-
-  RETURN jsonb_build_object(
-    'booking_id', p_booking_id,
-    'food_subtotal', v_food_subtotal,
-    'total_amount', v_total
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-
--- 3. HÀM ÁP MÃ KHUYẾN MÃI (Apply Promotion)
-CREATE OR REPLACE FUNCTION public.apply_booking_promotion(
-  p_booking_id bigint,
-  p_promo_code text,
-  p_user_id uuid
-)
-RETURNS jsonb AS $$
-DECLARE
-  v_booking record;
-  v_promo record;
-  v_user_usage_count int;
-  v_subtotal numeric(12,0);
-  v_discount numeric(12,0) := 0;
-  v_total numeric(12,0);
-BEGIN
-  -- Lấy booking
-  SELECT * INTO v_booking
-  FROM public.bookings
-  WHERE id = p_booking_id AND user_id = p_user_id AND status = 'PENDING';
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Đơn hàng không tồn tại hoặc đã hết hạn' USING ERRCODE = 'P0005';
-  END IF;
-
-  -- Lấy thông tin mã khuyến mãi
-  SELECT * INTO v_promo
-  FROM public.promotions
-  WHERE code = upper(p_promo_code)
-    AND is_active = true
-    AND NOW() BETWEEN valid_from AND valid_to;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Mã khuyến mãi không hợp lệ hoặc đã hết hạn' USING ERRCODE = 'P0006';
-  END IF;
-
-  v_subtotal := v_booking.ticket_subtotal + v_booking.food_subtotal;
-
-  IF v_subtotal < v_promo.min_order THEN
-    RAISE EXCEPTION 'Đơn hàng chưa đạt giá trị tối thiểu % VND để áp dụng mã này', v_promo.min_order USING ERRCODE = 'P0007';
-  END IF;
-
-  IF v_promo.usage_limit IS NOT NULL AND v_promo.used_count >= v_promo.usage_limit THEN
-    RAISE EXCEPTION 'Mã khuyến mãi đã hết lượt sử dụng' USING ERRCODE = 'P0008';
-  END IF;
-
-  -- Kiểm tra số lần dùng của user này
-  SELECT count(*) INTO v_user_usage_count
-  FROM public.bookings
-  WHERE user_id = p_user_id AND promotion_id = v_promo.id AND status = 'PAID';
-
-  IF v_user_usage_count >= v_promo.per_user_limit THEN
-    RAISE EXCEPTION 'Bạn đã dùng hết số lượt cho phép của mã này' USING ERRCODE = 'P0009';
-  END IF;
-
-  -- Tính mức giảm
-  IF v_promo.discount_type = 'PERCENT' THEN
-    v_discount := floor(v_subtotal * v_promo.discount_value / 100);
-    IF v_promo.max_discount IS NOT NULL AND v_discount > v_promo.max_discount THEN
-      v_discount := v_promo.max_discount;
-    END IF;
-  ELSE
-    v_discount := v_promo.discount_value;
-  END IF;
-
-  v_total := v_subtotal - v_discount;
-  IF v_total < 0 THEN v_total := 0; END IF;
-
-  UPDATE public.bookings
-  SET 
-    promotion_id = v_promo.id,
-    discount_amount = v_discount,
-    total_amount = v_total,
-    updated_at = NOW()
-  WHERE id = p_booking_id;
-
-  RETURN jsonb_build_object(
-    'booking_id', p_booking_id,
-    'discount_amount', v_discount,
-    'total_amount', v_total,
-    'promo_code', v_promo.code
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-
--- 4. HÀM XÁC NHẬN THANH TOÁN (Atomic Confirm Payment)
-CREATE OR REPLACE FUNCTION public.confirm_booking_payment(
-  p_booking_id bigint,
-  p_payment_method public.payment_method_t,
-  p_transaction_ref text,
-  p_gateway_response jsonb DEFAULT '{}'::jsonb
-)
-RETURNS jsonb AS $$
-DECLARE
-  v_booking record;
-  v_payment_id bigint;
-BEGIN
-  -- Khóa dòng booking để tránh race-condition callback kép
-  SELECT * INTO v_booking
-  FROM public.bookings
-  WHERE id = p_booking_id
-  FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Không tìm thấy đơn hàng' USING ERRCODE = 'P0010';
-  END IF;
-
-  IF v_booking.status = 'PAID' THEN
-    RETURN jsonb_build_object('success', true, 'message', 'Đơn hàng đã được thanh toán trước đó');
-  END IF;
-
-  IF v_booking.status != 'PENDING' THEN
-    RAISE EXCEPTION 'Đơn hàng đã bị hủy hoặc hết hạn, không thể thanh toán' USING ERRCODE = 'P0011';
-  END IF;
-
-  -- 1. Ghi bản ghi thanh toán SUCCESS
-  INSERT INTO public.payments (
-    booking_id,
-    method,
-    amount,
-    status,
-    transaction_ref,
-    gateway_response,
-    paid_at,
-    created_at
-  ) VALUES (
-    p_booking_id,
-    p_payment_method,
-    v_booking.total_amount,
-    'SUCCESS',
-    p_transaction_ref,
-    p_gateway_response,
-    NOW(),
-    NOW()
-  ) RETURNING id INTO v_payment_id;
-
-  -- 2. Chuyển trạng thái booking sang PAID
-  UPDATE public.bookings
-  SET status = 'PAID', updated_at = NOW()
-  WHERE id = p_booking_id;
-
-  -- 3. Chuyển toàn bộ vé sang SOLD
-  UPDATE public.tickets
-  SET status = 'SOLD'
-  WHERE booking_id = p_booking_id;
-
-  -- 4. Tăng số lần sử dụng của promotion (nếu có)
-  IF v_booking.promotion_id IS NOT NULL THEN
-    UPDATE public.promotions
-    SET used_count = used_count + 1
-    WHERE id = v_booking.promotion_id;
-  END IF;
-
-  -- 5. Cộng điểm tích lũy thành viên (10.000đ = 1 điểm)
-  UPDATE public.users
-  SET loyalty_points = loyalty_points + floor(v_booking.total_amount / 10000)::int
-  WHERE id = v_booking.user_id;
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'booking_id', p_booking_id,
-    'booking_code', v_booking.booking_code,
-    'payment_id', v_payment_id,
-    'status', 'PAID'
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-
--- 5. HÀM HỦY ĐƠN VÉ (Cancel Booking & Release Seats)
-CREATE OR REPLACE FUNCTION public.cancel_booking(
-  p_booking_id bigint,
-  p_user_id uuid
-)
-RETURNS boolean AS $$
-DECLARE
-  v_booking record;
-BEGIN
-  SELECT * INTO v_booking
-  FROM public.bookings
-  WHERE id = p_booking_id AND user_id = p_user_id AND status = 'PENDING';
-
-  IF NOT FOUND THEN
-    RETURN false;
-  END IF;
-
-  -- Hủy vé -> partial index uq_tickets_active_seat tự động nhả ghế
-  UPDATE public.tickets
-  SET status = 'CANCELLED'
-  WHERE booking_id = p_booking_id;
-
-  UPDATE public.bookings
-  SET status = 'CANCELLED', updated_at = NOW()
-  WHERE id = p_booking_id;
-
-  RETURN true;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-
--- 6. HÀM QUÉT SOÁT VÉ QR (Staff Check-in)
-CREATE OR REPLACE FUNCTION public.checkin_ticket(
-  p_ticket_code text
-)
-RETURNS jsonb AS $$
-DECLARE
-  v_ticket record;
-  v_movie_title text;
-  v_cinema_name text;
-  v_room_name text;
-  v_start_time timestamptz;
-BEGIN
-  -- Chỉ STAFF hoặc ADMIN được soát vé
-  IF NOT public.is_admin_or_staff() THEN
-    RAISE EXCEPTION 'Chỉ nhân viên hoặc quản trị viên mới có quyền soát vé' USING ERRCODE = 'P0012';
-  END IF;
-
-  SELECT t.*, s.start_time, m.title AS movie_title, c.name AS cinema_name, r.name AS room_name
-  INTO v_ticket
-  FROM public.tickets t
-  JOIN public.showtimes s ON t.showtime_id = s.id
-  JOIN public.movies m ON s.movie_id = m.id
-  JOIN public.rooms r ON s.room_id = r.id
-  JOIN public.cinemas c ON r.cinema_id = c.id
-  WHERE t.ticket_code = p_ticket_code;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Mã vé không tồn tại trong hệ thống' USING ERRCODE = 'P0013';
-  END IF;
-
-  IF v_ticket.status = 'USED' THEN
-    RAISE EXCEPTION 'Vé này ĐÃ ĐƯỢC SỬ DỤNG lúc %', v_ticket.checked_in_at USING ERRCODE = 'P0014';
-  END IF;
-
-  IF v_ticket.status != 'SOLD' THEN
-    RAISE EXCEPTION 'Vé chưa hợp lệ hoặc đã bị hủy (Trạng thái: %)', v_ticket.status USING ERRCODE = 'P0015';
-  END IF;
-
-  -- Cập nhật vé sang USED
-  UPDATE public.tickets
-  SET status = 'USED', checked_in_at = NOW()
-  WHERE id = v_ticket.id;
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'ticket_code', p_ticket_code,
-    'movie_title', v_ticket.movie_title,
-    'cinema_name', v_ticket.cinema_name,
-    'room_name', v_ticket.room_name,
-    'start_time', v_ticket.start_time,
-    'checked_in_at', NOW()
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-
--- ====================================================================
--- CINEMAX - BƯỚC 4/5: DỌN DẸP ĐƠN HẾT HẠN GIỮ GHẾ 10 PHÚT
--- ====================================================================
-
--- 1. Hàm dọn dẹp các đơn PENDING quá expires_at
-CREATE OR REPLACE FUNCTION public.cleanup_expired_bookings()
+-- 4. TỰ ĐỘNG GIẢI PHÓNG GHẾ GIỮ QUÁ HẠN (release_expired_holds)
+CREATE OR REPLACE FUNCTION public.release_expired_holds()
 RETURNS int AS $$
 DECLARE
-  v_count int := 0;
+    v_count int;
 BEGIN
-  -- Bước 1: Chuyển vé của các đơn hết hạn sang CANCELLED để nhả ghế tức thì
-  UPDATE public.tickets
-  SET status = 'CANCELLED'
-  WHERE status = 'HELD'
-    AND booking_id IN (
-      SELECT id FROM public.bookings
-      WHERE status = 'PENDING' AND expires_at < NOW()
-    );
+    -- Cập nhật showtime_seats
+    UPDATE public.showtime_seats
+    SET status = 'available',
+        held_until = NULL,
+        order_id = NULL
+    WHERE status = 'held' AND held_until < now();
+    GET DIAGNOSTICS v_count = ROW_COUNT;
 
-  -- Bước 2: Chuyển trạng thái đơn sang EXPIRED
-  WITH expired_rows AS (
-    UPDATE public.bookings
-    SET status = 'EXPIRED', updated_at = NOW()
-    WHERE status = 'PENDING' AND expires_at < NOW()
-    RETURNING id
-  )
-  SELECT count(*) INTO v_count FROM expired_rows;
+    -- Đổi orders quá hạn sang expired
+    UPDATE public.orders
+    SET status = 'expired', updated_at = now()
+    WHERE status = 'pending' AND expires_at < now();
 
-  RETURN v_count;
+    RETURN v_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION public.cleanup_expired_bookings() IS 'Hàm quét và giải phóng các ghế giữ tạm (HELD) khi đơn PENDING vượt quá expires_at (10 phút)';
 
--- 2. Tự động chạy định kỳ mỗi phút bằng pg_cron (nếu extension pg_cron đã được bật)
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_extension WHERE extname = 'pg_cron'
-  ) THEN
-    -- Hủy cron job cũ nếu có
-    PERFORM cron.unschedule('cinemax_cleanup_expired_bookings');
-    -- Đăng ký job chạy mỗi phút
-    PERFORM cron.schedule(
-      'cinemax_cleanup_expired_bookings',
-      '* * * * *',
-      'SELECT public.cleanup_expired_bookings();'
-    );
-  END IF;
-EXCEPTION WHEN OTHERS THEN
-  -- Nếu pg_cron chưa bật trong project, bỏ qua không báo lỗi
-  RAISE NOTICE 'pg_cron chưa được cấu hình, có thể gọi cleanup_expired_bookings() thủ công hoặc qua Supabase Edge Function cron.';
-END;
-$$;
-
-
--- ====================================================================
--- CINEMAX - BƯỚC 5/5: DỮ LIỆU MẪU ĐẦY ĐỦ (SEED DATA)
--- Thể loại, Phim, Rạp, Phòng chiếu, Sơ đồ ghế, Suất chiếu + Giá, Bắp nước, Mã giảm giá
--- ====================================================================
-
--- 1. THỂ LOẠI PHIM (Genres)
-INSERT INTO public.genres (name, slug) VALUES
-  ('Hành Động', 'hanh-dong'),
-  ('Khoa Học Viễn Tưởng', 'khoa-hoc-vien-tuong'),
-  ('Hoạt Hình', 'hoat-hinh'),
-  ('Phiêu Lưu', 'phieu-luu'),
-  ('Kinh Dị', 'kinh-di'),
-  ('Hài Kịch', 'hai-kich'),
-  ('Tâm Lý - Tình Cảm', 'tam-ly-tinh-cam'),
-  ('Giật Gân', 'giat-gan'),
-  ('Gia Đình', 'gia-dinh')
-ON CONFLICT (slug) DO NOTHING;
-
-
--- 2. PHIM (Movies)
-INSERT INTO public.movies (
-  title, original_title, slug, synopsis, duration_min, release_date, end_date,
-  age_rating, country, director, cast_list, poster_url, banner_url, trailer_url, imdb_score, status, is_deleted
-) VALUES
-(
-  'Dune: Hành Tinh Cát - Phần 2',
-  'Dune: Part Two',
-  'dune-hanh-tinh-cat-phan-2',
-  'Paul Atreides hợp lực cùng Chani và tộc người Fremen để trả thù những kẻ đã hủy hoại gia đình anh, đồng thời nỗ lực ngăn chặn viễn cảnh tương lai tăm tối mà chỉ mình anh có thể thấy trước.',
-  166,
-  CURRENT_DATE - INTERVAL '15 days',
-  CURRENT_DATE + INTERVAL '30 days',
-  'T16',
-  'Mỹ',
-  'Denis Villeneuve',
-  'Timothée Chalamet, Zendaya, Rebecca Ferguson, Javier Bardem, Austin Butler',
-  'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1440&q=80',
-  'https://www.youtube.com/watch?v=Way9Dexny3w',
-  8.6,
-  'NOW_SHOWING',
-  false
-),
-(
-  'Mai',
-  'Mai',
-  'mai',
-  'Mai là một phụ nữ ngoài 30 tuổi với quá khứ nhiều tổn thương, làm nghề mát-xa trị liệu. Khi gặp Dương - một chàng trai trẻ phóng khoáng, tình yêu chân thành bắt đầu nảy nở giữa định kiến xã hội.',
-  131,
-  CURRENT_DATE - INTERVAL '20 days',
-  CURRENT_DATE + INTERVAL '25 days',
-  'T18',
-  'Việt Nam',
-  'Trấn Thành',
-  'Phương Anh Đào, Tuấn Trần, Trấn Thành, Hồng Đào, Uyển Ân',
-  'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1440&q=80',
-  'https://www.youtube.com/watch?v=0j3Qk04_1eQ',
-  7.3,
-  'NOW_SHOWING',
-  false
-),
-(
-  'Godzilla x Kong: Đế Chế Mới',
-  'Godzilla x Kong: The New Empire',
-  'godzilla-x-kong-de-che-moi',
-  'Một mối hiểm họa khổng lồ chưa từng thấy xuất hiện từ lòng Trái Đất rỗng, buộc hai quái thú huyền thoại Godzilla và Kong phải liên minh sát cánh bảo vệ nhân loại.',
-  115,
-  CURRENT_DATE - INTERVAL '10 days',
-  CURRENT_DATE + INTERVAL '35 days',
-  'T13',
-  'Mỹ',
-  'Adam Wingard',
-  'Rebecca Hall, Brian Tyree Henry, Dan Stevens, Kaylee Hottle',
-  'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1440&q=80',
-  'https://www.youtube.com/watch?v=lV1OOlGwExg',
-  6.5,
-  'NOW_SHOWING',
-  false
-),
-(
-  'Kung Fu Panda 4',
-  'Kung Fu Panda 4',
-  'kung-fu-panda-4',
-  'Gấu Po chuẩn bị trở thành Thủ lĩnh Tinh thần của Thung lũng Bình Yên và cần tìm một Thần Long Đại Hiệp kế vị, đồng thời phải đối đầu với mụ phù thủy biến hình Tắc Kè Bông xảo quyệt.',
-  94,
-  CURRENT_DATE - INTERVAL '5 days',
-  CURRENT_DATE + INTERVAL '40 days',
-  'P',
-  'Mỹ',
-  'Mike Mitchell',
-  'Jack Black, Awkwafina, Viola Davis, Dustin Hoffman, James Hong',
-  'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1440&q=80',
-  'https://www.youtube.com/watch?v=_inKs4eeHiI',
-  6.4,
-  'NOW_SHOWING',
-  false
-),
-(
-  'Lật Mặt 7: Một Điều Ước',
-  'Face Off 7: One Wish',
-  'lat-mat-7-mot-dieu-uoc',
-  'Câu chuyện cảm động về người mẹ già 73 tuổi một mình nuôi 5 người con khôn lớn. Khi bà gặp nạn, 5 người con ở 5 nơi khác nhau phải đối mặt với thử thách về chữ hiếu.',
-  138,
-  CURRENT_DATE - INTERVAL '2 days',
-  CURRENT_DATE + INTERVAL '45 days',
-  'K',
-  'Việt Nam',
-  'Lý Hải',
-  'Thanh Hiền, Trương Minh Cường, Đinh Y Nhung, Quách Ngọc Tuyên, Trâm Anh',
-  'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&w=1440&q=80',
-  'https://www.youtube.com/watch?v=d_kS_Z9k2lY',
-  7.6,
-  'NOW_SHOWING',
-  false
-),
-(
-  'Deadpool & Wolverine',
-  'Deadpool & Wolverine',
-  'deadpool-va-wolverine',
-  'Thánh bựa Deadpool chính thức gia nhập MCU và lôi kéo Wolverine đang chán nản cùng thực hiện một nhiệm vụ sống còn cứu vãn dòng thời gian.',
-  127,
-  CURRENT_DATE + INTERVAL '10 days',
-  CURRENT_DATE + INTERVAL '60 days',
-  'T18',
-  'Mỹ',
-  'Shawn Levy',
-  'Ryan Reynolds, Hugh Jackman, Emma Corrin, Morena Baccarin',
-  'https://images.unsplash.com/photo-1534809027769-b00d750a6bac?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1535016120720-40c646be5580?auto=format&fit=crop&w=1440&q=80',
-  'https://www.youtube.com/watch?v=73_1biulkYk',
-  7.9,
-  'COMING_SOON',
-  false
-),
-(
-  'Inside Out 2: Những Mảnh Ghép Cảm Xúc',
-  'Inside Out 2',
-  'inside-out-2-nhung-manh-ghep-cam-xuc',
-  'Cô bé Riley bước vào tuổi dậy thì, kéo theo sự xuất hiện của những cảm xúc mới tinh như Lo Âu (Anxiety), Ghen Tị (Envy), Xấu Hổ (Embarrassment) náo loạn trung tâm điều khiển não bộ.',
-  100,
-  CURRENT_DATE + INTERVAL '14 days',
-  CURRENT_DATE + INTERVAL '60 days',
-  'P',
-  'Mỹ',
-  'Kelsey Mann',
-  'Amy Poehler, Maya Hawke, Kensington Tallman, Liza Lapira',
-  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1440&q=80',
-  'https://www.youtube.com/watch?v=LEjhY15eCx0',
-  7.7,
-  'COMING_SOON',
-  false
+-- 5. CHỐT CA TIỀN MẶT QUẦY POS (close_shift)
+CREATE OR REPLACE FUNCTION public.close_shift(
+    p_shift_id uuid,
+    p_counted_cash numeric(12,0),
+    p_variance_reason text DEFAULT NULL
 )
-ON CONFLICT (slug) DO UPDATE
-SET
-  title = EXCLUDED.title,
-  synopsis = EXCLUDED.synopsis,
-  imdb_score = EXCLUDED.imdb_score,
-  status = EXCLUDED.status;
-
-
--- 3. GẮN THỂ LOẠI CHO PHIM (Movie Genres)
-INSERT INTO public.movie_genres (movie_id, genre_id)
-SELECT m.id, g.id
-FROM public.movies m, public.genres g
-WHERE 
-  (m.slug = 'dune-hanh-tinh-cat-phan-2' AND g.slug IN ('hanh-dong', 'khoa-hoc-vien-tuong', 'phieu-luu'))
-  OR (m.slug = 'mai' AND g.slug IN ('tam-ly-tinh-cam', 'hai-kich'))
-  OR (m.slug = 'godzilla-x-kong-de-che-moi' AND g.slug IN ('hanh-dong', 'khoa-hoc-vien-tuong', 'phieu-luu'))
-  OR (m.slug = 'kung-fu-panda-4' AND g.slug IN ('hoat-hinh', 'hai-kich', 'gia-dinh'))
-  OR (m.slug = 'lat-mat-7-mot-dieu-uoc' AND g.slug IN ('gia-dinh', 'tam-ly-tinh-cam'))
-  OR (m.slug = 'deadpool-va-wolverine' AND g.slug IN ('hanh-dong', 'hai-kich', 'khoa-hoc-vien-tuong'))
-  OR (m.slug = 'inside-out-2-nhung-manh-ghep-cam-xuc' AND g.slug IN ('hoat-hinh', 'gia-dinh', 'hai-kich'))
-ON CONFLICT DO NOTHING;
-
-
--- 4. DANH SÁCH RẠP CHIẾU (Cinemas)
-INSERT INTO public.cinemas (name, address, district, city, latitude, longitude, phone, image_url, is_active) VALUES
-(
-  'CINEMAX Landmark 81',
-  'Tầng B1, TTTM Vincom Center Landmark 81, 720A Điện Biên Phủ, Phường 22',
-  'Quận Bình Thạnh',
-  'TP. Hồ Chí Minh',
-  10.795200,
-  106.721800,
-  '028 3622 8181',
-  'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=800&q=80',
-  true
-),
-(
-  'CINEMAX Đồng Khởi',
-  'Tầng 3, Vincom Center Đồng Khởi, 72 Lê Thánh Tôn, Phường Bến Nghé',
-  'Quận 1',
-  'TP. Hồ Chí Minh',
-  10.778100,
-  106.702000,
-  '028 3822 5599',
-  'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&q=80',
-  true
-),
-(
-  'CINEMAX Metropolis Liễu Giai',
-  'Tầng 3, Vincom Center Metropolis, 29 Liễu Giai, Phường Ngọc Khánh',
-  'Quận Ba Đình',
-  'Hà Nội',
-  21.033600,
-  105.814500,
-  '024 3974 8899',
-  'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=800&q=80',
-  true
-),
-(
-  'CINEMAX Royal City',
-  'Tầng B2, Vincom Mega Mall Royal City, 72A Nguyễn Trãi, Phường Thượng Đình',
-  'Quận Thanh Xuân',
-  'Hà Nội',
-  20.999600,
-  105.815300,
-  '024 6664 2233',
-  'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=800&q=80',
-  true
-),
-(
-  'CINEMAX Sông Hàn',
-  'Tầng 4, Vincom Plaza Ngô Quyền, 910A Ngô Quyền, Phường An Hải Bắc',
-  'Quận Sơn Trà',
-  'Đà Nẵng',
-  16.071200,
-  108.232500,
-  '0236 3996 688',
-  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
-  true
-)
-ON CONFLICT DO NOTHING;
-
-
--- 5. PHÒNG CHIẾU (Rooms)
-INSERT INTO public.rooms (cinema_id, name, screen_type, total_rows, total_cols, status)
-SELECT c.id, r.name, r.screen_type::public.screen_type_t, r.total_rows, r.total_cols, 'ACTIVE'::public.room_status_t
-FROM public.cinemas c
-CROSS JOIN (
-  VALUES 
-    ('Phòng 01 - IMAX Laser', 'IMAX', 8, 12),
-    ('Phòng 02 - Cinema Gold', '2D', 7, 10),
-    ('Phòng 03 - 3D Atmos', '3D', 7, 10)
-) AS r(name, screen_type, total_rows, total_cols)
-ON CONFLICT (cinema_id, name) DO NOTHING;
-
-
--- 6. SƠ ĐỒ GHẾ CHI TIẾT (Seats for each room)
--- Tạo ma trận ghế tự động cho các phòng:
--- Hàng A, B: Standard (Ghế thường)
--- Hàng C, D, E, F: VIP (Ghế VIP - màu vàng gold)
--- Hàng G: Couple (Ghế đôi - màu hồng)
-DO $$
+RETURNS jsonb AS $$
 DECLARE
-  v_room record;
-  v_standard_id smallint;
-  v_vip_id smallint;
-  v_couple_id smallint;
-  v_row_char text;
-  v_row_idx int;
-  v_col_idx int;
-  v_type_id smallint;
-  v_seat_num int;
+    v_shift RECORD;
+    v_cash_sales numeric(12,0) := 0;
+    v_expected numeric(12,0);
 BEGIN
-  SELECT id INTO v_standard_id FROM public.seat_types WHERE code = 'STANDARD';
-  SELECT id INTO v_vip_id FROM public.seat_types WHERE code = 'VIP';
-  SELECT id INTO v_couple_id FROM public.seat_types WHERE code = 'COUPLE';
-
-  FOR v_room IN SELECT id, total_rows, total_cols FROM public.rooms
-  LOOP
-    -- Chỉ sinh ghế nếu phòng đó chưa có ghế nào
-    IF NOT EXISTS (SELECT 1 FROM public.seats WHERE room_id = v_room.id) THEN
-      FOR v_row_idx IN 1..v_room.total_rows
-      LOOP
-        v_row_char := chr(64 + v_row_idx); -- 1 -> 'A', 2 -> 'B', etc.
-        
-        -- Phân loại ghế theo hàng
-        IF v_row_idx = v_room.total_rows THEN
-          v_type_id := v_couple_id; -- Hàng cuối là ghế đôi
-        ELSIF v_row_idx >= 3 THEN
-          v_type_id := v_vip_id; -- Hàng giữa là VIP
-        ELSE
-          v_type_id := v_standard_id; -- 2 hàng đầu là Standard
-        END IF;
-
-        IF v_type_id = v_couple_id THEN
-          -- Ghế đôi chiếm 2 ô hiển thị, bước nhảy cột = 2
-          v_seat_num := 1;
-          FOR v_col_idx IN 1..(v_room.total_cols / 2)
-          LOOP
-            INSERT INTO public.seats (
-              room_id, seat_type_id, row_label, seat_number, grid_row, grid_col, is_active
-            ) VALUES (
-              v_room.id, v_couple_id, v_row_char, v_seat_num, v_row_idx, (v_col_idx * 2 - 1), true
-            );
-            v_seat_num := v_seat_num + 1;
-          END LOOP;
-        ELSE
-          -- Ghế đơn bình thường
-          FOR v_col_idx IN 1..v_room.total_cols
-          LOOP
-            INSERT INTO public.seats (
-              room_id, seat_type_id, row_label, seat_number, grid_row, grid_col, is_active
-            ) VALUES (
-              v_room.id, v_type_id, v_row_char, v_col_idx, v_row_idx, v_col_idx, true
-            );
-          END LOOP;
-        END IF;
-
-      END LOOP;
+    SELECT * INTO v_shift FROM public.shifts WHERE id = p_shift_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Ca làm việc không tồn tại';
     END IF;
-  END LOOP;
+
+    IF v_shift.status != 'open' THEN
+        RAISE EXCEPTION 'Ca này đã được nộp hoặc đã đóng';
+    END IF;
+
+    -- Tính tổng tiền mặt thu được trong ca
+    SELECT COALESCE(SUM(amount), 0) INTO v_cash_sales
+    FROM public.payments
+    WHERE shift_id = p_shift_id AND provider = 'CASH' AND status = 'SUCCESS';
+
+    v_expected := v_shift.opening_cash + v_cash_sales;
+
+    UPDATE public.shifts
+    SET closed_at = now(),
+        expected_cash = v_expected,
+        counted_cash = p_counted_cash,
+        variance_reason = p_variance_reason,
+        status = 'submitted'
+    WHERE id = p_shift_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'shift_id', p_shift_id,
+        'opening_cash', v_shift.opening_cash,
+        'cash_sales', v_cash_sales,
+        'expected_cash', v_expected,
+        'counted_cash', p_counted_cash,
+        'variance', (p_counted_cash - v_expected)
+    );
 END;
-$$;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- 7. SUẤT CHIẾU (Showtimes cho 3 ngày tới)
--- Suất chiếu không giao nhau theo ràng buộc showtimes_no_overlap
+-- ====================================================================
+-- CINEMAX SUPABASE REDESIGN v3.0 - BƯỚC 4/4: SEED DATA MẪU TOÀN DIỆN
+-- Dữ liệu mẫu chuẩn: Cấu hình rạp, Phim, Phòng chiếu, Sơ đồ ghế, Suất, Giá vé, F&B
+-- ====================================================================
+
 DO $$
 DECLARE
-  v_dune_id bigint;
-  v_mai_id bigint;
-  v_godzilla_id bigint;
-  v_panda_id bigint;
-  v_latmat_id bigint;
-  v_room_imax int;
-  v_room_2d int;
-  v_day_offset int;
-  v_base_date date;
-  v_st_id bigint;
+    v_admin_id uuid := '00000000-0000-0000-0000-000000000001';
+    v_staff_id uuid := '00000000-0000-0000-0000-000000000002';
+    
+    v_genre_action uuid := gen_random_uuid();
+    v_genre_scifi uuid := gen_random_uuid();
+    v_genre_animation uuid := gen_random_uuid();
+    v_genre_horror uuid := gen_random_uuid();
+    
+    v_movie_dune uuid := gen_random_uuid();
+    v_movie_conan uuid := gen_random_uuid();
+    v_movie_avatar uuid := gen_random_uuid();
+    
+    v_aud_std uuid := gen_random_uuid();
+    v_aud_imax uuid := gen_random_uuid();
+    
+    v_st1 uuid := gen_random_uuid();
+    v_st2 uuid := gen_random_uuid();
+    
+    v_prod_popcorn uuid := gen_random_uuid();
+    v_prod_coke uuid := gen_random_uuid();
+    v_prod_combo1 uuid := gen_random_uuid();
+    
+    r_char text;
+    c_num int;
+    v_seat_type public.seat_type_t;
+    v_seat_id uuid;
 BEGIN
-  SELECT id INTO v_dune_id FROM public.movies WHERE slug = 'dune-hanh-tinh-cat-phan-2';
-  SELECT id INTO v_mai_id FROM public.movies WHERE slug = 'mai';
-  SELECT id INTO v_godzilla_id FROM public.movies WHERE slug = 'godzilla-x-kong-de-che-moi';
-  SELECT id INTO v_panda_id FROM public.movies WHERE slug = 'kung-fu-panda-4';
-  SELECT id INTO v_latmat_id FROM public.movies WHERE slug = 'lat-mat-7-mot-dieu-uoc';
+    -- 1. Cấu hình rạp
+    INSERT INTO public.cinema_settings (setting_key, setting_value) VALUES
+    ('cinema_info', jsonb_build_object(
+        'name', 'CINEMAX Plaza',
+        'address', 'Tòa nhà FPT Polytechnic, Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội',
+        'hotline', '1900-6868',
+        'email', 'cskh@cinemax.vn'
+    )),
+    ('policies', jsonb_build_object(
+        'cleaning_buffer_minutes', 15,
+        'hold_duration_minutes', 10,
+        'late_sales_minutes', 15,
+        'loyalty_rate', 0.05,
+        'cancel_deadline_minutes', 60
+    ))
+    ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value;
 
-  -- Lấy phòng mẫu tại rạp 1 (Landmark 81)
-  SELECT id INTO v_room_imax FROM public.rooms WHERE name LIKE '%IMAX%' LIMIT 1;
-  SELECT id INTO v_room_2d FROM public.rooms WHERE name LIKE '%Gold%' LIMIT 1;
+    -- 2. Thể loại phim
+    INSERT INTO public.genres (id, name, slug) VALUES
+    (v_genre_action, 'Hành Động', 'hanh-dong'),
+    (v_genre_scifi, 'Khoa Học Viễn Tưởng', 'khoa-hoc-vien-tuong'),
+    (v_genre_animation, 'Hoạt Hình', 'hoat-hinh'),
+    (v_genre_horror, 'Kinh Dị', 'kinh-di');
 
-  IF v_room_imax IS NOT NULL AND v_dune_id IS NOT NULL THEN
-    FOR v_day_offset IN 0..2
-    LOOP
-      v_base_date := CURRENT_DATE + (v_day_offset || ' days')::interval;
+    -- 3. Phim chiếu rạp
+    INSERT INTO public.movies (id, title, slug, synopsis, director, duration_minutes, age_rating, poster_url, status, release_date) VALUES
+    (v_movie_dune, 'Dune: Hành Tinh Cát - Phần 2', 'dune-hanh-tinh-cat-2', 'Paul Atreides hợp nhất với Chani và người Fremen trên con đường báo thù gia tộc Harkonnen.', 'Denis Villeneuve', 166, 'T16', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800', 'now_showing', CURRENT_DATE - 5),
+    (v_movie_conan, 'Thám Tử Lừng Danh Conan: Ngôi Sao 5 Cánh', 'tham-tu-conan-ngoi-sao-5-canh', 'Cuộc đối đầu kịch tính giữa Conan và Siêu đạo chích Kid tại Hakodate.', 'Chika Nagaoka', 110, 'T13', 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800', 'now_showing', CURRENT_DATE - 2),
+    (v_movie_avatar, 'Avatar: Lửa Và Tro Tàn', 'avatar-lua-va-tro-tan', 'Hành trình khám phá bộ tộc Tro Tàn đầy bí ẩn tại thế giới Pandora.', 'James Cameron', 190, 'T13', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800', 'coming_soon', CURRENT_DATE + 30);
 
-      -- Suất 1: 09:30 - 12:30 (Dune IMAX)
-      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
-      VALUES (v_dune_id, v_room_imax, v_base_date + TIME '09:30:00', v_base_date + TIME '12:30:00', 'SUBTITLED', 'OPEN')
-      RETURNING id INTO v_st_id;
+    INSERT INTO public.movie_genres (movie_id, genre_id) VALUES
+    (v_movie_dune, v_genre_action),
+    (v_movie_dune, v_genre_scifi),
+    (v_movie_conan, v_genre_animation),
+    (v_movie_avatar, v_genre_scifi);
 
-      -- Suất 2: 13:15 - 16:15 (Dune IMAX)
-      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
-      VALUES (v_dune_id, v_room_imax, v_base_date + TIME '13:15:00', v_base_date + TIME '16:15:00', 'SUBTITLED', 'OPEN');
+    -- 4. Phòng chiếu
+    INSERT INTO public.auditoriums (id, name, screen_type, sound_system, total_seats, cleaning_buffer_minutes) VALUES
+    (v_aud_std, 'Phòng 1 (2D Tiêu Chuẩn)', '2D', 'Dolby 7.1', 80, 15),
+    (v_aud_imax, 'Phòng 2 (IMAX Laser)', 'IMAX', 'Dolby Atmos', 120, 20);
 
-      -- Suất 3: 17:00 - 19:15 (Godzilla IMAX)
-      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
-      VALUES (v_godzilla_id, v_room_imax, v_base_date + TIME '17:00:00', v_base_date + TIME '19:15:00', 'SUBTITLED', 'OPEN');
+    -- 5. Sơ đồ ghế Phòng 1 (Hàng A-H, 10 ghế mỗi hàng = 80 ghế)
+    -- Hàng A-D: Standard, E-G: VIP, H: 5 cặp ghế đôi Couple (H1-H2, H3-H4, H5-H6, H7-H8, H9-H10)
+    FOR r_char IN SELECT unnest(ARRAY['A','B','C','D','E','F','G','H']) LOOP
+        FOR c_num IN 1..10 LOOP
+            IF r_char IN ('A','B','C','D') THEN
+                v_seat_type := 'STANDARD';
+            ELSIF r_char IN ('E','F','G') THEN
+                v_seat_type := 'VIP';
+            ELSE
+                v_seat_type := 'COUPLE';
+            END IF;
 
-      -- Suất 4: 20:00 - 23:00 (Dune IMAX)
-      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
-      VALUES (v_dune_id, v_room_imax, v_base_date + TIME '20:00:00', v_base_date + TIME '23:00:00', 'SUBTITLED', 'OPEN');
-
-      -- Suất ở phòng 2D:
-      -- Suất 1: 10:00 - 12:30 (Mai)
-      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
-      VALUES (v_mai_id, v_room_2d, v_base_date + TIME '10:00:00', v_base_date + TIME '12:30:00', 'ORIGINAL', 'OPEN');
-
-      -- Suất 2: 13:00 - 14:45 (Kung Fu Panda 4 Lồng Tiếng)
-      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
-      VALUES (v_panda_id, v_room_2d, v_base_date + TIME '13:00:00', v_base_date + TIME '14:45:00', 'DUBBED', 'OPEN');
-
-      -- Suất 3: 15:30 - 18:00 (Lật Mặt 7)
-      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
-      VALUES (v_latmat_id, v_room_2d, v_base_date + TIME '15:30:00', v_base_date + TIME '18:00:00', 'ORIGINAL', 'OPEN');
-
-      -- Suất 4: 18:45 - 21:15 (Mai)
-      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
-      VALUES (v_mai_id, v_room_2d, v_base_date + TIME '18:45:00', v_base_date + TIME '21:15:00', 'ORIGINAL', 'OPEN');
-
-      -- Suất 5: 21:45 - 24:00 (Lật Mặt 7)
-      INSERT INTO public.showtimes (movie_id, room_id, start_time, end_time, language_type, status)
-      VALUES (v_latmat_id, v_room_2d, v_base_date + TIME '21:45:00', v_base_date + TIME '24:00:00', 'ORIGINAL', 'OPEN');
+            INSERT INTO public.seats (
+                auditorium_id, row_label, seat_number, grid_row, grid_col, seat_type, seat_group
+            ) VALUES (
+                v_aud_std,
+                r_char,
+                c_num,
+                ascii(r_char) - 64,
+                c_num,
+                v_seat_type,
+                CASE WHEN v_seat_type = 'COUPLE' THEN 'H_PAIR_' || ceil(c_num::numeric / 2)::text ELSE NULL END
+            );
+        END LOOP;
     END LOOP;
-  END IF;
-END;
-$$;
 
+    -- 6. Suất chiếu
+    INSERT INTO public.showtimes (id, movie_id, auditorium_id, format, starts_at, ends_at, status) VALUES
+    (v_st1, v_movie_dune, v_aud_std, '2D', now() + interval '2 hours', now() + interval '5 hours', 'open'),
+    (v_st2, v_movie_conan, v_aud_imax, 'IMAX', now() + interval '4 hours', now() + interval '6 hours 10 minutes', 'open');
 
--- 8. BẢNG GIÁ VÉ CHO CÁC SUẤT CHIẾU (Showtime Prices)
--- Gán giá vé cho từng loại ghế của tất cả suất chiếu hiện có
-INSERT INTO public.showtime_prices (showtime_id, seat_type_id, price)
-SELECT 
-  s.id AS showtime_id,
-  st.id AS seat_type_id,
-  CASE 
-    -- Suất IMAX
-    WHEN r.screen_type = 'IMAX' THEN
-      CASE 
-        WHEN st.code = 'STANDARD' THEN 140000
-        WHEN st.code = 'VIP' THEN 180000
-        WHEN st.code = 'COUPLE' THEN 320000
-      END
-    -- Suất 3D
-    WHEN r.screen_type = '3D' THEN
-      CASE 
-        WHEN st.code = 'STANDARD' THEN 110000
-        WHEN st.code = 'VIP' THEN 140000
-        WHEN st.code = 'COUPLE' THEN 250000
-      END
-    -- Suất 2D tiêu chuẩn
-    ELSE
-      CASE 
-        WHEN st.code = 'STANDARD' THEN 90000
-        WHEN st.code = 'VIP' THEN 115000
-        WHEN st.code = 'COUPLE' THEN 210000
-      END
-  END AS price
-FROM public.showtimes s
-JOIN public.rooms r ON s.room_id = r.id
-CROSS JOIN public.seat_types st
-ON CONFLICT (showtime_id, seat_type_id) DO UPDATE
-SET price = EXCLUDED.price;
+    -- 7. Bảng giá vé phân tầng đa chiều cho Suất 1 (Phòng 1)
+    INSERT INTO public.showtime_prices (showtime_id, seat_type, audience_type, price) VALUES
+    (v_st1, 'STANDARD', 'ADULT', 85000),
+    (v_st1, 'STANDARD', 'STUDENT_U22', 65000),
+    (v_st1, 'STANDARD', 'CHILD', 55000),
+    (v_st1, 'VIP', 'ADULT', 105000),
+    (v_st1, 'VIP', 'STUDENT_U22', 85000),
+    (v_st1, 'VIP', 'CHILD', 75000),
+    (v_st1, 'COUPLE', 'ADULT', 210000),
+    (v_st1, 'COUPLE', 'STUDENT_U22', 170000);
 
+    -- 8. Khởi tạo trạng thái ghế showtime_seats cho Suất 1
+    FOR v_seat_id IN SELECT id FROM public.seats WHERE auditorium_id = v_aud_std LOOP
+        INSERT INTO public.showtime_seats (showtime_id, seat_id, status)
+        VALUES (v_st1, v_seat_id, 'available');
+    END LOOP;
 
--- 9. ĐỒ ĂN & BẮP NƯỚC (Food Items)
-INSERT INTO public.food_items (name, category, description, price, image_url, is_active) VALUES
-(
-  'Bắp Ngọt Truyền Thống (Lớn)',
-  'POPCORN',
-  'Bắp rang bơ giòn rụm thơm lừng chuẩn vị rạp chiếu phim',
-  65000,
-  'https://images.unsplash.com/photo-1578849278619-e73505e9610f?auto=format&fit=crop&w=400&q=80',
-  true
-),
-(
-  'Bắp Phô Mai Thượng Hạng (Lớn)',
-  'POPCORN',
-  'Bắp rang áo đều lớp bột phô mai béo ngậy, đậm đà',
-  75000,
-  'https://images.unsplash.com/photo-1585647347483-22b66260dfff?auto=format&fit=crop&w=400&q=80',
-  true
-),
-(
-  'Bắp Caramel Đặc Biệt (Lớn)',
-  'POPCORN',
-  'Bắp ngọt phủ sốt caramel thơm lừng ngọt ngào',
-  75000,
-  'https://images.unsplash.com/photo-1505686994434-e3cc5abf1330?auto=format&fit=crop&w=400&q=80',
-  true
-),
-(
-  'Pepsi Mát Lạnh (Lớn)',
-  'DRINK',
-  'Nước ngọt có gas Pepsi 32oz sảng khoái',
-  35000,
-  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80',
-  true
-),
-(
-  '7Up Chanh Mát Lạnh (Lớn)',
-  'DRINK',
-  'Nước giải khát vị chanh thanh mát 32oz',
-  35000,
-  'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?auto=format&fit=crop&w=400&q=80',
-  true
-),
-(
-  'Trà Sữa Trân Châu Phô Mai',
-  'DRINK',
-  'Trà sữa béo ngậy kèm trân châu giòn dai mát lạnh',
-  50000,
-  'https://images.unsplash.com/photo-1558857563-b37cf5a3bc32?auto=format&fit=crop&w=400&q=80',
-  true
-),
-(
-  'Combo Solo Tiết Kiệm',
-  'COMBO',
-  'Gồm 1 Bắp ngọt (Lớn) + 1 Nước ngọt có gas (Lớn)',
-  89000,
-  'https://images.unsplash.com/photo-1512149177596-f817c7ef5d4c?auto=format&fit=crop&w=400&q=80',
-  true
-),
-(
-  'Combo Couple Ngọt Ngào',
-  'COMBO',
-  'Gồm 1 Bắp 2 ngăn (Caramel + Phô mai) + 2 Nước ngọt (Lớn)',
-  135000,
-  'https://images.unsplash.com/photo-1572177812156-58036aae439c?auto=format&fit=crop&w=400&q=80',
-  true
-),
-(
-  'Combo Gia Đình Party',
-  'COMBO',
-  'Gồm 2 Bắp lớn đặc biệt + 4 Nước ngọt + 1 Snack khoai tây chiên',
-  229000,
-  'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?auto=format&fit=crop&w=400&q=80',
-  true
-)
-ON CONFLICT DO NOTHING;
+    -- 9. Bắp Nước & Modifiers
+    INSERT INTO public.products (id, name, product_type, base_price, available_stock) VALUES
+    (v_prod_popcorn, 'Bắp Rang Bơ (Tiêu chuẩn)', 'FOOD', 45000, 200),
+    (v_prod_coke, 'Nước Ngọt Có Ga (Ly)', 'BEVERAGE', 30000, 300),
+    (v_prod_combo1, 'Combo Solo 1 Bắp 1 Nước', 'COMBO', 69000, 150);
 
+    INSERT INTO public.product_components (combo_id, component_id, quantity) VALUES
+    (v_prod_combo1, v_prod_popcorn, 1),
+    (v_prod_combo1, v_prod_coke, 1);
 
--- 10. MÃ KHUYẾN MÃI (Promotions)
-INSERT INTO public.promotions (
-  code, description, discount_type, discount_value, max_discount, min_order, usage_limit, per_user_limit, used_count, valid_from, valid_to, is_active
-) VALUES
-(
-  'CHAOBANMOI',
-  'Giảm 20% tối đa 40.000đ cho khách hàng mới đặt vé xem phim',
-  'PERCENT',
-  20,
-  40000,
-  100000,
-  1000,
-  1,
-  0,
-  NOW() - INTERVAL '1 day',
-  NOW() + INTERVAL '90 days',
-  true
-),
-(
-  'CINEMAX30K',
-  'Giảm ngay 30.000đ cho đơn hàng từ 150.000đ trở lên',
-  'FIXED',
-  30000,
-  NULL,
-  150000,
-  500,
-  1,
-  0,
-  NOW() - INTERVAL '1 day',
-  NOW() + INTERVAL '60 days',
-  true
-),
-(
-  'VNPAY20',
-  'Giảm 15% tối đa 35.000đ khi thanh toán qua cổng điện tử',
-  'PERCENT',
-  15,
-  35000,
-  120000,
-  500,
-  2,
-  0,
-  NOW() - INTERVAL '1 day',
-  NOW() + INTERVAL '60 days',
-  true
-),
-(
-  'HOCSINHSINHVIEN',
-  'Ưu đãi cố định 20.000đ dành cho học sinh, sinh viên yêu điện ảnh',
-  'FIXED',
-  20000,
-  NULL,
-  80000,
-  NULL,
-  5,
-  0,
-  NOW() - INTERVAL '1 day',
-  NOW() + INTERVAL '180 days',
-  true
-)
-ON CONFLICT (code) DO NOTHING;
+    INSERT INTO public.product_modifiers (product_id, modifier_group, option_name, extra_price, is_default) VALUES
+    (v_prod_popcorn, 'Vị bắp', 'Vị Ngọt Cơ Bản', 0, true),
+    (v_prod_popcorn, 'Vị bắp', 'Vị Phô Mai Lắc', 10000, false),
+    (v_prod_popcorn, 'Vị bắp', 'Vị Caramel Cháy', 10000, false),
+    (v_prod_coke, 'Loại nước', 'Coca-Cola Tươi', 0, true),
+    (v_prod_coke, 'Loại nước', 'Sprite Chanh', 0, false),
+    (v_prod_coke, 'Loại nước', 'Trà Đào Cam Sả', 10000, false);
+
+    -- 10. Mã giảm giá
+    INSERT INTO public.coupons (code, discount_type, discount_value, max_discount, min_order_amount, apply_scope, starts_at, ends_at) VALUES
+    ('CINEMAX50K', 'FIXED', 50000, NULL, 150000, 'ALL', now() - interval '1 day', now() + interval '30 days'),
+    ('HSSV10', 'PERCENT', 10, 30000, 60000, 'TICKET_ONLY', now() - interval '1 day', now() + interval '30 days');
+
+    RAISE NOTICE 'Seed data initialized successfully for CINEMAX!';
+END $$;
+
