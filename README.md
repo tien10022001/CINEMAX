@@ -1,6 +1,6 @@
 # 🎬 CINEMAX — Cinema Ticketing & Theater Management Platform
 
-> **Đồ án tốt nghiệp / Dự án chuyên ngành:** Website Đặt Vé Xem Phim & Quản Trị Rạp Chiếu Phim  
+> **Dự án chuyên ngành:** Website Đặt Vé Xem Phim & Quản Trị Rạp Chiếu Phim  
 > **Đơn vị đào tạo:** FPT Polytechnic  
 > **Giảng viên hướng dẫn:** Thầy Nguyễn Thành Trung  
 > **Nhóm thực hiện (HK2T):**
