@@ -29,7 +29,7 @@ export default function ShowtimeCard({
   slot,
   onClick,
   dayStr,
-  theme = 'light',
+  theme = 'dark',
   className = '',
 }: ShowtimeCardProps) {
   const isDark = theme === 'dark';
@@ -41,9 +41,9 @@ export default function ShowtimeCard({
     >
       {/* Ô trên: Giờ chiếu (Đồng bộ màu sắc 100% theo các thẻ còn lại) */}
       <div
-        className={`w-full h-12 rounded-md flex flex-col items-center justify-center transition-all shadow-xs ${
+        className={`w-full h-12 rounded-lg flex flex-col items-center justify-center transition-all shadow-md ${
           isDark
-            ? 'bg-[#0F1217] border border-[#303645] group-hover:border-[#E63845] text-white shadow-black/40'
+            ? 'bg-[#0F1217] border border-[#303645] group-hover:border-[#E63845] group-hover:bg-[#161922] text-white shadow-black/50'
             : 'bg-[#E5E7EB] group-hover:bg-[#D1D5DB] text-gray-900'
         }`}
       >
