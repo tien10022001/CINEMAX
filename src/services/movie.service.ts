@@ -166,7 +166,7 @@ export class MovieService {
         }
       }
 
-      // 2. Query showtimes từ Supabase
+      // 2. Query showtimes từ Supabase kèm thông tin phòng chiếu
       const resShowtimes: any = await supabase
         .from('showtimes')
         .select('id, movie_id, auditorium_id, format, starts_at, status')
@@ -179,7 +179,6 @@ export class MovieService {
       );
 
       const realSlots: any[] = [];
-      const dbBaseId = filtered[0]?.id || '85608755-35ca-4157-87bd-96b50577e0e5';
 
       for (const st of filtered) {
         // Đếm số ghế trống thực tế từ bảng showtime_seats
@@ -189,46 +188,41 @@ export class MovieService {
           .eq('showtime_id', st.id)
           .eq('status', 'available');
 
-        const count = seatRes.count;
+        // Lấy tổng số ghế của phòng chiếu
+        const auditRes: any = await supabase
+          .from('auditoriums')
+          .select('id, name, total_seats')
+          .eq('id', st.auditorium_id)
+          .single();
+
+        const count = seatRes.count ?? 76;
+        const totalSeats = auditRes.data?.total_seats ?? 80;
+        const roomName = auditRes.data?.name || 'Phòng 1';
+
         const d = new Date(st.starts_at);
         const timeStr = d.toLocaleTimeString('vi-VN', {
           timeZone: 'Asia/Ho_Chi_Minh',
           hour: '2-digit',
           minute: '2-digit',
         });
-        const hour = d.getHours();
+        const dateStrDb = d.toLocaleDateString('vi-VN', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+          day: '2-digit',
+          month: '2-digit',
+        });
 
         realSlots.push({
           id: st.id,
           time: timeStr,
-          availableSeats: count ?? 76,
-          isLate: hour >= 22,
+          dateStr: dateStrDb,
+          availableSeats: count,
+          totalSeats: totalSeats,
           format: st.format || '2D',
+          roomName: roomName,
         });
       }
 
-      // 3. Khung giờ chuẩn theo form mẫu giao diện rạp
-      const standardTimes = [
-        '15:30', '16:00', '16:30', '17:00', '17:30', 
-        '18:30', '19:30', '20:00', '20:15', '21:00', 
-        '22:00', '22:45', '23:30'
-      ];
-      const existingTimes = new Set(realSlots.map((r) => r.time));
-      const sampleCounts = [89, 170, 128, 123, 61, 169, 97, 101, 72, 146, 107, 89, 173];
-
-      standardTimes.forEach((t, idx) => {
-        if (!existingTimes.has(t)) {
-          const hour = parseInt(t.split(':')[0], 10);
-          realSlots.push({
-            id: dbBaseId,
-            time: t,
-            availableSeats: sampleCounts[idx] || 80,
-            isLate: hour >= 22,
-            format: '2D',
-          });
-        }
-      });
-
+      // CHỈ HIỆN CÁC SUẤT CHIẾU CÓ THẬT TRÊN DATABASE (Không thêm suất ảo)
       realSlots.sort((a, b) => a.time.localeCompare(b.time));
       return realSlots;
     } catch (err) {

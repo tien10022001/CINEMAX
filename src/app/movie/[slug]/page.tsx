@@ -228,12 +228,6 @@ export default function MovieDetailPage() {
                         ))}
                       </div>
                     )}
-
-                    {/* Chú thích Suất chiếu muộn */}
-                    <div className="pt-2 flex items-center gap-2 text-xs text-[#9EA6B8]">
-                      <div className="w-5 h-3.5 bg-[#132238] border border-[#2563EB]/70 rounded-xs shrink-0" />
-                      <span>Suất chiếu muộn từ 22h00</span>
-                    </div>
                   </div>
                 </div>
               );

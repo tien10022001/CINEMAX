@@ -184,12 +184,6 @@ export default function ShowtimeModal({
               ))}
             </div>
           )}
-
-          {/* Chú thích Suất chiếu muộn */}
-          <div className="pt-3 flex items-center gap-2 text-xs text-gray-600">
-            <div className="w-5 h-3.5 bg-[#B9D5F5] rounded-xs shrink-0" />
-            <span>Suất chiếu muộn từ 22h00</span>
-          </div>
         </div>
       </div>
     </div>

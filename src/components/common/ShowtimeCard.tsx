@@ -32,8 +32,6 @@ export default function ShowtimeCard({
   theme = 'light',
   className = '',
 }: ShowtimeCardProps) {
-  const hour = parseInt(slot.time.split(':')[0], 10);
-  const isLate = slot.isLate ?? hour >= 22;
   const isDark = theme === 'dark';
 
   return (
@@ -41,44 +39,38 @@ export default function ShowtimeCard({
       onClick={() => onClick(slot)}
       className={`group flex flex-col items-center cursor-pointer transition-transform hover:scale-105 select-none ${className}`}
     >
-      {/* Ô trên: Giờ chiếu */}
+      {/* Ô trên: Giờ chiếu (Đồng bộ màu sắc 100% theo các thẻ còn lại) */}
       <div
         className={`w-full h-12 rounded-md flex flex-col items-center justify-center transition-all shadow-xs ${
           isDark
-            ? isLate
-              ? 'bg-[#132238] border border-[#2563EB]/70 group-hover:border-blue-400 text-blue-100 shadow-blue-900/20'
-              : 'bg-[#0F1217] border border-[#303645] group-hover:border-[#E63845] text-white shadow-black/40'
-            : isLate
-              ? 'bg-[#B9D5F5] group-hover:bg-[#A3C7F0] text-gray-900'
-              : 'bg-[#E5E7EB] group-hover:bg-[#D1D5DB] text-gray-900'
+            ? 'bg-[#0F1217] border border-[#303645] group-hover:border-[#E63845] text-white shadow-black/40'
+            : 'bg-[#E5E7EB] group-hover:bg-[#D1D5DB] text-gray-900'
         }`}
       >
         <span
           className={`text-xs sm:text-sm font-bold tracking-tight transition-colors ${
             isDark
-              ? isLate
-                ? 'text-blue-200 group-hover:text-blue-100'
-                : 'text-white group-hover:text-[#E63845]'
-              : 'text-gray-900'
+              ? 'text-white group-hover:text-[#E63845]'
+              : 'text-gray-900 group-hover:text-black'
           }`}
         >
           {slot.time}
         </span>
-        {isLate && (
+        {slot.format && (
           <span
-            className={`text-[10px] font-medium -mt-0.5 ${
-              isDark ? 'text-blue-300/80' : 'text-gray-700'
+            className={`text-[9px] font-medium -mt-0.5 ${
+              isDark ? 'text-gray-400' : 'text-gray-600'
             }`}
           >
-            {dayStr || slot.dateStr || '19/10'}
+            {slot.format}
           </span>
         )}
       </div>
 
-      {/* Chữ dưới: Số ghế trống */}
+      {/* Chữ dưới: Số ghế trống thực tế từ Database */}
       <span
         className={`text-[10px] sm:text-[11px] font-medium text-center mt-1 transition-colors ${
-          isDark ? 'text-[#FABF2E] group-hover:text-yellow-300' : 'text-gray-500'
+          isDark ? 'text-[#FABF2E] group-hover:text-yellow-300' : 'text-gray-600'
         }`}
       >
         {slot.availableSeats} ghế trống
