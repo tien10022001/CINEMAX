@@ -29,6 +29,7 @@ import {
   Mail,
   Lock,
 } from 'lucide-react';
+import VietQRModal from '@/components/booking/VietQRModal';
 
 function BookingContent() {
   const searchParams = useSearchParams();
@@ -73,8 +74,18 @@ function BookingContent() {
   const [promoError, setPromoError] = useState<string>('');
 
   // Payment State
-  const [paymentMethod, setPaymentMethod] = useState<'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CARD'>('MOMO');
+  const [paymentMethod, setPaymentMethod] = useState<'VIETQR' | 'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CARD'>('VIETQR');
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
+  const [isVietQRModalOpen, setIsVietQRModalOpen] = useState<boolean>(false);
+  const [pendingVietQROrder, setPendingVietQROrder] = useState<{
+    orderId: string;
+    orderCode: string;
+    amount: number;
+    payerName: string;
+    payerEmail: string;
+    payerPhone: string;
+    seatsStr: string;
+  } | null>(null);
   const [completedBooking, setCompletedBooking] = useState<{
     bookingCode: string;
     paidAt: string;
@@ -236,6 +247,23 @@ function BookingContent() {
 
       const orderId = orderRes.order_id;
       const generatedCode = orderRes.order_code;
+      const seatsStr = selectedSeats.map((s) => `${s.row_label}${s.seat_number}`).join(', ');
+
+      // Nếu phương thức thanh toán là VIETQR -> Mở Modal VietQR để khách quét mã chuyển tiền
+      if (paymentMethod === 'VIETQR') {
+        setPendingVietQROrder({
+          orderId,
+          orderCode: generatedCode,
+          amount: finalTotal,
+          payerName,
+          payerEmail,
+          payerPhone,
+          seatsStr,
+        });
+        setIsVietQRModalOpen(true);
+        setIsProcessingPayment(false);
+        return;
+      }
 
       // 2. Xác nhận thanh toán qua Supabase (RPC confirm_order_payment)
       if (!orderId.startsWith('mock-')) {
@@ -246,7 +274,6 @@ function BookingContent() {
         }
       }
 
-      const seatsStr = selectedSeats.map((s) => `${s.row_label}${s.seat_number}`).join(', ');
       const paidTime =
         new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
         ' • ' +
@@ -300,6 +327,70 @@ function BookingContent() {
     } finally {
       setIsProcessingPayment(false);
     }
+  };
+
+  const handleConfirmVietQR = async () => {
+    if (!pendingVietQROrder) return;
+    const { PaymentService } = await import('@/services/payment.service');
+
+    if (!pendingVietQROrder.orderId.startsWith('mock-')) {
+      try {
+        await PaymentService.confirmPayment(pendingVietQROrder.orderId, 'CARD');
+      } catch (payErr) {
+        console.error('Lỗi xác nhận thanh toán Supabase:', payErr);
+      }
+    }
+
+    const paidTime =
+      new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
+      ' • ' +
+      new Date().toLocaleDateString('vi-VN');
+
+    const newBooking = {
+      bookingCode: pendingVietQROrder.orderCode,
+      paidAt: paidTime,
+      totalAmount: pendingVietQROrder.amount,
+      seatsStr: pendingVietQROrder.seatsStr,
+      customerName: pendingVietQROrder.payerName,
+      customerEmail: pendingVietQROrder.payerEmail,
+      customerPhone: pendingVietQROrder.payerPhone,
+    };
+
+    setCompletedBooking(newBooking);
+
+    try {
+      const stored = localStorage.getItem('cinemax_user_tickets');
+      const list = stored ? JSON.parse(stored) : [];
+      const ticketRecord = {
+        id: pendingVietQROrder.orderId,
+        userId: currentUser ? currentUser.id : 'guest',
+        customerName: pendingVietQROrder.payerName,
+        customerPhone: pendingVietQROrder.payerPhone,
+        customerEmail: pendingVietQROrder.payerEmail,
+        bookingCode: pendingVietQROrder.orderCode,
+        movieTitle: selectedMovie.title,
+        moviePoster: selectedMovie.poster_url,
+        cinemaName: selectedCinema.name,
+        roomName: selectedShowtime.room?.name || 'Phòng 01 (IMAX)',
+        showtimeDate: '29/09/2026',
+        showtimeTime: '10:00',
+        seats: selectedSeats.map((s) => `${s.row_label}${s.seat_number}`),
+        seatsStr: pendingVietQROrder.seatsStr,
+        totalAmount: pendingVietQROrder.amount,
+        status: 'ĐÃ THANH TOÁN',
+        paymentMethod: 'VIETQR (TPBank)',
+        paidAt: paidTime,
+      };
+
+      list.unshift(ticketRecord);
+      localStorage.setItem('cinemax_user_tickets', JSON.stringify(list));
+      localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
+    } catch (e) {
+      console.warn('Lỗi lưu ticket localStorage:', e);
+    }
+
+    setIsVietQRModalOpen(false);
+    setCurrentStep(3);
   };
 
   return (
@@ -692,13 +783,40 @@ function BookingContent() {
 
               {/* Phương thức thanh toán (Figma Screen 4) */}
               <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 space-y-4">
-                <h3 className="text-lg font-bold text-white">Phương thức thanh toán</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-white">Phương thức thanh toán</h3>
+                  <span className="text-xs text-[#FABF2E] font-medium hidden sm:inline">
+                    Khuyên dùng VietQR (Không mất phí)
+                  </span>
+                </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                  {/* VIETQR TPBank (Khuyên dùng) */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('VIETQR')}
+                    className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all relative overflow-hidden ${
+                      paymentMethod === 'VIETQR'
+                        ? 'border-[#8E24AA] bg-[#8E24AA]/15 ring-2 ring-[#8E24AA]'
+                        : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
+                    }`}
+                  >
+                    <div className="absolute top-0 right-0 bg-[#E63845] text-white text-[9px] font-black px-1.5 py-0.5 rounded-bl-lg">
+                      HOT
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#6A1B9A] to-[#AB47BC] flex items-center justify-center text-white font-black text-xs shadow-md">
+                      TPB
+                    </div>
+                    <div className="text-center">
+                      <span className="text-xs font-bold text-white block">VietQR</span>
+                      <span className="text-[10px] text-[#FABF2E] font-medium">TPBank 24/7</span>
+                    </div>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('MOMO')}
-                    className={`p-4 rounded-2xl border flex flex-col items-center gap-2.5 cursor-pointer transition-all ${
+                    className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'MOMO'
                         ? 'border-[#D82D8B] bg-[#D82D8B]/10 ring-2 ring-[#D82D8B]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -713,7 +831,7 @@ function BookingContent() {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('VNPAY')}
-                    className={`p-4 rounded-2xl border flex flex-col items-center gap-2.5 cursor-pointer transition-all ${
+                    className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'VNPAY'
                         ? 'border-[#0066FF] bg-[#0066FF]/10 ring-2 ring-[#0066FF]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -728,7 +846,7 @@ function BookingContent() {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('ZALOPAY')}
-                    className={`p-4 rounded-2xl border flex flex-col items-center gap-2.5 cursor-pointer transition-all ${
+                    className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'ZALOPAY'
                         ? 'border-[#0088FF] bg-[#0088FF]/10 ring-2 ring-[#0088FF]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -743,7 +861,7 @@ function BookingContent() {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('CARD')}
-                    className={`p-4 rounded-2xl border flex flex-col items-center gap-2.5 cursor-pointer transition-all ${
+                    className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'CARD'
                         ? 'border-[#FABF2E] bg-[#FABF2E]/10 ring-2 ring-[#FABF2E]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -939,6 +1057,18 @@ function BookingContent() {
           </div>
         )}
       </main>
+
+      {/* Modal Thanh toán VietQR An toàn (TPBank) */}
+      {pendingVietQROrder && (
+        <VietQRModal
+          isOpen={isVietQRModalOpen}
+          onClose={() => setIsVietQRModalOpen(false)}
+          onConfirm={handleConfirmVietQR}
+          amount={pendingVietQROrder.amount}
+          orderCode={pendingVietQROrder.orderCode}
+          timeLeftSeconds={timeLeft}
+        />
+      )}
 
       <Footer />
     </div>
