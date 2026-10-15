@@ -20,7 +20,7 @@ export default function MovieDetailPage() {
   const [selectedDate, setSelectedDate] = useState<string>('2026-10-15');
   const [isTrailerOpen, setIsTrailerOpen] = useState<boolean>(false);
   const [isShowtimeModalOpen, setIsShowtimeModalOpen] = useState<boolean>(false);
-  const [slots, setSlots] = useState<ShowtimeSlot[]>([]);
+  const [cinemaSlots, setCinemaSlots] = useState<Record<string | number, ShowtimeSlot[]>>({});
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
 
   const dates = [
@@ -38,17 +38,26 @@ export default function MovieDetailPage() {
     let isMounted = true;
     setLoadingSlots(true);
 
-    MovieService.getShowtimeSlots(movie.id, selectedDate)
-      .then((data) => {
+    const loadAllCinemas = async () => {
+      try {
+        const results: Record<string | number, ShowtimeSlot[]> = {};
+        await Promise.all(
+          MOCK_CINEMAS.map(async (cinema) => {
+            const data = await MovieService.getShowtimeSlots(movie.id, selectedDate, cinema.id);
+            results[cinema.id] = data;
+          })
+        );
         if (isMounted) {
-          setSlots(data);
+          setCinemaSlots(results);
           setLoadingSlots(false);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('Error fetching showtimes:', err);
         if (isMounted) setLoadingSlots(false);
-      });
+      }
+    };
+
+    loadAllCinemas();
 
     return () => {
       isMounted = false;
@@ -181,6 +190,7 @@ export default function MovieDetailPage() {
           {/* Cinema Blocks with Showtimes */}
           <div className="space-y-4 pt-2">
             {MOCK_CINEMAS.map((cinema) => {
+              const slots = cinemaSlots[cinema.id] || [];
               return (
                 <div
                   key={cinema.id}
@@ -213,7 +223,7 @@ export default function MovieDetailPage() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
-                        {slots.map((st) => (
+                        {slots.map((st: ShowtimeSlot) => (
                           <ShowtimeCard
                             key={cinema.id + '-' + st.id + '-' + st.time}
                             slot={st}
