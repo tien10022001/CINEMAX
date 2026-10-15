@@ -103,77 +103,176 @@ function BookingContent() {
   // 10-minute hold timer (Figma Screen 3: "⏱ Giữ ghế còn 09:42")
   const [timeLeft, setTimeLeft] = useState<number>(582); // 09:42 initial
 
+// Helper: Sinh sơ đồ ghế độc lập riêng cho từng rạp, từng suất chiếu và từng ngày
+function getDynamicShowtimeSeats(
+  roomId: number = 1,
+  cinemaId: string | number,
+  showtimeId: string | number,
+  date: string,
+  time: string,
+  locallyBookedSeats: Set<string>
+): Seat[] {
+  // Tạo seed số học từ chuỗi định danh duy nhất của suất chiếu tại rạp
+  const seedStr = `${cinemaId}_${showtimeId}_${date}_${time}`;
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+    hash |= 0;
+  }
+  const absHash = Math.abs(hash);
+
+  const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const seats: Seat[] = [];
+  let seatId = 1;
+
+  rows.forEach((row, rowIdx) => {
+    const isCouple = row === 'H';
+    const isVip = row === 'E' || row === 'F' || row === 'G';
+    const typeId = isCouple ? 3 : isVip ? 2 : 1;
+    const typeCode = isCouple ? 'COUPLE' : isVip ? 'VIP' : 'STANDARD';
+
+    if (isCouple) {
+      for (let c = 1; c <= 5; c++) {
+        const label = `ĐÔI ${c}`;
+        const isSoldLocally = locallyBookedSeats.has(label);
+        // Mỗi rạp/suất có tỉ lệ bán ngẫu nhiên riêng biệt, không trùng nhau
+        const isSoldMock = (absHash + c * 11) % 6 === 0;
+
+        seats.push({
+          id: seatId++,
+          room_id: roomId,
+          seat_type_id: typeId,
+          row_label: row,
+          seat_number: c,
+          grid_row: rowIdx + 1,
+          grid_col: c,
+          is_active: true,
+          seat_type: {
+            id: typeId,
+            code: typeCode,
+            name: 'Ghế đôi',
+            capacity: 2,
+            color_code: '#F472B6',
+          },
+          status: isSoldLocally || isSoldMock ? 'SOLD' : 'AVAILABLE',
+        });
+      }
+    } else {
+      for (let c = 1; c <= 10; c++) {
+        const label = `${row}${c}`;
+        const isSoldLocally = locallyBookedSeats.has(label);
+        // Mỗi rạp/suất có tập ghế đã bán hoàn toàn khác nhau
+        const isSoldMock = (absHash + (rowIdx + 1) * 17 + c * 23) % 8 === 0;
+
+        seats.push({
+          id: seatId++,
+          room_id: roomId,
+          seat_type_id: typeId,
+          row_label: row,
+          seat_number: c,
+          grid_row: rowIdx + 1,
+          grid_col: c,
+          is_active: true,
+          seat_type: {
+            id: typeId,
+            code: typeCode,
+            name: isVip ? 'Ghế VIP' : 'Ghế thường',
+            capacity: 1,
+            color_code: isVip ? '#FABF2E' : '#9CA3AF',
+          },
+          status: isSoldLocally || isSoldMock ? 'SOLD' : 'AVAILABLE',
+        });
+      }
+    }
+  });
+
+  return seats;
+}
+
   useEffect(() => {
     let isMounted = true;
     async function loadSeats() {
-      try {
-        const { BookingService } = await import('@/services/booking.service');
-        const stId = selectedShowtime?.id?.toString();
-        const validId = stId && stId.length === 36 ? stId : '85608755-35ca-4157-87bd-96b50577e0e5';
-
-        const dbSeats = await BookingService.getShowtimeSeats(validId);
-
-        // Đọc danh sách vé đã đặt từ localStorage để đồng bộ ghế đã bán tức thì
-        const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
-        const localTickets = stored ? JSON.parse(stored) : [];
-        const bookedSeatLabels = new Set<string>();
-        localTickets.forEach((t: any) => {
-          if (t.seats && Array.isArray(t.seats)) {
-            t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
-          }
-        });
-
-        if (dbSeats && dbSeats.length > 0) {
-          const mapped: Seat[] = dbSeats.map((s) => {
-            const seatLabel = `${s.row_label}${s.seat_number}`;
-            const isBookedLocally = bookedSeatLabels.has(seatLabel);
-            return {
-              id: s.id,
-              row_label: s.row_label,
-              seat_number: s.seat_number,
-              grid_row: s.grid_row,
-              grid_col: s.grid_col,
-              seat_type: {
-                id: s.seat_type || 'standard',
-                code: (s.seat_type || 'STANDARD').toUpperCase() as any,
-                name: (s.seat_type || 'STANDARD').toUpperCase(),
-              },
-              seat_group: s.seat_group,
-              status: isBookedLocally ? 'sold' : (s.status as any),
-            };
-          });
-          if (isMounted) setSeats(mapped);
-          return;
-        }
-      } catch (err) {
-        console.warn('Lỗi tải ghế Supabase, dùng fallback:', err);
-      }
-
-      // Fallback nếu chưa kết nối hoặc đang test offline
-      const mockSeats = generateMockSeats(Number(selectedShowtime?.room_id) || 1);
+      // 1. Đọc danh sách vé đã đặt từ localStorage CHỈ cho đúng rạp, phim và suất chiếu này
       const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
       const localTickets = stored ? JSON.parse(stored) : [];
       const bookedSeatLabels = new Set<string>();
+
       localTickets.forEach((t: any) => {
-        if (t.seats && Array.isArray(t.seats)) {
-          t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
+        // Chỉ khớp vé của chính suất chiếu này, rạp này
+        const matchCinema =
+          t.cinemaName === selectedCinema?.name ||
+          t.cinemaId?.toString() === queryCinemaId.toString();
+        const matchShowtime =
+          t.showtimeId?.toString() === selectedShowtime?.id?.toString() ||
+          t.showtimeTime === queryTime ||
+          (t.showtime && t.showtime.includes(queryTime));
+
+        if (matchCinema && matchShowtime) {
+          if (Array.isArray(t.seats)) {
+            t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
+          } else if (typeof t.seats === 'string') {
+            t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(s.trim()));
+          }
         }
       });
-      const updated = mockSeats.map((s) => {
-        const label = `${s.row_label}${s.seat_number}`;
-        if (bookedSeatLabels.has(label)) {
-          return { ...s, status: 'SOLD' as const };
+
+      // 2. Nếu là suất chiếu thật của rạp Hà Nội Centre trong DB Supabase
+      const stId = selectedShowtime?.id?.toString();
+      const isRealDbShowtime =
+        stId &&
+        stId === '85608755-35ca-4157-87bd-96b50577e0e5' &&
+        (selectedCinema?.id === 1 || selectedCinema?.name?.includes('Hà Nội'));
+
+      if (isRealDbShowtime) {
+        try {
+          const { BookingService } = await import('@/services/booking.service');
+          const dbSeats = await BookingService.getShowtimeSeats(stId);
+          if (dbSeats && dbSeats.length > 0) {
+            const mapped: Seat[] = dbSeats.map((s) => {
+              const seatLabel = `${s.row_label}${s.seat_number}`;
+              const isBookedLocally = bookedSeatLabels.has(seatLabel);
+              return {
+                id: s.id,
+                row_label: s.row_label,
+                seat_number: s.seat_number,
+                grid_row: s.grid_row,
+                grid_col: s.grid_col,
+                seat_type: {
+                  id: s.seat_type || 'standard',
+                  code: (s.seat_type || 'STANDARD').toUpperCase() as any,
+                  name: (s.seat_type || 'STANDARD').toUpperCase(),
+                },
+                seat_group: s.seat_group,
+                status: isBookedLocally ? 'sold' : (s.status as any),
+              };
+            });
+            if (isMounted) setSeats(mapped);
+            return;
+          }
+        } catch (err) {
+          console.warn('Lỗi tải ghế Supabase, dùng sơ đồ riêng cho rạp:', err);
         }
-        return s;
-      });
-      if (isMounted) setSeats(updated);
+      }
+
+      // 3. Với các rạp khác (Landmark 81, Cầu Giấy...) hoặc các suất chiếu khác:
+      // Sinh sơ đồ ghế độc lập theo mã định danh duy nhất của rạp và suất chiếu, đảm bảo KHÔNG BỊ TRÙNG LẶP!
+      const dynamicSeats = getDynamicShowtimeSeats(
+        Number(selectedShowtime?.room_id) || 1,
+        selectedCinema?.id || queryCinemaId,
+        selectedShowtime?.id || queryShowtimeId,
+        queryDate,
+        queryTime,
+        bookedSeatLabels
+      );
+
+      if (isMounted) setSeats(dynamicSeats);
     }
 
     loadSeats();
     return () => {
       isMounted = false;
     };
-  }, [selectedShowtime]);
+  }, [selectedShowtime, queryCinemaId, queryDate, queryTime, selectedCinema]);
 
   useEffect(() => {
     if (currentStep === 1 || currentStep === 2) {
@@ -294,35 +393,49 @@ function BookingContent() {
     // 4. Reset timer giữ chỗ 10 phút
     setTimeLeft(10 * 60);
 
-    // 5. Tải lại sơ đồ ghế của suất chiếu mới từ DB
-    try {
-      const { BookingService } = await import('@/services/booking.service');
-      const validId =
-        slot.id?.toString().length === 36
-          ? slot.id.toString()
-          : '85608755-35ca-4157-87bd-96b50577e0e5';
-      const dbSeats = await BookingService.getShowtimeSeats(validId);
-      if (dbSeats && dbSeats.length > 0) {
-        setSeats(
-          dbSeats.map((s) => ({
-            id: s.id,
-            row_label: s.row_label,
-            seat_number: s.seat_number,
-            grid_row: s.grid_row,
-            grid_col: s.grid_col,
-            seat_type: {
-              id: s.seat_type || 'standard',
-              code: (s.seat_type || 'STANDARD').toUpperCase() as any,
-              name: (s.seat_type || 'STANDARD').toUpperCase(),
-            },
-            seat_group: s.seat_group,
-            status: s.status as any,
-          }))
-        );
+    // 5. Tải lại sơ đồ ghế của suất chiếu mới
+    const isRealDb =
+      slot.id === '85608755-35ca-4157-87bd-96b50577e0e5' &&
+      (newCinemaId === 1 || newCinemaId === '1');
+
+    if (isRealDb) {
+      try {
+        const { BookingService } = await import('@/services/booking.service');
+        const dbSeats = await BookingService.getShowtimeSeats(slot.id);
+        if (dbSeats && dbSeats.length > 0) {
+          setSeats(
+            dbSeats.map((s) => ({
+              id: s.id,
+              row_label: s.row_label,
+              seat_number: s.seat_number,
+              grid_row: s.grid_row,
+              grid_col: s.grid_col,
+              seat_type: {
+                id: s.seat_type || 'standard',
+                code: (s.seat_type || 'STANDARD').toUpperCase() as any,
+                name: (s.seat_type || 'STANDARD').toUpperCase(),
+              },
+              seat_group: s.seat_group,
+              status: s.status as any,
+            }))
+          );
+          return;
+        }
+      } catch (err) {
+        console.error('Lỗi tải lại ghế khi đổi suất:', err);
       }
-    } catch (err) {
-      console.error('Lỗi tải lại ghế khi đổi suất:', err);
     }
+
+    // Tải sơ đồ ghế riêng biệt theo rạp và suất mới (không trùng lặp với rạp/suất khác)
+    const newSeats = getDynamicShowtimeSeats(
+      1,
+      newCinemaId,
+      slot.id,
+      newDate,
+      slot.time,
+      new Set()
+    );
+    setSeats(newSeats);
   };
 
   const handleCheckout = async () => {
