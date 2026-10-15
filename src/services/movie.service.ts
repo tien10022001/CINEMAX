@@ -265,14 +265,45 @@ export class MovieService {
         }
       }
 
+      // Đếm số ghế đã bán từ cinemax_user_tickets cho suất chiếu này
+      let bookedCount = 0;
+      if (typeof window !== 'undefined') {
+        try {
+          const storedTickets = localStorage.getItem('cinemax_user_tickets');
+          if (storedTickets) {
+            const tickets = JSON.parse(storedTickets);
+            const bookedSeats = new Set<string>();
+            tickets.forEach((t: any) => {
+              const matchShowtime = t.showtimeId && st.id && t.showtimeId.toString() === st.id.toString();
+              const matchTimeAndDate =
+                (t.showtimeTime === timeStr || t.showtime?.includes(timeStr)) &&
+                (t.showtimeDate === dateKey || t.date === dateKey || t.showtime?.includes(dateKey));
+
+              if (matchShowtime || matchTimeAndDate) {
+                if (Array.isArray(t.seats)) {
+                  t.seats.forEach((s: string) => bookedSeats.add(s.trim()));
+                } else if (typeof t.seats === 'string') {
+                  t.seats.split(',').forEach((s: string) => bookedSeats.add(s.trim()));
+                }
+              }
+            });
+            bookedCount = bookedSeats.size;
+          }
+        } catch (e) {
+          console.error('Error counting booked seats for showtime:', e);
+        }
+      }
+
       const screenType = roomObj?.screen_type || '2D';
+      const totalSeats = roomObj?.total_seats ?? 75;
+      const computedAvailableSeats = Math.max(0, totalSeats - bookedCount);
 
       slots.push({
         id: st.id,
         time: timeStr || '18:30',
         dateStr: dateDisplay || '15/10',
-        availableSeats: st.available_seats ?? 80,
-        totalSeats: roomObj?.total_seats ?? 80,
+        availableSeats: computedAvailableSeats,
+        totalSeats: totalSeats,
         format: screenType === 'IMAX' ? 'IMAX Laser' : screenType,
         roomName: roomObj?.name || 'Phòng 1',
         isLate: isLateShowtime(timeStr || '18:30'),
@@ -312,17 +343,33 @@ export class MovieService {
               .eq('showtime_id', st.id);
 
             const allSeats: any[] = seatRes.data || [];
+            let localBookedForThisSt = 0;
+            if (typeof window !== 'undefined') {
+              try {
+                const storedTickets = localStorage.getItem('cinemax_user_tickets');
+                if (storedTickets) {
+                  const tickets = JSON.parse(storedTickets);
+                  tickets.forEach((t: any) => {
+                    if (t.showtimeId && t.showtimeId.toString() === st.id.toString()) {
+                      const count = Array.isArray(t.seats) ? t.seats.length : (t.seats?.toString().split(',').filter(Boolean).length || 1);
+                      localBookedForThisSt += count;
+                    }
+                  });
+                }
+              } catch (e) {}
+            }
+
             const availableCount =
               allSeats.length > 0
-                ? allSeats.filter((s) => s.status === 'available').length
-                : 76;
+                ? Math.max(0, allSeats.filter((s) => s.status === 'available').length - localBookedForThisSt)
+                : Math.max(0, 75 - localBookedForThisSt);
 
             slots.push({
               id: st.id,
               time: timeStrDb,
               dateStr: d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
               availableSeats: availableCount,
-              totalSeats: 80,
+              totalSeats: 75,
               format: st.format || '2D',
               roomName: 'Phòng 1 (2D Tiêu Chuẩn)',
               isLate: isLateShowtime(timeStrDb),

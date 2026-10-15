@@ -59,8 +59,14 @@ export default function MovieDetailPage() {
 
     loadAllCinemas();
 
+    const handleUpdate = () => loadAllCinemas();
+    window.addEventListener('cinemax_data_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('cinemax_data_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
     };
   }, [movie?.id, selectedDate]);
 

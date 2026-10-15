@@ -270,8 +270,14 @@ function getDynamicShowtimeSeats(
     }
 
     loadSeats();
+    const handleUpdate = () => loadSeats();
+    window.addEventListener('cinemax_data_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('cinemax_data_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
     };
   }, [selectedShowtime, queryCinemaId, queryDate, queryTime, selectedCinema]);
 
@@ -324,6 +330,14 @@ function getDynamicShowtimeSeats(
     if (seat.seat_type?.code === 'VIP') return 110000;
     return 90000;
   };
+
+  // Thống kê đếm số ghế và số ghế trống thời gian thực
+  const totalSeatsCount = seats.length || 75;
+  const soldSeatsCount = seats.filter(
+    (s) => s.status === 'SOLD' || s.status === 'sold' || s.status === 'HELD' || s.status === 'held'
+  ).length;
+  const selectedSeatsCount = selectedSeats.length;
+  const availableSeatsCount = Math.max(0, totalSeatsCount - soldSeatsCount - selectedSeatsCount);
 
   const ticketSubtotal = selectedSeats.reduce((sum, seat) => sum + getSeatPrice(seat), 0);
 
@@ -594,6 +608,27 @@ function getDynamicShowtimeSeats(
         list.unshift(ticketRecord);
         localStorage.setItem('cinemax_user_tickets', JSON.stringify(list));
         localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
+
+        // Cập nhật số ghế trống khả dụng của suất chiếu trong cinemax_showtimes_v2
+        const showtimesStored = localStorage.getItem('cinemax_showtimes_v2');
+        if (showtimesStored) {
+          const showtimesList = JSON.parse(showtimesStored);
+          const targetShowtimeId = selectedShowtime?.id || queryShowtimeId;
+          const updatedShowtimes = showtimesList.map((st: any) => {
+            if (st.id?.toString() === targetShowtimeId?.toString()) {
+              const curSeats = st.available_seats ?? 75;
+              return {
+                ...st,
+                available_seats: Math.max(0, curSeats - selectedSeats.length),
+              };
+            }
+            return st;
+          });
+          localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(updatedShowtimes));
+        }
+
+        window.dispatchEvent(new Event('cinemax_data_updated'));
+        window.dispatchEvent(new Event('storage'));
       } catch (e) {
         console.error('Error storing local ticket', e);
       }
@@ -674,6 +709,27 @@ function getDynamicShowtimeSeats(
       list.unshift(ticketRecord);
       localStorage.setItem('cinemax_user_tickets', JSON.stringify(list));
       localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
+
+      // Cập nhật số ghế trống khả dụng của suất chiếu trong cinemax_showtimes_v2
+      const showtimesStored = localStorage.getItem('cinemax_showtimes_v2');
+      if (showtimesStored) {
+        const showtimesList = JSON.parse(showtimesStored);
+        const targetShowtimeId = selectedShowtime?.id || queryShowtimeId;
+        const updatedShowtimes = showtimesList.map((st: any) => {
+          if (st.id?.toString() === targetShowtimeId?.toString()) {
+            const curSeats = st.available_seats ?? 75;
+            return {
+              ...st,
+              available_seats: Math.max(0, curSeats - selectedSeats.length),
+            };
+          }
+          return st;
+        });
+        localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(updatedShowtimes));
+      }
+
+      window.dispatchEvent(new Event('cinemax_data_updated'));
+      window.dispatchEvent(new Event('storage'));
     } catch (e) {
       console.warn('Lỗi lưu ticket localStorage:', e);
     }
@@ -728,6 +784,26 @@ function getDynamicShowtimeSeats(
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Seat Map (Left 2 cols) */}
             <div className="lg:col-span-2 bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 flex flex-col items-center">
+              {/* Thống kê đếm đúng số ghế và số ghế trống thời gian thực */}
+              <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-[#0F1217] p-3 rounded-2xl border border-[#303645] mb-8 text-xs select-none shadow-inner">
+                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#1A1C26] px-3 py-2 rounded-xl border border-[#303645]/70">
+                  <span className="text-[#9EA6B8]">Tổng số ghế:</span>
+                  <span className="font-bold text-white font-mono">{totalSeatsCount} ghế</span>
+                </div>
+                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#33C773]/10 px-3 py-2 rounded-xl border border-[#33C773]/30">
+                  <span className="text-[#9EA6B8]">Ghế trống:</span>
+                  <span className="font-bold text-[#33C773] font-mono">{availableSeatsCount} ghế</span>
+                </div>
+                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#383D4D]/40 px-3 py-2 rounded-xl border border-[#383D4D]">
+                  <span className="text-[#9EA6B8]">Đã khóa/bán:</span>
+                  <span className="font-bold text-gray-300 font-mono">{soldSeatsCount} ghế</span>
+                </div>
+                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#E63845]/10 px-3 py-2 rounded-xl border border-[#E63845]/30">
+                  <span className="text-[#9EA6B8]">Đang chọn:</span>
+                  <span className="font-bold text-[#E63845] font-mono">{selectedSeatsCount} ghế</span>
+                </div>
+              </div>
+
               {/* Red Screen Curve (Figma Screen 3) */}
               <div className="w-full max-w-xl mx-auto flex flex-col items-center mb-10">
                 <div className="w-full h-3 rounded-t-[100%] border-t-2 border-[#E63845] shadow-[0_-10px_20px_rgba(230,56,69,0.35)] mb-3" />
@@ -868,6 +944,17 @@ function getDynamicShowtimeSeats(
                     >
                       Đổi suất
                     </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 p-2.5 bg-[#0F1217] rounded-xl border border-[#303645] text-xs">
+                    <div>
+                      <span className="text-[#9EA6B8] block text-[10px]">Tổng số ghế:</span>
+                      <span className="font-bold text-white font-mono">{totalSeatsCount} ghế</span>
+                    </div>
+                    <div>
+                      <span className="text-[#9EA6B8] block text-[10px]">Ghế trống còn lại:</span>
+                      <span className="font-bold text-[#33C773] font-mono">{availableSeatsCount} ghế</span>
+                    </div>
                   </div>
 
                   <div className="pt-2 border-t border-[#303645]">

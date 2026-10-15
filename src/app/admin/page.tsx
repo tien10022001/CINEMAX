@@ -181,18 +181,34 @@ export default function AdminDashboardPage() {
   // System tickets
   const [systemTickets, setSystemTickets] = useState<any[]>([]);
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('cinemax_user_tickets');
-      if (stored) {
-        setSystemTickets(JSON.parse(stored));
+    const loadTickets = () => {
+      try {
+        const stored = localStorage.getItem('cinemax_user_tickets');
+        if (stored) {
+          setSystemTickets(JSON.parse(stored));
+        } else {
+          setSystemTickets([]);
+        }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
-    }
+    };
+
+    loadTickets();
+    window.addEventListener('cinemax_data_updated', loadTickets);
+    window.addEventListener('storage', loadTickets);
+    return () => {
+      window.removeEventListener('cinemax_data_updated', loadTickets);
+      window.removeEventListener('storage', loadTickets);
+    };
   }, []);
 
   const totalRevenue = systemTickets.reduce((sum, t) => sum + (t.totalAmount || 0), 24500000);
-  const totalTicketsSold = systemTickets.length + 154;
+  const totalTicketsSold = systemTickets.reduce((acc, t) => {
+    if (Array.isArray(t.seats)) return acc + t.seats.length;
+    if (typeof t.seats === 'string') return acc + t.seats.split(',').filter(Boolean).length;
+    return acc + 1;
+  }, 154);
 
   // Handle Admin Portal Login
   const handleAdminLoginSubmit = async (e: React.FormEvent) => {
@@ -905,35 +921,66 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#303645]/60">
-                  {showtimes.map((st) => (
-                    <tr key={st.id} className="hover:bg-[#0F1217]/50 text-white">
-                      <td className="p-4 font-mono font-bold text-[#FABF2E]">#{st.id}</td>
-                      <td className="p-4 font-bold">{st.movie?.title || 'Dune 2'}</td>
-                      <td className="p-4 text-[#9EA6B8]">{st.room?.name || 'Phòng 1 - IMAX Laser'}</td>
-                      <td className="p-4 text-[#9EA6B8]">
-                        {new Date(st.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} • {new Date(st.start_time).toLocaleDateString('vi-VN')}
-                      </td>
-                      <td className="p-4 font-semibold text-[#33C773]">{st.available_seats || 80} ghế</td>
-                      <td className="p-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#33C773]/20 text-[#33C773]">
-                          {st.status}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right">
-                        <button
-                          onClick={() => {
-                            if (confirm('Xóa suất chiếu này khỏi hệ thống?')) {
-                              deleteShowtime(st.id);
-                              showToast('Đã xóa suất chiếu!');
-                            }
-                          }}
-                          className="p-1.5 rounded-lg bg-[#E63845]/15 text-[#E63845] hover:bg-[#E63845] hover:text-white transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {showtimes.map((st) => {
+                    const bookedSeats = new Set<string>();
+                    systemTickets.forEach((t) => {
+                      const matchId = t.showtimeId && st.id && t.showtimeId.toString() === st.id.toString();
+                      const stDate = new Date(st.start_time).toLocaleDateString('vi-VN');
+                      const stTime = new Date(st.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                      const matchTimeAndDate =
+                        (t.showtimeTime === stTime || t.showtime?.includes(stTime)) &&
+                        (t.showtimeDate === stDate || t.showtime?.includes(stDate));
+                      if (matchId || matchTimeAndDate) {
+                        if (Array.isArray(t.seats)) {
+                          t.seats.forEach((s: string) => bookedSeats.add(s.trim()));
+                        } else if (typeof t.seats === 'string') {
+                          t.seats.split(',').forEach((s: string) => bookedSeats.add(s.trim()));
+                        }
+                      }
+                    });
+
+                    const total = st.room?.total_seats || 75;
+                    const available = Math.max(0, total - bookedSeats.size);
+
+                    return (
+                      <tr key={st.id} className="hover:bg-[#0F1217]/50 text-white">
+                        <td className="p-4 font-mono font-bold text-[#FABF2E]">#{st.id}</td>
+                        <td className="p-4 font-bold">{st.movie?.title || 'Dune 2'}</td>
+                        <td className="p-4 text-[#9EA6B8]">{st.room?.name || 'Phòng 1 - IMAX Laser'}</td>
+                        <td className="p-4 text-[#9EA6B8]">
+                          {new Date(st.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} • {new Date(st.start_time).toLocaleDateString('vi-VN')}
+                        </td>
+                        <td className="p-4">
+                          <span className={`font-semibold ${available < 10 ? 'text-[#E63845]' : 'text-[#33C773]'}`}>
+                            {available} / {total} ghế
+                          </span>
+                          {bookedSeats.size > 0 && (
+                            <span className="block text-[10px] text-[#FABF2E] font-medium">
+                              (Đã bán {bookedSeats.size} ghế)
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#33C773]/20 text-[#33C773]">
+                            {st.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <button
+                            onClick={() => {
+                              if (confirm('Xóa suất chiếu này khỏi hệ thống?')) {
+                                deleteShowtime(st.id);
+                                showToast('Đã xóa suất chiếu!');
+                              }
+                            }}
+                            className="p-1.5 rounded-lg bg-[#E63845]/15 text-[#E63845] hover:bg-[#E63845] hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -997,6 +1044,8 @@ export default function AdminDashboardPage() {
                               const updated = systemTickets.filter((_, i) => i !== idx);
                               setSystemTickets(updated);
                               localStorage.setItem('cinemax_user_tickets', JSON.stringify(updated));
+                              window.dispatchEvent(new Event('cinemax_data_updated'));
+                              window.dispatchEvent(new Event('storage'));
                               showToast('Đã xóa đơn vé!');
                             }}
                             className="p-1.5 rounded-lg bg-[#E63845]/15 text-[#E63845] hover:bg-[#E63845] hover:text-white transition-colors cursor-pointer"

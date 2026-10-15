@@ -69,6 +69,13 @@ export default function ShowtimeModal({
   // Lấy dữ liệu suất chiếu từ Supabase Database
   useEffect(() => {
     loadSlots();
+    const handleUpdate = () => loadSlots();
+    window.addEventListener('cinemax_data_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('cinemax_data_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, [isOpen, movie?.id, selectedDate, selectedCinemaId]);
 
   if (!isOpen || !movie) return null;
