@@ -61,7 +61,7 @@ function BookingContent() {
   const [guestError, setGuestError] = useState<string>('');
 
   // Food Items State: { [foodId]: quantity }
-  const [foodQuantities, setFoodQuantities] = useState<{ [id: number]: number }>({
+  const [foodQuantities, setFoodQuantities] = useState<{ [id: string | number]: number }>({
     1: 0,
     2: 0,
     3: 0,
@@ -89,7 +89,7 @@ function BookingContent() {
   const [timeLeft, setTimeLeft] = useState<number>(582); // 09:42 initial
 
   useEffect(() => {
-    setSeats(generateMockSeats(selectedShowtime.room_id));
+    setSeats(generateMockSeats(Number(selectedShowtime?.room_id) || 1));
   }, [selectedShowtime]);
 
   useEffect(() => {

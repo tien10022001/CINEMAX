@@ -339,9 +339,9 @@ export default function AdminDashboardPage() {
       discount_type: p.discount_type,
       discount_value: p.discount_value,
       min_order: p.min_order,
-      valid_from: p.valid_from,
-      valid_to: p.valid_to,
-      is_active: p.is_active,
+      valid_from: p.valid_from || '',
+      valid_to: p.valid_to || '',
+      is_active: p.is_active ?? true,
     });
     setPromoModalOpen(true);
   };
@@ -377,7 +377,7 @@ export default function AdminDashboardPage() {
     setEditingFood(f);
     setFoodForm({
       name: f.name,
-      category: f.category,
+      category: (f.category as any) || 'COMBO',
       description: f.description || '',
       price: f.price,
       image_url: f.image_url || '',
