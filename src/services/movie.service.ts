@@ -19,7 +19,27 @@ export interface ShowtimeWithDetails extends ShowtimeRow {
   prices?: ShowtimePriceRow[];
 }
 
+/**
+ * Xác định suất chiếu muộn (từ 22:00 trở đi theo giờ địa phương rạp Asia/Ho_Chi_Minh)
+ */
+export function isLateShowtime(startsAtOrTime: string): boolean {
+  if (!startsAtOrTime) return false;
+  if (startsAtOrTime.includes('T') || startsAtOrTime.includes('-')) {
+    const d = new Date(startsAtOrTime);
+    const hourStr = d.toLocaleTimeString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      hour12: false,
+    });
+    const h = parseInt(hourStr, 10);
+    return h >= 22 || h < 4; // Suất từ 22:00 đêm đến rạng sáng
+  }
+  const [hours] = startsAtOrTime.split(':').map(Number);
+  return hours >= 22 || hours < 4;
+}
+
 export class MovieService {
+  static isLateShowtime = isLateShowtime;
   /**
    * Lấy danh sách phim đang chiếu (status = 'now_showing' hoặc 'SHOWING')
    */
@@ -147,7 +167,9 @@ export class MovieService {
 
   /**
    * Lấy danh sách thẻ suất chiếu chuẩn hóa từ Database Supabase kèm số ghế trống thực tế
-   * Hỗ trợ lọc theo phim, ngày chiếu và rạp
+   * - Nguồn chuẩn: showtimes + showtime_seats (tính cả ghế giữ tạm hết hạn)
+   * - Múi giờ chuẩn: Asia/Ho_Chi_Minh (GMT+7)
+   * - Lọc suất chiếu hợp lệ: status='open' và chưa qua thời gian chiếu
    */
   static async getShowtimeSlots(
     movieId: string | number,
@@ -174,19 +196,37 @@ export class MovieService {
         .order('starts_at', { ascending: true });
 
       const dbShowtimes: any[] = resShowtimes.data || [];
-      const filtered = dbShowtimes.filter(
-        (st: any) => st.movie_id === targetMovieId || !targetMovieId
-      );
+      const now = new Date();
+      // Ngưỡng trễ tối đa 15 phút sau giờ chiếu
+      const cutOffTime = new Date(now.getTime() - 15 * 60 * 1000);
+
+      const filtered = dbShowtimes.filter((st: any) => {
+        // Khớp phim
+        if (targetMovieId && st.movie_id !== targetMovieId) return false;
+        // Bỏ qua suất đã qua thời gian chiếu
+        const startTime = new Date(st.starts_at);
+        if (startTime < cutOffTime) return false;
+        return true;
+      });
 
       const realSlots: any[] = [];
 
       for (const st of filtered) {
-        // Đếm số ghế trống thực tế từ bảng showtime_seats
+        // Lấy tất cả ghế của suất chiếu để tính ghế khả dụng (kể cả ghế held đã hết hạn)
         const seatRes: any = await supabase
           .from('showtime_seats')
-          .select('*', { count: 'exact', head: true })
-          .eq('showtime_id', st.id)
-          .eq('status', 'available');
+          .select('id, status, held_until')
+          .eq('showtime_id', st.id);
+
+        const allSeats: any[] = seatRes.data || [];
+        const availableCount = allSeats.filter((s) => {
+          if (s.status === 'available') return true;
+          // P0.1: Ghế đang giữ nhưng đã hết hạn (held_until < now) thì tính là khả dụng
+          if (s.status === 'held' && s.held_until && new Date(s.held_until) < now) {
+            return true;
+          }
+          return false;
+        }).length;
 
         // Lấy tổng số ghế của phòng chiếu
         const auditRes: any = await supabase
@@ -195,8 +235,7 @@ export class MovieService {
           .eq('id', st.auditorium_id)
           .single();
 
-        const count = seatRes.count ?? 76;
-        const totalSeats = auditRes.data?.total_seats ?? 80;
+        const totalSeats = auditRes.data?.total_seats ?? (allSeats.length > 0 ? allSeats.length : 80);
         const roomName = auditRes.data?.name || 'Phòng 1';
 
         const d = new Date(st.starts_at);
@@ -210,19 +249,31 @@ export class MovieService {
           day: '2-digit',
           month: '2-digit',
         });
+        const dateKeyDb = d.toLocaleDateString('en-CA', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+        }); // "YYYY-MM-DD"
+
+        // Nếu có dateStr cụ thể, chỉ lấy suất trùng ngày hoặc hiển thị suất đang mở của phim
+        if (dateStr && dateStr.includes('-')) {
+          if (dateKeyDb !== dateStr) {
+            // Không trùng ngày -> bỏ qua
+            continue;
+          }
+        }
 
         realSlots.push({
           id: st.id,
           time: timeStr,
           dateStr: dateStrDb,
-          availableSeats: count,
+          availableSeats: availableCount,
           totalSeats: totalSeats,
           format: st.format || '2D',
           roomName: roomName,
+          isLate: isLateShowtime(st.starts_at),
         });
       }
 
-      // CHỈ HIỆN CÁC SUẤT CHIẾU CÓ THẬT TRÊN DATABASE (Không thêm suất ảo)
+      // Sắp xếp theo giờ chiếu tăng dần
       realSlots.sort((a, b) => a.time.localeCompare(b.time));
       return realSlots;
     } catch (err) {

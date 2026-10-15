@@ -14,6 +14,8 @@ interface ShowtimeModalProps {
   onClose: () => void;
   movie: Movie | null;
   cinemas?: Cinema[];
+  initialDate?: string;
+  onSelectShowtime?: (slot: ShowtimeSlot, cinemaId: string | number, date: string) => void;
 }
 
 export default function ShowtimeModal({
@@ -21,6 +23,8 @@ export default function ShowtimeModal({
   onClose,
   movie,
   cinemas = MOCK_CINEMAS,
+  initialDate,
+  onSelectShowtime,
 }: ShowtimeModalProps) {
   const router = useRouter();
 
@@ -33,47 +37,53 @@ export default function ShowtimeModal({
     { label: '19/10 - T2', date: '2026-10-19', dayStr: '19/10' },
   ];
 
-  const [selectedDate, setSelectedDate] = useState<string>(dates[0].date);
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate || dates[0].date);
   const [selectedCinemaId, setSelectedCinemaId] = useState<string | number>(
     cinemas[0]?.id || 1
   );
   const [slots, setSlots] = useState<ShowtimeSlot[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   const activeCinema = cinemas.find((c) => c.id === selectedCinemaId) || cinemas[0];
   const activeDateObj = dates.find((d) => d.date === selectedDate) || dates[0];
 
-  // Lấy dữ liệu suất chiếu từ Supabase Database
-  useEffect(() => {
+  const loadSlots = () => {
     if (!isOpen || !movie?.id) return;
-    let isMounted = true;
+    const reqTimestamp = Date.now();
     setLoading(true);
+    setError(null);
 
     MovieService.getShowtimeSlots(movie.id, selectedDate, selectedCinemaId)
       .then((data) => {
-        if (isMounted) {
-          setSlots(data);
-          setLoading(false);
-        }
+        setSlots(data);
+        setLoading(false);
       })
       .catch((err) => {
         console.error('Failed to load showtime slots:', err);
-        if (isMounted) setLoading(false);
+        setError('Không thể tải danh sách suất chiếu. Vui lòng thử lại.');
+        setLoading(false);
       });
+  };
 
-    return () => {
-      isMounted = false;
-    };
+  // Lấy dữ liệu suất chiếu từ Supabase Database
+  useEffect(() => {
+    loadSlots();
   }, [isOpen, movie?.id, selectedDate, selectedCinemaId]);
 
   if (!isOpen || !movie) return null;
 
   const handleSelectShowtime = (slot: ShowtimeSlot) => {
     onClose();
-    // Chuyển hướng sang màn hình chọn ghế
-    router.push(
-      `/booking?movie=${movie.id}&cinema=${selectedCinemaId}&date=${selectedDate}&showtime=${slot.id}&time=${slot.time}`
-    );
+    if (onSelectShowtime) {
+      // P0.2: Gọi callback chuyên biệt cho trang Booking để làm sạch ghế cũ và tính lại giá
+      onSelectShowtime(slot, selectedCinemaId, selectedDate);
+    } else {
+      // Mặc định chuyển hướng sang màn hình chọn ghế
+      router.push(
+        `/booking?movie=${movie.id}&cinema=${selectedCinemaId}&date=${selectedDate}&showtime=${slot.id}&time=${slot.time}`
+      );
+    }
   };
 
   return (
@@ -168,9 +178,20 @@ export default function ShowtimeModal({
                 </div>
               ))}
             </div>
+          ) : error ? (
+            <div className="text-center py-6 space-y-2">
+              <p className="text-sm text-red-500 font-medium">{error}</p>
+              <button
+                type="button"
+                onClick={loadSlots}
+                className="text-xs text-blue-600 hover:underline font-bold px-3 py-1.5 bg-blue-50 rounded-md cursor-pointer"
+              >
+                Tải lại suất chiếu
+              </button>
+            </div>
           ) : slots.length === 0 ? (
             <div className="text-center py-6 text-gray-500 text-sm">
-              Không có suất chiếu nào cho ngày đã chọn.
+              Không có suất chiếu nào cho ngày đã chọn tại cụm rạp này.
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">

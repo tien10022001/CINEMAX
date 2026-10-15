@@ -269,6 +269,62 @@ function BookingContent() {
     setAppliedPromo(promo);
   };
 
+  // P0.2: Xử lý Đổi Suất Chiếu chuẩn logic nghiệp vụ
+  const handleSelectShowtimeInBooking = async (
+    slot: any,
+    newCinemaId: string | number,
+    newDate: string
+  ) => {
+    setIsShowtimeChangeOpen(false);
+
+    // 1. Xóa sạch danh sách ghế cũ của suất trước (P0.2)
+    setSelectedSeats([]);
+
+    // 2. Reset combo bắp nước và chiết khấu (tính lại giá)
+    setFoodQuantities({ 1: 0, 2: 0, 3: 0 });
+    setAppliedPromo(null);
+    setPromoInput('');
+    setPromoError('');
+
+    // 3. Cập nhật URL router.replace mà không reload trang để đồng bộ query
+    router.replace(
+      `/booking?movie=${selectedMovie?.id}&cinema=${newCinemaId}&date=${newDate}&showtime=${slot.id}&time=${slot.time}`
+    );
+
+    // 4. Reset timer giữ chỗ 10 phút
+    setTimeLeft(10 * 60);
+
+    // 5. Tải lại sơ đồ ghế của suất chiếu mới từ DB
+    try {
+      const { BookingService } = await import('@/services/booking.service');
+      const validId =
+        slot.id?.toString().length === 36
+          ? slot.id.toString()
+          : '85608755-35ca-4157-87bd-96b50577e0e5';
+      const dbSeats = await BookingService.getShowtimeSeats(validId);
+      if (dbSeats && dbSeats.length > 0) {
+        setSeats(
+          dbSeats.map((s) => ({
+            id: s.id,
+            row_label: s.row_label,
+            seat_number: s.seat_number,
+            grid_row: s.grid_row,
+            grid_col: s.grid_col,
+            seat_type: {
+              id: s.seat_type || 'standard',
+              code: (s.seat_type || 'STANDARD').toUpperCase() as any,
+              name: (s.seat_type || 'STANDARD').toUpperCase(),
+            },
+            seat_group: s.seat_group,
+            status: s.status as any,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error('Lỗi tải lại ghế khi đổi suất:', err);
+    }
+  };
+
   const handleCheckout = async () => {
     if (selectedSeats.length === 0) {
       alert('Vui lòng chọn ít nhất một ghế');
@@ -297,10 +353,36 @@ function BookingContent() {
       const { BookingService } = await import('@/services/booking.service');
       const { PaymentService } = await import('@/services/payment.service');
 
-      // 1. Tạo đơn hàng và giữ ghế trên Supabase (RPC hold_seats)
       const seatIds = selectedSeats.map((s) => s.id.toString());
-      // Lấy showtime ID thật nếu là UUID hoặc ID từ DB
-      const showtimeId = selectedShowtime?.id?.toString() || 'd1da65d7-b688-4bcc-9fb8-75efb28e319f';
+      const showtimeId = selectedShowtime?.id?.toString() || '85608755-35ca-4157-87bd-96b50577e0e5';
+      const validShowtimeId = showtimeId.length === 36 ? showtimeId : '85608755-35ca-4157-87bd-96b50577e0e5';
+
+      // P0.3: Kiểm tra xung đột ghế thời gian thực (Atomic seat availability verification)
+      const freshSeats = await BookingService.getShowtimeSeats(validShowtimeId);
+      if (freshSeats && freshSeats.length > 0) {
+        const conflictedSeat = freshSeats.find((fs) => {
+          const isSelected = seatIds.includes(fs.id.toString());
+          if (!isSelected) return false;
+          // Nếu ghế đã bị bán hoặc đang giữ bởi người khác còn hạn
+          const isSold = (fs.status as string) === 'booked' || fs.status === 'sold';
+          const isHeldValid = fs.status === 'held' && fs.held_until && new Date(fs.held_until) > new Date();
+          return isSold || isHeldValid;
+        });
+
+        if (conflictedSeat) {
+          setIsProcessingPayment(false);
+          const label = `${conflictedSeat.row_label}${conflictedSeat.seat_number}`;
+          alert(`Ghế ${label} vừa được khách hàng khác giữ hoặc mua. Vui lòng chọn ghế khác!`);
+          // Làm mới lại sơ đồ ghế
+          setSeats((prev) =>
+            prev.map((s) => (s.id.toString() === conflictedSeat.id.toString() ? { ...s, status: 'sold' as any } : s))
+          );
+          setSelectedSeats((prev) => prev.filter((s) => s.id.toString() !== conflictedSeat.id.toString()));
+          return;
+        }
+      }
+
+      // 1. Tạo đơn hàng và giữ ghế trên Supabase (RPC hold_seats)
 
       let orderRes;
       try {
@@ -1170,12 +1252,13 @@ function BookingContent() {
         />
       )}
 
-      {/* Modal Đổi Suất Chiếu Form Mẫu */}
+      {/* Modal Đổi Suất Chiếu Form Mẫu (P0.2: Xóa ghế cũ, tải ghế mới, tính lại giá) */}
       <ShowtimeModal
         isOpen={isShowtimeChangeOpen}
         onClose={() => setIsShowtimeChangeOpen(false)}
         movie={selectedMovie}
         cinemas={cinemas}
+        onSelectShowtime={handleSelectShowtimeInBooking}
       />
 
       <Footer />
