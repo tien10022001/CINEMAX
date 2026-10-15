@@ -103,7 +103,7 @@ function BookingContent() {
   // 10-minute hold timer (Figma Screen 3: "⏱ Giữ ghế còn 09:42")
   const [timeLeft, setTimeLeft] = useState<number>(582); // 09:42 initial
 
-// Helper: Sinh sơ đồ ghế độc lập riêng cho từng rạp, từng suất chiếu và từng ngày
+// Helper: Sinh sơ đồ ghế chuẩn xác cho từng rạp, từng suất chiếu (suất mới tạo có 100% ghế trống)
 function getDynamicShowtimeSeats(
   roomId: number = 1,
   cinemaId: string | number,
@@ -112,15 +112,6 @@ function getDynamicShowtimeSeats(
   time: string,
   locallyBookedSeats: Set<string>
 ): Seat[] {
-  // Tạo seed số học từ chuỗi định danh duy nhất của suất chiếu tại rạp
-  const seedStr = `${cinemaId}_${showtimeId}_${date}_${time}`;
-  let hash = 0;
-  for (let i = 0; i < seedStr.length; i++) {
-    hash = (hash << 5) - hash + seedStr.charCodeAt(i);
-    hash |= 0;
-  }
-  const absHash = Math.abs(hash);
-
   const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   const seats: Seat[] = [];
   let seatId = 1;
@@ -135,8 +126,6 @@ function getDynamicShowtimeSeats(
       for (let c = 1; c <= 5; c++) {
         const label = `ĐÔI ${c}`;
         const isSoldLocally = locallyBookedSeats.has(label);
-        // Mỗi rạp/suất có tỉ lệ bán ngẫu nhiên riêng biệt, không trùng nhau
-        const isSoldMock = (absHash + c * 11) % 6 === 0;
 
         seats.push({
           id: seatId++,
@@ -154,15 +143,13 @@ function getDynamicShowtimeSeats(
             capacity: 2,
             color_code: '#F472B6',
           },
-          status: isSoldLocally || isSoldMock ? 'SOLD' : 'AVAILABLE',
+          status: isSoldLocally ? 'SOLD' : 'AVAILABLE',
         });
       }
     } else {
       for (let c = 1; c <= 10; c++) {
         const label = `${row}${c}`;
         const isSoldLocally = locallyBookedSeats.has(label);
-        // Mỗi rạp/suất có tập ghế đã bán hoàn toàn khác nhau
-        const isSoldMock = (absHash + (rowIdx + 1) * 17 + c * 23) % 8 === 0;
 
         seats.push({
           id: seatId++,
@@ -180,7 +167,7 @@ function getDynamicShowtimeSeats(
             capacity: 1,
             color_code: isVip ? '#FABF2E' : '#9CA3AF',
           },
-          status: isSoldLocally || isSoldMock ? 'SOLD' : 'AVAILABLE',
+          status: isSoldLocally ? 'SOLD' : 'AVAILABLE',
         });
       }
     }
@@ -198,16 +185,30 @@ function getDynamicShowtimeSeats(
       const bookedSeatLabels = new Set<string>();
 
       localTickets.forEach((t: any) => {
-        // Chỉ khớp vé của chính suất chiếu này, rạp này
+        // Chỉ khớp vé của chính suất chiếu này, rạp này, phim này và ngày này
+        const matchShowtimeId =
+          t.showtimeId &&
+          selectedShowtime?.id &&
+          t.showtimeId.toString() === selectedShowtime.id.toString();
+
         const matchCinema =
           t.cinemaName === selectedCinema?.name ||
-          t.cinemaId?.toString() === queryCinemaId.toString();
-        const matchShowtime =
-          t.showtimeId?.toString() === selectedShowtime?.id?.toString() ||
+          (t.cinemaId && t.cinemaId.toString() === queryCinemaId.toString());
+
+        const matchMovie =
+          (t.movieId && selectedMovie?.id && t.movieId.toString() === selectedMovie.id.toString()) ||
+          t.movieTitle === selectedMovie?.title;
+
+        const matchDate =
+          t.showtimeDate === queryDate ||
+          t.date === queryDate ||
+          (t.showtime && t.showtime.includes(queryDate));
+
+        const matchTime =
           t.showtimeTime === queryTime ||
           (t.showtime && t.showtime.includes(queryTime));
 
-        if (matchCinema && matchShowtime) {
+        if (matchShowtimeId || (matchCinema && matchMovie && matchDate && matchTime)) {
           if (Array.isArray(t.seats)) {
             t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
           } else if (typeof t.seats === 'string') {
@@ -575,10 +576,15 @@ function getDynamicShowtimeSeats(
           customerPhone: payerPhone,
           bookingCode: generatedCode,
           movieTitle: selectedMovie.title,
+          movieId: selectedMovie.id,
           posterUrl: selectedMovie.poster_url,
           cinemaName: selectedCinema.name,
+          cinemaId: selectedCinema.id,
           roomName: selectedShowtime.room?.name || 'Phòng 01 (IMAX)',
-          showtime: '10:00 • 29/09/2026',
+          showtimeId: selectedShowtime?.id || queryShowtimeId,
+          showtimeDate: queryDate,
+          showtimeTime: queryTime,
+          showtime: `${queryTime} • ${queryDate}`,
           seats: seatsStr,
           totalAmount: finalTotal,
           createdAt: paidTime,
@@ -648,11 +654,15 @@ function getDynamicShowtimeSeats(
         customerEmail: pendingVietQROrder.payerEmail,
         bookingCode: pendingVietQROrder.orderCode,
         movieTitle: selectedMovie.title,
+        movieId: selectedMovie.id,
         moviePoster: selectedMovie.poster_url,
         cinemaName: selectedCinema.name,
+        cinemaId: selectedCinema.id,
         roomName: selectedShowtime.room?.name || 'Phòng 01 (IMAX)',
-        showtimeDate: '29/09/2026',
-        showtimeTime: '10:00',
+        showtimeId: selectedShowtime?.id || queryShowtimeId,
+        showtimeDate: queryDate,
+        showtimeTime: queryTime,
+        showtime: `${queryTime} • ${queryDate}`,
         seats: selectedSeats.map((s) => `${s.row_label}${s.seat_number}`),
         seatsStr: pendingVietQROrder.seatsStr,
         totalAmount: pendingVietQROrder.amount,
