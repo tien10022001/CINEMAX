@@ -30,6 +30,7 @@ import {
   Lock,
 } from 'lucide-react';
 import VietQRModal from '@/components/booking/VietQRModal';
+import ShowtimeModal from '@/components/common/ShowtimeModal';
 
 function BookingContent() {
   const searchParams = useSearchParams();
@@ -42,6 +43,9 @@ function BookingContent() {
   const queryCinemaId = searchParams.get('cinema') || '1';
   const queryShowtimeId = searchParams.get('showtime') || '101';
   const queryPromoCode = searchParams.get('promo') || '';
+  const queryTime = searchParams.get('time') || '15:30';
+  const queryDate = searchParams.get('date') || '15/10/2026';
+  const [isShowtimeChangeOpen, setIsShowtimeChangeOpen] = useState<boolean>(false);
 
   // Steps: 1 = Chọn ghế (Screen 3), 2 = Bắp nước & Thanh toán (Screen 4), 3 = Vé điện tử (Screen 5)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -647,9 +651,18 @@ function BookingContent() {
                       {selectedShowtime.room?.name || 'Phòng 01 (IMAX)'}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-[#9EA6B8] block text-xs">Suất chiếu:</span>
-                    <span className="font-bold text-[#FABF2E]">10:00 • Hôm nay (29/09)</span>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[#9EA6B8] block text-xs">Suất chiếu:</span>
+                      <span className="font-bold text-[#FABF2E]">{queryTime} • {queryDate}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsShowtimeChangeOpen(true)}
+                      className="text-[11px] text-[#E63845] hover:underline font-semibold bg-[#E63845]/10 px-2.5 py-1 rounded-lg border border-[#E63845]/30 cursor-pointer transition-colors"
+                    >
+                      Đổi suất
+                    </button>
                   </div>
 
                   <div className="pt-2 border-t border-[#303645]">
@@ -981,7 +994,7 @@ function BookingContent() {
                   </div>
                   <div className="flex justify-between text-[#9EA6B8]">
                     <span>Suất chiếu:</span>
-                    <span className="text-[#FABF2E] font-medium">10:00 • 29/09</span>
+                    <span className="text-[#FABF2E] font-medium">{queryTime} • {queryDate}</span>
                   </div>
                   <div className="flex justify-between text-[#9EA6B8]">
                     <span>Ghế ({selectedSeats.length}):</span>
@@ -1156,6 +1169,14 @@ function BookingContent() {
           timeLeftSeconds={timeLeft}
         />
       )}
+
+      {/* Modal Đổi Suất Chiếu Form Mẫu */}
+      <ShowtimeModal
+        isOpen={isShowtimeChangeOpen}
+        onClose={() => setIsShowtimeChangeOpen(false)}
+        movie={selectedMovie}
+        cinemas={cinemas}
+      />
 
       <Footer />
     </div>
