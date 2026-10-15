@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Movie } from '@/lib/types';
 import { Bell, Check } from 'lucide-react';
-import ShowtimeModal from '@/components/common/ShowtimeModal';
 
 interface MovieCardProps {
   movie: Movie;
@@ -13,7 +12,6 @@ interface MovieCardProps {
 
 export default function MovieCard({ movie, isUpcoming = false }: MovieCardProps) {
   const [reminded, setReminded] = useState(false);
-  const [isShowtimeOpen, setIsShowtimeOpen] = useState(false);
 
   const handleRemindClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -76,22 +74,14 @@ export default function MovieCard({ movie, isUpcoming = false }: MovieCardProps)
             )}
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={() => setIsShowtimeOpen(true)}
+          <Link
+            href={`/booking?movie=${movie.id}`}
             className="w-full bg-[#E63845] hover:bg-[#CC2B37] text-white py-2.5 rounded-lg font-bold text-xs sm:text-sm flex items-center justify-center shadow-md shadow-[#E63845]/25 transition-all transform hover:scale-[1.02] cursor-pointer"
           >
             Đặt vé
-          </button>
+          </Link>
         )}
       </div>
-
-      {/* Modal Lịch Chiếu theo đúng Form mẫu */}
-      <ShowtimeModal
-        isOpen={isShowtimeOpen}
-        onClose={() => setIsShowtimeOpen(false)}
-        movie={movie}
-      />
     </div>
   );
 }

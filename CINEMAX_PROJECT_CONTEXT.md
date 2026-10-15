@@ -253,6 +253,10 @@ Bản mobile · trang đăng nhập/đăng ký · hồ sơ và lịch sử vé �
      - Bảng điều khiển doanh thu, tổng số vé bán ra, tỷ lệ lấp đầy rạp.
      - Quản lý danh mục phim (thêm phim mới, chuyển đổi trạng thái Đang chiếu / Sắp chiếu, xóa phim).
      - Quản lý đơn đặt vé và danh sách mã khuyến mãi.
+  9. **Trang Nhân viên rạp `/staff` (Dành cho STAFF: POS, CHECKIN, CONCESSION, SUPERVISOR)**:
+     - Bố cục Sidebar + Topbar + Dark Mode toàn màn hình (không dùng icon/emoji), tự động hiển thị menu và giao diện theo nhiệm vụ của nhân viên.
+     - Đầy đủ 6 phân khu: Thống kê ca trực, Quầy Vé POS (bán vé tại quầy, bán vé trễ <15p, phân tầng giá vé U22/Trẻ em/Người cao tuổi, tính tiền mặt thối lại), Cổng Soát Vé QR & Kiểm tra độ tuổi, Quầy Bắp Nước (`fulfillments`) & Kiểm kho F&B (`inventory_movements`), Quản lý Ca trực & Két tiền (`shifts`, `close_shift`, Trưởng ca duyệt ca), và Hậu mãi (Đổi ghế, Hoàn vé, Xuất hóa đơn đỏ VAT).
+     - Tài khoản test nhân viên (mật khẩu chung `staff123`): `staff@cinemax.vn` (Trưởng ca), `pos@cinemax.vn` (Thu ngân POS), `checkin@cinemax.vn` (Soát vé), `fnb@cinemax.vn` (Quầy Bắp nước).
 
 **Cần làm tiếp theo**
 1. Tích hợp trực tiếp với Supabase Database & Auth thực tế khi triển khai production.

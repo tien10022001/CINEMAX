@@ -23,6 +23,8 @@ const SEED_USERS: (User & { password?: string })[] = [
     id: 'usr-admin-001',
     role_id: 3,
     role_code: 'ADMIN',
+    staff_permissions: ['POS', 'CHECKIN', 'CONCESSION', 'SUPERVISOR'],
+    staff_position: 'Quản trị viên hệ thống',
     full_name: 'Quản trị viên Cinemax',
     email: 'admin@cinemax.vn',
     password: 'admin',
@@ -31,6 +33,66 @@ const SEED_USERS: (User & { password?: string })[] = [
     is_active: true,
     created_at: '2026-01-01',
     updated_at: '2026-01-01',
+  },
+  {
+    id: 'usr-staff-sup-001',
+    role_id: 2,
+    role_code: 'STAFF',
+    staff_permissions: ['POS', 'CHECKIN', 'CONCESSION', 'SUPERVISOR'],
+    staff_position: 'Trưởng ca rạp (Supervisor)',
+    full_name: 'Trần Minh Quân',
+    email: 'staff@cinemax.vn',
+    password: 'staff123',
+    phone: '0977111222',
+    loyalty_points: 500,
+    is_active: true,
+    created_at: '2026-01-10',
+    updated_at: '2026-01-10',
+  },
+  {
+    id: 'usr-staff-pos-002',
+    role_id: 2,
+    role_code: 'STAFF',
+    staff_permissions: ['POS'],
+    staff_position: 'Nhân viên Quầy Vé (POS)',
+    full_name: 'Lê Thu Hà',
+    email: 'pos@cinemax.vn',
+    password: 'staff123',
+    phone: '0977333444',
+    loyalty_points: 200,
+    is_active: true,
+    created_at: '2026-01-12',
+    updated_at: '2026-01-12',
+  },
+  {
+    id: 'usr-staff-chk-003',
+    role_id: 2,
+    role_code: 'STAFF',
+    staff_permissions: ['CHECKIN'],
+    staff_position: 'Nhân viên Soát Vé (Check-in)',
+    full_name: 'Phạm Hoàng Nam',
+    email: 'checkin@cinemax.vn',
+    password: 'staff123',
+    phone: '0977555666',
+    loyalty_points: 180,
+    is_active: true,
+    created_at: '2026-01-15',
+    updated_at: '2026-01-15',
+  },
+  {
+    id: 'usr-staff-fnb-004',
+    role_id: 2,
+    role_code: 'STAFF',
+    staff_permissions: ['CONCESSION'],
+    staff_position: 'Nhân viên Bắp Nước (F&B)',
+    full_name: 'Đỗ Ngọc Lan',
+    email: 'fnb@cinemax.vn',
+    password: 'staff123',
+    phone: '0977777888',
+    loyalty_points: 220,
+    is_active: true,
+    created_at: '2026-01-18',
+    updated_at: '2026-01-18',
   },
   {
     id: 'usr-cust-001',
@@ -56,10 +118,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Load session from localStorage on client mount (Default is NULL / GUEST)
   useEffect(() => {
     try {
-      // 1. Ensure user database exists
+      // 1. Ensure user database exists and merge any new seed accounts
       const existingDb = localStorage.getItem('cinemax_users_db');
       if (!existingDb) {
         localStorage.setItem('cinemax_users_db', JSON.stringify(SEED_USERS));
+      } else {
+        const parsedUsers: (User & { password?: string })[] = JSON.parse(existingDb);
+        let updated = false;
+        SEED_USERS.forEach((seedUser) => {
+          const idx = parsedUsers.findIndex(
+            (u) => u.email.toLowerCase() === seedUser.email.toLowerCase()
+          );
+          if (idx === -1) {
+            parsedUsers.push(seedUser);
+            updated = true;
+          } else if (seedUser.staff_permissions && !parsedUsers[idx].staff_permissions) {
+            parsedUsers[idx] = {
+              ...parsedUsers[idx],
+              staff_permissions: seedUser.staff_permissions,
+              staff_position: seedUser.staff_position,
+            };
+            updated = true;
+          }
+        });
+        if (updated) {
+          localStorage.setItem('cinemax_users_db', JSON.stringify(parsedUsers));
+        }
       }
 
       // 2. Load active session

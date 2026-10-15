@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Play } from 'lucide-react';
 import { Movie } from '@/lib/types';
 import TrailerModal from '@/components/common/TrailerModal';
-import ShowtimeModal from '@/components/common/ShowtimeModal';
 
 interface HeroBannerProps {
   movies: Movie[];
@@ -15,7 +14,6 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
   const [currentIndex] = useState(0);
   const featured = movies[currentIndex] || movies[0];
   const [trailerOpen, setTrailerOpen] = useState(false);
-  const [showtimeOpen, setShowtimeOpen] = useState(false);
 
   return (
     <>
@@ -59,13 +57,12 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
 
             {/* 2 Buttons: Đặt vé ngay & Xem trailer (Figma Screen 1) */}
             <div className="pt-2 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowtimeOpen(true)}
+              <Link
+                href={`/booking?movie=${featured.id}`}
                 className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-7 py-3 rounded-lg font-bold text-xs sm:text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
               >
                 Đặt vé ngay
-              </button>
+              </Link>
 
               <button
                 type="button"
@@ -86,13 +83,6 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
         onClose={() => setTrailerOpen(false)}
         videoUrl={featured.trailer_url}
         title={featured.title}
-      />
-
-      {/* Showtime Modal Form Mẫu */}
-      <ShowtimeModal
-        isOpen={showtimeOpen}
-        onClose={() => setShowtimeOpen(false)}
-        movie={featured}
       />
     </>
   );

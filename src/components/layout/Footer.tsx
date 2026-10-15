@@ -12,13 +12,13 @@ export default function Footer() {
 
         {/* Center: Links (Figma Screen 1) */}
         <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-[#9EA6B8]">
-          <Link href="/lookup" className="hover:text-white transition-colors">Tra cứu vé</Link>
-          <span>•</span>
-          <Link href="/support" className="hover:text-white transition-colors">Hỗ trợ khách hàng</Link>
+          <span className="hover:text-white cursor-pointer transition-colors">Về chúng tôi</span>
           <span>•</span>
           <span className="hover:text-white cursor-pointer transition-colors">Điều khoản</span>
           <span>•</span>
           <span className="hover:text-white cursor-pointer transition-colors">Chính sách bảo mật</span>
+          <span>•</span>
+          <span className="hover:text-white cursor-pointer transition-colors">Liên hệ</span>
           <span>•</span>
           <Link href="/admin" className="hover:text-[#FABF2E] text-[#9EA6B8]/70 flex items-center gap-1 transition-colors">
             <span>Cổng Quản Trị</span>

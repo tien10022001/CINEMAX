@@ -391,16 +391,6 @@ export function generateMockSeats(roomId: number = 1): Seat[] {
     } else {
       // 10 ghế mỗi hàng (5 ghế bên trái, 5 ghế bên phải)
       for (let c = 1; c <= 10; c++) {
-        // Một số ghế đã bán theo Figma Screen 3
-        const isSold =
-          (row === 'A' && (c === 3 || c === 4)) ||
-          (row === 'B' && (c === 2 || c === 3)) ||
-          (row === 'C' && c === 4) ||
-          (row === 'D' && (c === 5 || c === 6)) ||
-          (row === 'E' && (c === 3 || c === 4 || c === 7)) ||
-          (row === 'F' && c === 5) ||
-          (row === 'G' && (c === 3 || c === 4));
-
         seats.push({
           id: seatId++,
           room_id: roomId,
@@ -417,7 +407,7 @@ export function generateMockSeats(roomId: number = 1): Seat[] {
             capacity: 1,
             color_code: isVip ? '#FABF2E' : '#9CA3AF',
           },
-          status: isSold ? 'SOLD' : 'AVAILABLE',
+          status: 'AVAILABLE',
         });
       }
     }

@@ -1,14 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import TrailerModal from '@/components/common/TrailerModal';
-import ShowtimeModal from '@/components/common/ShowtimeModal';
-import ShowtimeCard, { ShowtimeSlot } from '@/components/common/ShowtimeCard';
-import { MovieService } from '@/services/movie.service';
-import { MOCK_MOVIES, MOCK_CINEMAS } from '@/lib/mock-data';
+import { MOCK_MOVIES, MOCK_CINEMAS, MOCK_SHOWTIMES } from '@/lib/mock-data';
 import { Star, MapPin, Play, Ticket } from 'lucide-react';
 
 export default function MovieDetailPage() {
@@ -17,58 +14,17 @@ export default function MovieDetailPage() {
   const slug = params?.slug as string;
 
   const movie = MOCK_MOVIES.find((m) => m.slug === slug) || MOCK_MOVIES[0];
-  const [selectedDate, setSelectedDate] = useState<string>('2026-10-15');
+  const [selectedDate, setSelectedDate] = useState<string>('2026-09-29');
   const [isTrailerOpen, setIsTrailerOpen] = useState<boolean>(false);
-  const [isShowtimeModalOpen, setIsShowtimeModalOpen] = useState<boolean>(false);
-  const [cinemaSlots, setCinemaSlots] = useState<Record<string | number, ShowtimeSlot[]>>({});
-  const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
 
   const dates = [
-    { label: 'Hôm nay', date: '2026-10-15', day: '15/10' },
-    { label: 'Thứ sáu', date: '2026-10-16', day: '16/10' },
-    { label: 'Thứ bảy', date: '2026-10-17', day: '17/10' },
-    { label: 'Chủ nhật', date: '2026-10-18', day: '18/10' },
-    { label: 'Thứ hai', date: '2026-10-19', day: '19/10' },
+    { label: 'Hôm nay', date: '2026-09-29', day: '29/09' },
+    { label: 'Thứ tư', date: '2026-09-30', day: '30/09' },
+    { label: 'Thứ năm', date: '2026-10-01', day: '01/10' },
+    { label: 'Thứ sáu', date: '2026-10-02', day: '02/10' },
+    { label: 'Thứ bảy', date: '2026-10-03', day: '03/10' },
+    { label: 'Chủ nhật', date: '2026-10-04', day: '04/10' },
   ];
-
-  const activeDateObj = dates.find((d) => d.date === selectedDate) || dates[0];
-
-  useEffect(() => {
-    if (!movie?.id) return;
-    let isMounted = true;
-    setLoadingSlots(true);
-
-    const loadAllCinemas = async () => {
-      try {
-        const results: Record<string | number, ShowtimeSlot[]> = {};
-        await Promise.all(
-          MOCK_CINEMAS.map(async (cinema) => {
-            const data = await MovieService.getShowtimeSlots(movie.id, selectedDate, cinema.id);
-            results[cinema.id] = data;
-          })
-        );
-        if (isMounted) {
-          setCinemaSlots(results);
-          setLoadingSlots(false);
-        }
-      } catch (err) {
-        console.error('Error fetching showtimes:', err);
-        if (isMounted) setLoadingSlots(false);
-      }
-    };
-
-    loadAllCinemas();
-
-    const handleUpdate = () => loadAllCinemas();
-    window.addEventListener('cinemax_data_updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener('cinemax_data_updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
-    };
-  }, [movie?.id, selectedDate]);
 
   const scrollToSchedule = () => {
     const el = document.getElementById('schedule-section');
@@ -149,7 +105,7 @@ export default function MovieDetailPage() {
             <div className="pt-4 flex items-center gap-4">
               <button
                 type="button"
-                onClick={() => setIsShowtimeModalOpen(true)}
+                onClick={scrollToSchedule}
                 className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-8 py-3 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all flex items-center gap-2 cursor-pointer"
               >
                 <Ticket className="w-4 h-4" />
@@ -196,11 +152,11 @@ export default function MovieDetailPage() {
           {/* Cinema Blocks with Showtimes */}
           <div className="space-y-4 pt-2">
             {MOCK_CINEMAS.map((cinema) => {
-              const slots = cinemaSlots[cinema.id] || [];
+              const cinemaShowtimes = MOCK_SHOWTIMES.filter((s) => s.room?.cinema_id === cinema.id);
               return (
                 <div
                   key={cinema.id}
-                  className="bg-[#1A1C26] border border-[#303645] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xl"
+                  className="bg-[#1A1C26] border border-[#303645] rounded-2xl p-5 sm:p-6 space-y-4"
                 >
                   <div className="flex items-center gap-2 text-white font-bold text-base sm:text-lg">
                     <MapPin className="w-4 h-4 text-[#E63845]" />
@@ -209,62 +165,31 @@ export default function MovieDetailPage() {
                   <p className="text-xs text-[#9EA6B8]">{cinema.address}</p>
 
                   {/* Showtimes Row */}
-                  <div className="pt-3 border-t border-[#303645]/60 space-y-4">
-                    <div className="text-xs font-bold text-white uppercase tracking-wider">
-                      2D PHỤ ĐỀ
+                  <div className="pt-2 border-t border-[#303645]/60 space-y-3">
+                    <div className="text-xs font-semibold text-white/80">2D Phụ đề</div>
+                    <div className="flex flex-wrap gap-3">
+                      {cinemaShowtimes.map((st) => (
+                        <button
+                          key={st.id}
+                          onClick={() =>
+                            router.push(
+                              `/booking?movie=${movie.id}&cinema=${cinema.id}&date=${selectedDate}&showtime=${st.id}`
+                            )
+                          }
+                          className="bg-[#0F1217] border border-[#303645] hover:border-[#E63845] rounded-xl px-4 py-2.5 text-center group transition-all transform hover:scale-105 cursor-pointer"
+                        >
+                          <div className="text-sm font-bold text-white group-hover:text-[#E63845] transition-colors">
+                            {new Date(st.start_time).toLocaleTimeString('vi-VN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
+                          <div className="text-[11px] text-[#FABF2E] font-medium mt-0.5">
+                            {st.available_seats} ghế trống
+                          </div>
+                        </button>
+                      ))}
                     </div>
-
-                    {loadingSlots ? (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4 py-2">
-                        {[...Array(6)].map((_, i) => (
-                          <div key={i} className="animate-pulse flex flex-col items-center">
-                            <div className="w-full h-12 bg-[#242836] rounded-sm" />
-                            <div className="w-12 h-3 bg-[#242836] rounded mt-1.5" />
-                          </div>
-                        ))}
-                      </div>
-                    ) : slots.length === 0 ? (
-                      <div className="text-xs text-[#9EA6B8] py-2">
-                        Chưa có suất chiếu cho ngày này tại cụm rạp.
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {Object.entries(
-                          slots.reduce((acc: Record<string, ShowtimeSlot[]>, slot) => {
-                            const fmt = slot.format || '2D';
-                            if (!acc[fmt]) acc[fmt] = [];
-                            acc[fmt].push(slot);
-                            return acc;
-                          }, {})
-                        ).map(([formatName, formatSlots]) => (
-                          <div key={formatName} className="space-y-2.5">
-                            <div className="flex items-center gap-2">
-                              <span className="w-1.5 h-3.5 bg-[#E63845] rounded-full inline-block" />
-                              <div className="text-xs font-bold text-white uppercase tracking-wider">
-                                {formatName.toUpperCase().includes('IMAX')
-                                  ? 'IMAX LASER PHỤ ĐỀ'
-                                  : `${formatName.toUpperCase()} PHỤ ĐỀ`}
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
-                              {formatSlots.map((st: ShowtimeSlot) => (
-                                <ShowtimeCard
-                                  key={cinema.id + '-' + st.id + '-' + st.time}
-                                  slot={st}
-                                  theme="dark"
-                                  dayStr={activeDateObj.day}
-                                  onClick={(selectedSlot) =>
-                                    router.push(
-                                      `/booking?movie=${movie.id}&cinema=${cinema.id}&date=${selectedDate}&showtime=${selectedSlot.id}&time=${selectedSlot.time}`
-                                    )
-                                  }
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -281,13 +206,6 @@ export default function MovieDetailPage() {
         onClose={() => setIsTrailerOpen(false)}
         videoUrl={movie.trailer_url || ''}
         title={movie.title}
-      />
-
-      {/* Showtime Modal Form Mẫu Chuẩn */}
-      <ShowtimeModal
-        isOpen={isShowtimeModalOpen}
-        onClose={() => setIsShowtimeModalOpen(false)}
-        movie={movie}
       />
     </div>
   );
