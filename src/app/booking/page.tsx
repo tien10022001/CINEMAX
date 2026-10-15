@@ -28,9 +28,12 @@ import {
   Phone,
   Mail,
   Lock,
+  AlertTriangle,
 } from 'lucide-react';
 import VietQRModal from '@/components/booking/VietQRModal';
 import ShowtimeModal from '@/components/common/ShowtimeModal';
+import { BookingService } from '@/services/booking.service';
+import { checkAllSelectedSeatsForOrphans, OrphanSeatCheckResult } from '@/lib/seat-rules';
 
 function BookingContent() {
   const searchParams = useSearchParams();
@@ -100,17 +103,36 @@ function BookingContent() {
     customerPhone: string;
   } | null>(null);
 
-  // 10-minute hold timer (Figma Screen 3: "⏱ Giữ ghế còn 09:42")
-  const [timeLeft, setTimeLeft] = useState<number>(582); // 09:42 initial
+  // Mã phiên giữ ghế độc lập cho tab trình duyệt này (Session ID)
+  const [sessionId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      let s = sessionStorage.getItem('cinemax_booking_session');
+      if (!s) {
+        s = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+        sessionStorage.setItem('cinemax_booking_session', s);
+      }
+      return s;
+    }
+    return 'sess_' + Date.now();
+  });
 
-// Helper: Sinh sơ đồ ghế chuẩn xác cho từng rạp, từng suất chiếu (suất mới tạo có 100% ghế trống)
+  // Trạng thái cảnh báo ghế trống đơn lẻ (Orphan Seat Warning)
+  const [orphanWarning, setOrphanWarning] = useState<OrphanSeatCheckResult | null>(null);
+  const [acknowledgedOrphan, setAcknowledgedOrphan] = useState<boolean>(false);
+
+  // 10-minute hold timer (Figma Screen 3: "⏱ Giữ ghế còn 09:42")
+  const [timeLeft, setTimeLeft] = useState<number>(600); // 10:00 initial
+
+// Helper: Sinh sơ đồ ghế chuẩn xác cho từng rạp, từng suất chiếu tuân thủ 4 trạng thái: AVAILABLE, HELD, BOOKED (SOLD), BLOCKED
 function getDynamicShowtimeSeats(
   roomId: number = 1,
   cinemaId: string | number,
   showtimeId: string | number,
   date: string,
   time: string,
-  locallyBookedSeats: Set<string>
+  locallyBookedSeats: Set<string>,
+  locallyHeldSeats: Set<string>,
+  locallyBlockedSeats: Set<string>
 ): Seat[] {
   const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   const seats: Seat[] = [];
@@ -125,7 +147,10 @@ function getDynamicShowtimeSeats(
     if (isCouple) {
       for (let c = 1; c <= 5; c++) {
         const label = `ĐÔI ${c}`;
-        const isSoldLocally = locallyBookedSeats.has(label);
+        let status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' = 'AVAILABLE';
+        if (locallyBookedSeats.has(label)) status = 'SOLD';
+        else if (locallyHeldSeats.has(label)) status = 'HELD';
+        else if (locallyBlockedSeats.has(label)) status = 'BLOCKED';
 
         seats.push({
           id: seatId++,
@@ -143,13 +168,16 @@ function getDynamicShowtimeSeats(
             capacity: 2,
             color_code: '#F472B6',
           },
-          status: isSoldLocally ? 'SOLD' : 'AVAILABLE',
+          status,
         });
       }
     } else {
       for (let c = 1; c <= 10; c++) {
         const label = `${row}${c}`;
-        const isSoldLocally = locallyBookedSeats.has(label);
+        let status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' = 'AVAILABLE';
+        if (locallyBookedSeats.has(label)) status = 'SOLD';
+        else if (locallyHeldSeats.has(label)) status = 'HELD';
+        else if (locallyBlockedSeats.has(label)) status = 'BLOCKED';
 
         seats.push({
           id: seatId++,
@@ -167,7 +195,7 @@ function getDynamicShowtimeSeats(
             capacity: 1,
             color_code: isVip ? '#FABF2E' : '#9CA3AF',
           },
-          status: isSoldLocally ? 'SOLD' : 'AVAILABLE',
+          status,
         });
       }
     }
@@ -179,6 +207,9 @@ function getDynamicShowtimeSeats(
   useEffect(() => {
     let isMounted = true;
     async function loadSeats() {
+      // Tự động giải phóng các ghế giữ tạm đã hết hạn
+      await BookingService.releaseExpiredHolds();
+
       // 1. Đọc danh sách vé đã đặt từ localStorage CHỈ cho đúng rạp, phim và suất chiếu này
       const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
       const localTickets = stored ? JSON.parse(stored) : [];
@@ -217,7 +248,19 @@ function getDynamicShowtimeSeats(
         }
       });
 
-      // 2. Nếu là suất chiếu thật của rạp Hà Nội Centre trong DB Supabase
+      // 2. Đọc danh sách ghế đang bị giữ tạm (HELD) bởi phiên khác còn hạn
+      const currentShowtimeKey = selectedShowtime?.id || queryShowtimeId;
+      const heldMap = BookingService.getLocalHeldSeats(currentShowtimeKey);
+      const heldSeatLabels = new Set<string>();
+      heldMap.forEach((info, label) => {
+        if (info.sessionId !== sessionId) {
+          heldSeatLabels.add(label);
+        }
+      });
+
+      const blockedSeatLabels = new Set<string>();
+
+      // 3. Nếu là suất chiếu thật của rạp Hà Nội Centre trong DB Supabase
       const stId = selectedShowtime?.id?.toString();
       const isRealDbShowtime =
         stId &&
@@ -226,12 +269,17 @@ function getDynamicShowtimeSeats(
 
       if (isRealDbShowtime) {
         try {
-          const { BookingService } = await import('@/services/booking.service');
           const dbSeats = await BookingService.getShowtimeSeats(stId);
           if (dbSeats && dbSeats.length > 0) {
             const mapped: Seat[] = dbSeats.map((s) => {
               const seatLabel = `${s.row_label}${s.seat_number}`;
               const isBookedLocally = bookedSeatLabels.has(seatLabel);
+              const isHeldLocally = heldSeatLabels.has(seatLabel);
+
+              let seatStatus: any = s.status;
+              if (isBookedLocally) seatStatus = 'sold';
+              else if (isHeldLocally) seatStatus = 'held';
+
               return {
                 id: s.id,
                 row_label: s.row_label,
@@ -244,7 +292,7 @@ function getDynamicShowtimeSeats(
                   name: (s.seat_type || 'STANDARD').toUpperCase(),
                 },
                 seat_group: s.seat_group,
-                status: isBookedLocally ? 'sold' : (s.status as any),
+                status: seatStatus,
               };
             });
             if (isMounted) setSeats(mapped);
@@ -255,15 +303,16 @@ function getDynamicShowtimeSeats(
         }
       }
 
-      // 3. Với các rạp khác (Landmark 81, Cầu Giấy...) hoặc các suất chiếu khác:
-      // Sinh sơ đồ ghế độc lập theo mã định danh duy nhất của rạp và suất chiếu, đảm bảo KHÔNG BỊ TRÙNG LẶP!
+      // 4. Với các rạp khác (Landmark 81, Cầu Giấy...) hoặc các suất chiếu khác:
       const dynamicSeats = getDynamicShowtimeSeats(
         Number(selectedShowtime?.room_id) || 1,
         selectedCinema?.id || queryCinemaId,
         selectedShowtime?.id || queryShowtimeId,
         queryDate,
         queryTime,
-        bookedSeatLabels
+        bookedSeatLabels,
+        heldSeatLabels,
+        blockedSeatLabels
       );
 
       if (isMounted) setSeats(dynamicSeats);
@@ -279,7 +328,7 @@ function getDynamicShowtimeSeats(
       window.removeEventListener('cinemax_data_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
-  }, [selectedShowtime, queryCinemaId, queryDate, queryTime, selectedCinema]);
+  }, [selectedShowtime, queryCinemaId, queryDate, queryTime, selectedCinema, sessionId]);
 
   useEffect(() => {
     if (currentStep === 1 || currentStep === 2) {
@@ -287,8 +336,10 @@ function getDynamicShowtimeSeats(
         setTimeLeft((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
+            BookingService.releaseSessionHold(sessionId);
             alert('Đã hết thời gian giữ ghế! Hệ thống đã giải phóng ghế của bạn.');
             setSelectedSeats([]);
+            setOrphanWarning(null);
             setCurrentStep(1);
             return 600;
           }
@@ -297,7 +348,7 @@ function getDynamicShowtimeSeats(
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [currentStep]);
+  }, [currentStep, sessionId]);
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -309,20 +360,108 @@ function getDynamicShowtimeSeats(
     const isUnavailable =
       seat.status === 'SOLD' ||
       seat.status === 'sold' ||
+      seat.status === 'BOOKED' ||
+      seat.status === 'booked' ||
       seat.status === 'HELD' ||
-      seat.status === 'held';
+      seat.status === 'held' ||
+      seat.status === 'BLOCKED' ||
+      seat.status === 'blocked';
     if (isUnavailable) return;
 
     const isSelected = selectedSeats.some((s) => s.id === seat.id);
+    let nextSelected: Seat[];
     if (isSelected) {
-      setSelectedSeats(selectedSeats.filter((s) => s.id !== seat.id));
+      nextSelected = selectedSeats.filter((s) => s.id !== seat.id);
     } else {
       if (selectedSeats.length >= 8) {
         alert('Bạn chỉ có thể chọn tối đa 8 ghế trong một đơn đặt');
         return;
       }
-      setSelectedSeats([...selectedSeats, seat]);
+      nextSelected = [...selectedSeats, seat];
     }
+
+    setSelectedSeats(nextSelected);
+
+    // Kiểm tra quy tắc ghế trống đơn lẻ (Orphan / Single Seat Rule)
+    const bookedSet = new Set<string>();
+    const heldSet = new Set<string>();
+    const blockedSet = new Set<string>();
+
+    seats.forEach((s) => {
+      const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+      const statusUpper = (s.status || '').toUpperCase();
+      if (statusUpper === 'SOLD' || statusUpper === 'BOOKED') bookedSet.add(label);
+      else if (statusUpper === 'HELD') heldSet.add(label);
+      else if (statusUpper === 'BLOCKED') blockedSet.add(label);
+    });
+
+    const orphanCheck = checkAllSelectedSeatsForOrphans(
+      seats,
+      nextSelected,
+      bookedSet,
+      heldSet,
+      blockedSet
+    );
+
+    if (orphanCheck.hasOrphanSeats) {
+      setOrphanWarning(orphanCheck);
+      setAcknowledgedOrphan(false);
+    } else {
+      setOrphanWarning(null);
+    }
+  };
+
+  const handleAddOrphanSeats = (orphanLabels: string[]) => {
+    const seatsToAdd = seats.filter((s) => {
+      const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+      return orphanLabels.includes(label) && !selectedSeats.some((sel) => sel.id === s.id);
+    });
+
+    if (seatsToAdd.length > 0) {
+      if (selectedSeats.length + seatsToAdd.length > 8) {
+        alert('Tổng số ghế vượt quá 8 ghế tối đa. Vui lòng điều chỉnh lại.');
+        return;
+      }
+      const updated = [...selectedSeats, ...seatsToAdd];
+      setSelectedSeats(updated);
+      setOrphanWarning(null);
+      setAcknowledgedOrphan(true);
+    }
+  };
+
+  const handleProceedToStep2 = () => {
+    if (selectedSeats.length === 0) {
+      alert('Vui lòng chọn ít nhất một ghế');
+      return;
+    }
+
+    // Nếu phát hiện ghế trống đơn lẻ mà khách chưa xác nhận bỏ qua, hiển thị nhắc nhở (Phương án A)
+    if (orphanWarning && orphanWarning.hasOrphanSeats && !acknowledgedOrphan) {
+      const userConfirm = confirm(
+        `${orphanWarning.suggestionMessage}\n\nBạn có chắc chắn muốn tiếp tục giữ các ghế này không?`
+      );
+      if (!userConfirm) return;
+    }
+
+    // Cơ chế chống trùng vé (Concurrency Control): Giữ ghế 10 phút
+    const seatLabels = selectedSeats.map((s) =>
+      s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`
+    );
+
+    const holdRes = BookingService.holdSeatsLocal({
+      showtimeId: selectedShowtime?.id || queryShowtimeId,
+      sessionId,
+      seatLabels,
+      holdMinutes: 10,
+    });
+
+    if (!holdRes.success) {
+      alert(holdRes.error || 'Ghế vừa được người khác giữ chỗ. Vui lòng chọn ghế khác!');
+      return;
+    }
+
+    setTimeLeft(600);
+    setCurrentStep(2);
   };
 
   const getSeatPrice = (seat: Seat) => {
@@ -448,6 +587,8 @@ function getDynamicShowtimeSeats(
       slot.id,
       newDate,
       slot.time,
+      new Set(),
+      new Set(),
       new Set()
     );
     setSeats(newSeats);
@@ -627,6 +768,7 @@ function getDynamicShowtimeSeats(
           localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(updatedShowtimes));
         }
 
+        BookingService.releaseSessionHold(sessionId);
         window.dispatchEvent(new Event('cinemax_data_updated'));
         window.dispatchEvent(new Event('storage'));
       } catch (e) {
@@ -728,6 +870,7 @@ function getDynamicShowtimeSeats(
         localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(updatedShowtimes));
       }
 
+      BookingService.releaseSessionHold(sessionId);
       window.dispatchEvent(new Event('cinemax_data_updated'));
       window.dispatchEvent(new Event('storage'));
     } catch (e) {
@@ -804,6 +947,42 @@ function getDynamicShowtimeSeats(
                 </div>
               </div>
 
+              {/* Banner cảnh báo ghế trống đơn lẻ (Orphan Seat Warning - Phương án A) */}
+              {orphanWarning && orphanWarning.hasOrphanSeats && (
+                <div className="w-full bg-[#FABF2E]/10 border border-[#FABF2E]/40 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 shadow-lg">
+                  <div className="flex items-start gap-2.5 text-[#FABF2E]">
+                    <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold text-white text-sm">
+                        Cảnh báo: Phát hiện ghế trống đơn lẻ bị kẹp
+                      </div>
+                      <p className="text-gray-300 mt-1 leading-relaxed">
+                        {orphanWarning.suggestionMessage}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0 pt-1 sm:pt-0">
+                    <button
+                      type="button"
+                      onClick={() => handleAddOrphanSeats(orphanWarning.orphanSeats)}
+                      className="px-3.5 py-1.5 rounded-lg bg-[#FABF2E] hover:bg-yellow-400 text-black font-bold text-xs cursor-pointer transition-colors shadow-md"
+                    >
+                      + Chọn luôn ghế {orphanWarning.orphanSeats.join(', ')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAcknowledgedOrphan(true);
+                        setOrphanWarning(null);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-[#303645] hover:bg-[#383D4D] text-gray-300 hover:text-white font-medium text-xs cursor-pointer transition-colors"
+                    >
+                      Bỏ qua & Tiếp tục
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Red Screen Curve (Figma Screen 3) */}
               <div className="w-full max-w-xl mx-auto flex flex-col items-center mb-10">
                 <div className="w-full h-3 rounded-t-[100%] border-t-2 border-[#E63845] shadow-[0_-10px_20px_rgba(230,56,69,0.35)] mb-3" />
@@ -825,8 +1004,13 @@ function getDynamicShowtimeSeats(
 
                     const renderSeatButton = (seat: Seat) => {
                       const isSelected = selectedSeats.some((s) => s.id === seat.id);
-                      const isSold = seat.status === 'SOLD' || seat.status === 'sold';
+                      const isSold =
+                        seat.status === 'SOLD' ||
+                        seat.status === 'sold' ||
+                        seat.status === 'BOOKED' ||
+                        seat.status === 'booked';
                       const isHeld = seat.status === 'HELD' || seat.status === 'held';
+                      const isBlocked = seat.status === 'BLOCKED' || seat.status === 'blocked';
                       const isVip = seat.seat_type?.code === 'VIP';
                       const isCouple = seat.seat_type?.code === 'COUPLE';
 
@@ -840,21 +1024,37 @@ function getDynamicShowtimeSeats(
                       if (isSelected) {
                         bgClass = 'bg-[#E63845] text-white border-transparent font-bold glow-primary scale-105';
                       }
-                      if (isSold || isHeld) {
+                      if (isHeld) {
+                        bgClass = 'bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/60 cursor-not-allowed opacity-85';
+                      }
+                      if (isBlocked) {
+                        bgClass = 'bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed line-through opacity-40';
+                      }
+                      if (isSold) {
                         bgClass = 'bg-[#383D4D] text-transparent border-transparent cursor-not-allowed opacity-35';
                       }
 
                       return (
                         <button
                           key={seat.id}
-                          disabled={isSold || isHeld}
+                          disabled={isSold || isHeld || isBlocked}
                           onClick={() => handleSeatClick(seat)}
                           className={`h-8 sm:h-9 rounded-lg text-xs font-semibold transition-all flex items-center justify-center cursor-pointer ${bgClass} ${
                             isCouple ? 'w-16 sm:w-20' : 'w-7 sm:w-8'
                           }`}
-                          title={`${row}${seat.seat_number} - ${seat.seat_type?.name}`}
+                          title={`${row}${seat.seat_number} - ${seat.seat_type?.name}${
+                            isHeld ? ' (Đang được giữ chỗ tạm thời)' : isBlocked ? ' (Đang bảo trì/khóa)' : isSold ? ' (Đã bán)' : ''
+                          }`}
                         >
-                          {isCouple ? `ĐÔI ${seat.seat_number}` : seat.seat_number}
+                          {isHeld ? (
+                            <Clock className="w-3.5 h-3.5 animate-pulse text-[#F59E0B]" />
+                          ) : isBlocked ? (
+                            '✕'
+                          ) : isCouple ? (
+                            `ĐÔI ${seat.seat_number}`
+                          ) : (
+                            seat.seat_number
+                          )}
                         </button>
                       );
                     };
@@ -885,27 +1085,39 @@ function getDynamicShowtimeSeats(
                 </div>
               </div>
 
-              {/* Seat Legend (Figma Screen 3) */}
-              <div className="w-full border-t border-[#303645] pt-6 mt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-[#9EA6B8]">
-                <div className="flex items-center gap-2">
+              {/* Seat Legend - Phân biệt rõ cả 4 trạng thái: AVAILABLE, HELD, BOOKED, BLOCKED */}
+              <div className="w-full border-t border-[#303645] pt-6 mt-6 flex flex-wrap items-center justify-center gap-3.5 sm:gap-5 text-xs text-[#9EA6B8]">
+                <div className="flex items-center gap-1.5">
                   <div className="w-4 h-4 rounded bg-[#303645] border border-[#9CA3AF]" />
-                  <span>Ghế thường (90.000đ)</span>
+                  <span>Thường (90k)</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <div className="w-4 h-4 rounded bg-[#FABF2E]/20 border border-[#FABF2E]" />
-                  <span>Ghế VIP (110.000đ)</span>
+                  <span>VIP (110k)</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <div className="w-6 h-4 rounded bg-[#F472B6]/20 border border-[#F472B6]" />
-                  <span>Ghế đôi (210.000đ)</span>
+                  <span>Đôi (210k)</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <div className="w-4 h-4 rounded bg-[#E63845]" />
                   <span className="text-white font-semibold">Đang chọn</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded bg-[#F59E0B]/20 border border-[#F59E0B] flex items-center justify-center">
+                    <Clock className="w-2.5 h-2.5 text-[#F59E0B]" />
+                  </div>
+                  <span className="text-[#F59E0B] font-medium">Đang giữ chỗ (HELD)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
                   <div className="w-4 h-4 rounded bg-[#383D4D] opacity-40" />
-                  <span>Đã bán</span>
+                  <span>Đã bán (BOOKED)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[9px] text-zinc-500 font-bold">
+                    ✕
+                  </div>
+                  <span>Bị khóa (BLOCKED)</span>
                 </div>
               </div>
             </div>
@@ -988,7 +1200,7 @@ function getDynamicShowtimeSeats(
 
                 <button
                   disabled={selectedSeats.length === 0}
-                  onClick={() => setCurrentStep(2)}
+                  onClick={handleProceedToStep2}
                   className="w-full bg-[#E63845] hover:bg-[#CC2B37] disabled:opacity-40 disabled:cursor-not-allowed text-white py-3.5 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
                 >
                   Tiếp tục

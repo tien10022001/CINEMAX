@@ -117,7 +117,7 @@ export interface Seat {
   seat_type?: SeatType;
   seat_group?: string | null;
   is_active?: boolean;
-  status?: 'AVAILABLE' | 'SELECTED' | 'HELD' | 'SOLD' | 'available' | 'held' | 'sold' | 'blocked';
+  status?: 'AVAILABLE' | 'SELECTED' | 'HELD' | 'SOLD' | 'BOOKED' | 'BLOCKED' | 'available' | 'held' | 'sold' | 'booked' | 'blocked';
 }
 
 export interface ShowtimePrice {
