@@ -18,7 +18,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'movies', label: 'Phim', href: '/?tab=movies' },
   { id: 'cinemas', label: 'Rạp chiếu', href: '/?tab=cinemas' },
   { id: 'promotions', label: 'Khuyến mãi', href: '/?tab=promotions' },
-  { id: 'news', label: 'Tin tức', href: '/?tab=news' },
+  { id: 'lookup', label: 'Tra cứu vé', href: '/lookup' },
+  { id: 'support', label: 'Hỗ trợ', href: '/support' },
 ];
 
 interface HeaderProps {
@@ -70,16 +71,24 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
     if (typeof window === 'undefined') return;
 
     const syncActiveTab = () => {
+      if (pathname === '/lookup') {
+        setActiveTab('lookup');
+        return;
+      }
+      if (pathname === '/support') {
+        setActiveTab('support');
+        return;
+      }
+
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get('tab');
-      if (tabParam && ['home', 'movies', 'cinemas', 'promotions', 'news'].includes(tabParam)) {
+      if (tabParam && ['home', 'movies', 'cinemas', 'promotions', 'lookup', 'support'].includes(tabParam)) {
         setActiveTab(tabParam);
       } else {
         const hash = window.location.hash;
         if (hash === '#movies') setActiveTab('movies');
         else if (hash === '#cinemas') setActiveTab('cinemas');
         else if (hash === '#promotions') setActiveTab('promotions');
-        else if (hash === '#news') setActiveTab('news');
         else if (pathname === '/' && !tabParam && !hash) {
           setActiveTab('home');
         }
@@ -98,6 +107,15 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
   const handleNavClick = (id: string) => {
     setActiveTab(id);
     setMobileMenuOpen(false);
+
+    if (id === 'lookup') {
+      router.push('/lookup');
+      return;
+    }
+    if (id === 'support') {
+      router.push('/support');
+      return;
+    }
 
     if (pathname === '/') {
       const newUrl = id === 'home' ? '/' : `/?tab=${id}`;

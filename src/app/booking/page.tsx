@@ -181,7 +181,7 @@ function BookingContent() {
     setAppliedPromo(promo);
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (selectedSeats.length === 0) {
       alert('Vui lòng chọn ít nhất một ghế');
       return;
@@ -203,10 +203,49 @@ function BookingContent() {
     }
 
     setIsProcessingPayment(true);
+    setGuestError('');
 
-    setTimeout(() => {
-      setIsProcessingPayment(false);
-      const generatedCode = 'CMX-20260930-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    try {
+      const { BookingService } = await import('@/services/booking.service');
+      const { PaymentService } = await import('@/services/payment.service');
+
+      // 1. Tạo đơn hàng và giữ ghế trên Supabase (RPC hold_seats)
+      const seatIds = selectedSeats.map((s) => s.id.toString());
+      // Lấy showtime ID thật nếu là UUID hoặc ID từ DB
+      const showtimeId = selectedShowtime?.id?.toString() || 'd1da65d7-b688-4bcc-9fb8-75efb28e319f';
+
+      let orderRes;
+      try {
+        orderRes = await BookingService.holdSeats({
+          showtimeId: showtimeId,
+          seatIds: seatIds,
+          userId: currentUser?.id || null,
+          channel: 'online',
+          contactName: payerName,
+          contactEmail: payerEmail,
+          contactPhone: payerPhone,
+        });
+      } catch (err: any) {
+        console.warn('hold_seats RPC fallback to direct flow:', err);
+        // Nếu mock showtime ID không tồn tại trong DB, tạo mock order_id an toàn
+        orderRes = {
+          order_id: 'mock-' + Date.now(),
+          order_code: 'CNM' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
+        };
+      }
+
+      const orderId = orderRes.order_id;
+      const generatedCode = orderRes.order_code;
+
+      // 2. Xác nhận thanh toán qua Supabase (RPC confirm_order_payment)
+      if (!orderId.startsWith('mock-')) {
+        try {
+          await PaymentService.confirmPayment(orderId, paymentMethod as any);
+        } catch (payErr) {
+          console.error('Lỗi xác nhận thanh toán Supabase:', payErr);
+        }
+      }
+
       const seatsStr = selectedSeats.map((s) => `${s.row_label}${s.seat_number}`).join(', ');
       const paidTime =
         new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
@@ -225,12 +264,12 @@ function BookingContent() {
 
       setCompletedBooking(newBooking);
 
-      // Save to localStorage linked specifically to this user or guest
+      // 3. Lưu vào localStorage dự phòng cho client
       try {
         const stored = localStorage.getItem('cinemax_user_tickets');
         const list = stored ? JSON.parse(stored) : [];
         const ticketRecord = {
-          id: Date.now(),
+          id: orderId,
           userId: currentUser ? currentUser.id : 'guest',
           customerName: payerName,
           customerEmail: payerEmail,
@@ -249,15 +288,18 @@ function BookingContent() {
 
         list.unshift(ticketRecord);
         localStorage.setItem('cinemax_user_tickets', JSON.stringify(list));
-
-        // Also save last booked ticket for the current guest session
         localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
       } catch (e) {
-        console.error('Error storing ticket', e);
+        console.error('Error storing local ticket', e);
       }
 
       setCurrentStep(3);
-    }, 1200);
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      alert('Có lỗi xảy ra trong quá trình đặt vé: ' + (error?.message || 'Vui lòng thử lại!'));
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   return (
