@@ -6,13 +6,8 @@ import { Movie, Cinema } from '@/lib/types';
 import { X, MapPin } from 'lucide-react';
 import { MOCK_CINEMAS } from '@/lib/mock-data';
 
-interface ShowtimeSlot {
-  id: string | number;
-  time: string; // "15:30", "22:00"
-  availableSeats: number;
-  isLate?: boolean; // Suất chiếu muộn từ 22h00
-  format?: string; // "2D PHỤ ĐỀ", "IMAX"
-}
+import { MovieService } from '@/services/movie.service';
+import ShowtimeCard, { ShowtimeSlot } from './ShowtimeCard';
 
 interface ShowtimeModalProps {
   isOpen: boolean;
@@ -42,27 +37,34 @@ export default function ShowtimeModal({
   const [selectedCinemaId, setSelectedCinemaId] = useState<string | number>(
     cinemas[0]?.id || 1
   );
+  const [slots, setSlots] = useState<ShowtimeSlot[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const activeCinema = cinemas.find((c) => c.id === selectedCinemaId) || cinemas[0];
   const activeDateObj = dates.find((d) => d.date === selectedDate) || dates[0];
 
-  // Danh sách suất chiếu theo đúng mẫu trong ảnh người dùng cung cấp
-  const showtimes: ShowtimeSlot[] = [
-    { id: 'st-1530', time: '15:30', availableSeats: 89, isLate: false },
-    { id: 'st-1600', time: '16:00', availableSeats: 170, isLate: false },
-    { id: 'st-1630', time: '16:30', availableSeats: 128, isLate: false },
-    { id: 'st-1700', time: '17:00', availableSeats: 123, isLate: false },
-    { id: 'st-1730', time: '17:30', availableSeats: 61, isLate: false },
-    { id: 'st-1830', time: '18:30', availableSeats: 169, isLate: false },
-    { id: 'st-1930', time: '19:30', availableSeats: 97, isLate: false },
-    { id: 'st-2000', time: '20:00', availableSeats: 101, isLate: false },
-    { id: 'st-2015', time: '20:15', availableSeats: 72, isLate: false },
-    { id: 'st-2100', time: '21:00', availableSeats: 146, isLate: false },
-    // Suất chiếu muộn từ 22h00 (nền xanh nhạt)
-    { id: 'st-2200', time: '22:00', availableSeats: 107, isLate: true },
-    { id: 'st-2245', time: '22:45', availableSeats: 89, isLate: true },
-    { id: 'st-2330', time: '23:30', availableSeats: 173, isLate: true },
-  ];
+  // Lấy dữ liệu suất chiếu từ Supabase Database
+  useEffect(() => {
+    if (!isOpen || !movie?.id) return;
+    let isMounted = true;
+    setLoading(true);
+
+    MovieService.getShowtimeSlots(movie.id, selectedDate)
+      .then((data) => {
+        if (isMounted) {
+          setSlots(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load showtime slots:', err);
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, movie?.id, selectedDate]);
 
   if (!isOpen || !movie) return null;
 
@@ -152,40 +154,31 @@ export default function ShowtimeModal({
           </div>
 
           {/* Lưới các thẻ suất chiếu (Showtime Cards Grid) theo đúng Form mẫu */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
-            {showtimes.map((slot) => {
-              return (
-                <div
-                  key={slot.id}
-                  onClick={() => handleSelectShowtime(slot)}
-                  className="group flex flex-col items-center cursor-pointer transition-transform hover:scale-105 select-none"
-                >
-                  {/* Ô trên: Giờ chiếu */}
-                  <div
-                    className={`w-full h-12 rounded-sm flex flex-col items-center justify-center transition-colors shadow-xs ${
-                      slot.isLate
-                        ? 'bg-[#B9D5F5] group-hover:bg-[#A3C7F0] text-gray-900'
-                        : 'bg-[#E5E7EB] group-hover:bg-[#D1D5DB] text-gray-900'
-                    }`}
-                  >
-                    <span className="text-xs sm:text-sm font-bold tracking-tight">
-                      {slot.time}
-                    </span>
-                    {slot.isLate && (
-                      <span className="text-[10px] text-gray-700 font-medium -mt-0.5">
-                        {activeDateObj.dayStr}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Chữ dưới: Số ghế trống */}
-                  <span className="text-[10px] sm:text-[11px] text-gray-600 font-medium text-center mt-1">
-                    {slot.availableSeats} ghế trống
-                  </span>
+          {loading ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4 py-4">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="animate-pulse flex flex-col items-center">
+                  <div className="w-full h-12 bg-gray-200 rounded-sm" />
+                  <div className="w-12 h-3 bg-gray-200 rounded mt-1.5" />
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : slots.length === 0 ? (
+            <div className="text-center py-6 text-gray-500 text-sm">
+              Không có suất chiếu nào cho ngày đã chọn.
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
+              {slots.map((slot) => (
+                <ShowtimeCard
+                  key={slot.id + '-' + slot.time}
+                  slot={slot}
+                  onClick={handleSelectShowtime}
+                  dayStr={activeDateObj.dayStr}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Chú thích Suất chiếu muộn */}
           <div className="pt-3 flex items-center gap-2 text-xs text-gray-600">
