@@ -176,136 +176,166 @@ export class MovieService {
     dateStr?: string,
     cinemaId?: string | number
   ): Promise<any[]> {
-    const supabase = createClient();
-    const effectiveCinemaId = Number(cinemaId) || 1;
-    const targetDate = dateStr || '2026-10-15';
+    const effectiveCinemaId = cinemaId ? Number(cinemaId) : null;
+    const slots: any[] = [];
 
-    try {
-      // 1. Tìm UUID của phim trong DB (nếu có)
-      let targetMovieId = movieId.toString();
-      if (targetMovieId.length !== 36) {
-        const resMovies: any = await supabase.from('movies').select('id, title, slug');
-        if (resMovies.data && resMovies.data.length > 0) {
-          const found = resMovies.data.find(
-            (m: any, idx: number) =>
-              (idx + 1).toString() === movieId.toString() ||
-              m.slug?.toLowerCase().includes(movieId.toString().toLowerCase())
-          );
-          if (found) {
-            targetMovieId = found.id;
-          } else {
-            targetMovieId = resMovies.data[0].id;
+    // 1. Đọc dữ liệu từ Database hệ thống (localStorage cinemax_showtimes_v2 do Admin quản lý)
+    let localShowtimes: any[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cinemax_showtimes_v2');
+        if (stored) {
+          localShowtimes = JSON.parse(stored);
+        }
+      } catch (e) {
+        console.error('Error reading cinemax_showtimes_v2:', e);
+      }
+    }
+
+    if (localShowtimes.length === 0) {
+      const { MOCK_SHOWTIMES } = await import('@/lib/mock-data');
+      localShowtimes = MOCK_SHOWTIMES;
+    }
+
+    const { MOCK_ROOMS } = await import('@/lib/mock-data');
+
+    // 2. Lọc showtimes từ local database tuân thủ tuyệt đối dữ liệu trên database
+    for (const st of localShowtimes) {
+      // Khớp phim (theo ID số, chuỗi, hoặc slug)
+      const stMovieId = st.movie_id ?? st.movie?.id;
+      const matchMovie =
+        stMovieId?.toString() === movieId?.toString() ||
+        (st.movie?.slug && movieId?.toString().includes(st.movie.slug)) ||
+        (st.movie?.title && movieId?.toString().toLowerCase().includes(st.movie.title.toLowerCase()));
+
+      if (!matchMovie) continue;
+
+      // Khớp rạp (qua room_id hoặc cinema_id)
+      let stCinemaId = st.cinema_id;
+      const roomObj = MOCK_ROOMS.find((r) => r.id === Number(st.room_id)) || st.room;
+      if (!stCinemaId) {
+        stCinemaId = roomObj?.cinema_id || 1;
+      }
+      if (effectiveCinemaId && Number(stCinemaId) !== effectiveCinemaId) {
+        continue;
+      }
+
+      // Trạng thái suất chiếu phải là OPEN
+      if (st.status && st.status.toString().toUpperCase() !== 'OPEN') {
+        continue;
+      }
+
+      // Khớp ngày chiếu
+      // st.start_time có thể là ISO ("2026-10-15T18:30:00+07:00") hoặc chuỗi ("18:30 • 15/10/2026")
+      let timeStr = '';
+      let dateKey = '';
+      let dateDisplay = '';
+
+      if (st.start_time) {
+        if (st.start_time.includes('T')) {
+          const d = new Date(st.start_time);
+          timeStr = d.toLocaleTimeString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          dateKey = d.toLocaleDateString('en-CA', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+          }); // "YYYY-MM-DD"
+          dateDisplay = d.toLocaleDateString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            day: '2-digit',
+            month: '2-digit',
+          });
+        } else if (st.start_time.includes('•')) {
+          const parts = st.start_time.split('•').map((s: string) => s.trim());
+          timeStr = parts[0]; // "18:30"
+          const dateParts = parts[1].split('/'); // "15/10/2026"
+          if (dateParts.length === 3) {
+            dateKey = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+            dateDisplay = `${dateParts[0]}/${dateParts[1]}`;
           }
         }
       }
 
-      // 2. Query showtimes từ Supabase
-      const resShowtimes: any = await supabase
-        .from('showtimes')
-        .select('id, movie_id, auditorium_id, format, starts_at, status')
-        .eq('status', 'open')
-        .order('starts_at', { ascending: true });
-
-      const dbShowtimes: any[] = resShowtimes.data || [];
-      const realSlots: any[] = [];
-
-      // Kiểm tra xem có suất chiếu DB nào cho phim này không
-      const dbMatches = dbShowtimes.filter((st: any) => st.movie_id === targetMovieId);
-
-      for (const st of dbMatches) {
-        // Lấy thông tin số ghế từ showtime_seats
-        const seatRes: any = await supabase
-          .from('showtime_seats')
-          .select('id, status, held_until')
-          .eq('showtime_id', st.id);
-
-        const allSeats: any[] = seatRes.data || [];
-        const now = new Date();
-        const availableCount =
-          allSeats.length > 0
-            ? allSeats.filter(
-                (s) =>
-                  s.status === 'available' ||
-                  (s.status === 'held' && s.held_until && new Date(s.held_until) < now)
-              ).length
-            : 76;
-
-        const auditRes: any = await supabase
-          .from('auditoriums')
-          .select('id, name, total_seats')
-          .eq('id', st.auditorium_id)
-          .single();
-
-        const totalSeats = auditRes.data?.total_seats ?? (allSeats.length > 0 ? allSeats.length : 80);
-        const roomName = auditRes.data?.name || 'Phòng 1';
-
-        // Lấy giờ chiếu dạng HH:mm
-        const d = new Date(st.starts_at);
-        const timeStr = d.toLocaleTimeString('vi-VN', {
-          timeZone: 'Asia/Ho_Chi_Minh',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-
-        // Chỉ thêm suất DB này vào rạp 1 (Cinemax Hà Nội Centre) vì phòng chiếu thuộc rạp này
-        if (effectiveCinemaId === 1) {
-          realSlots.push({
-            id: st.id, // Giữ nguyên UUID chuẩn của Supabase
-            time: timeStr || '23:33',
-            dateStr: targetDate,
-            availableSeats: availableCount,
-            totalSeats: totalSeats,
-            format: st.format || '2D',
-            roomName: roomName,
-            isLate: isLateShowtime(timeStr || '23:33'),
-          });
+      // Nếu có dateStr lọc (ví dụ "2026-10-15"), phải khớp đúng ngày này
+      if (dateStr) {
+        if (dateKey !== dateStr) {
+          continue;
         }
       }
 
-      // 3. Bổ sung các khung giờ chiếu hoạt động thực tế đầy đủ cho từng rạp & từng ngày
-      const scheduleByCinema: Record<number, string[]> = {
-        1: ['10:00', '13:15', '16:00', '18:45', '21:15', '23:30'], // Hà Nội Centre
-        2: ['09:45', '12:30', '15:15', '18:00', '20:45', '23:15'], // Cầu Giấy
-        3: ['10:30', '13:45', '16:30', '19:15', '21:45', '23:45'], // Landmark 81
-      };
+      const screenType = roomObj?.screen_type || '2D';
 
-      const baseTimes = scheduleByCinema[effectiveCinemaId] || scheduleByCinema[1];
-
-      // Seed để tính ghế trống ổn định cho từng suất chiếu
-      const seedStr = `${movieId}_${effectiveCinemaId}_${targetDate}`;
-      let hash = 0;
-      for (let i = 0; i < seedStr.length; i++) {
-        hash = (hash << 5) - hash + seedStr.charCodeAt(i);
-        hash |= 0;
-      }
-      const absHash = Math.abs(hash);
-
-      baseTimes.forEach((time, idx) => {
-        // Tránh trùng lặp với giờ của suất DB đã thêm
-        if (realSlots.some((s) => s.time === time)) return;
-
-        // Tính số ghế trống dao động tự nhiên từ 52 đến 78 ghế
-        const mockAvailable = 50 + ((absHash + (idx + 1) * 19) % 29);
-        const slotId = `${effectiveCinemaId}${movieId}${idx + 101}`;
-
-        realSlots.push({
-          id: slotId,
-          time: time,
-          dateStr: targetDate,
-          availableSeats: mockAvailable,
-          totalSeats: 80,
-          format: '2D',
-          roomName: `Phòng 0${(idx % 3) + 1}`,
-          isLate: isLateShowtime(time),
-        });
+      slots.push({
+        id: st.id,
+        time: timeStr || '18:30',
+        dateStr: dateDisplay || '15/10',
+        availableSeats: st.available_seats ?? 80,
+        totalSeats: roomObj?.total_seats ?? 80,
+        format: screenType === 'IMAX' ? 'IMAX Laser' : screenType,
+        roomName: roomObj?.name || 'Phòng 1',
+        isLate: isLateShowtime(timeStr || '18:30'),
       });
-
-      // Sắp xếp các suất chiếu theo thời gian tăng dần
-      realSlots.sort((a, b) => a.time.localeCompare(b.time));
-      return realSlots;
-    } catch (err) {
-      console.error('Error fetching showtime slots:', err);
-      return [];
     }
+
+    // 3. Nếu có suất chiếu trong Supabase DB cho phim và ngày này, đồng bộ thêm vào
+    try {
+      const supabase = createClient();
+      const resShowtimes: any = await supabase
+        .from('showtimes')
+        .select('id, movie_id, auditorium_id, format, starts_at, status')
+        .eq('status', 'open');
+
+      if (resShowtimes.data && resShowtimes.data.length > 0) {
+        for (const st of resShowtimes.data) {
+          const d = new Date(st.starts_at);
+          const dateKeyDb = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+          if (dateStr && dateKeyDb !== dateStr) continue;
+
+          // Lấy giờ chiếu
+          const timeStrDb = d.toLocaleTimeString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
+          // Tránh trùng lặp với slot đã có
+          if (slots.some((s) => s.id === st.id || s.time === timeStrDb)) continue;
+
+          // Suất chiếu trong DB thuộc rạp 1 (Cinemax Hà Nội Centre)
+          if (!effectiveCinemaId || effectiveCinemaId === 1) {
+            // Lấy số ghế thực tế từ showtime_seats
+            const seatRes: any = await supabase
+              .from('showtime_seats')
+              .select('id, status')
+              .eq('showtime_id', st.id);
+
+            const allSeats: any[] = seatRes.data || [];
+            const availableCount =
+              allSeats.length > 0
+                ? allSeats.filter((s) => s.status === 'available').length
+                : 76;
+
+            slots.push({
+              id: st.id,
+              time: timeStrDb,
+              dateStr: d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+              availableSeats: availableCount,
+              totalSeats: 80,
+              format: st.format || '2D',
+              roomName: 'Phòng 1 (2D Tiêu Chuẩn)',
+              isLate: isLateShowtime(timeStrDb),
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Lỗi đọc Supabase showtimes:', e);
+    }
+
+    // Sắp xếp các suất chiếu theo thời gian tăng dần
+    slots.sort((a, b) => a.time.localeCompare(b.time));
+    return slots;
   }
 }

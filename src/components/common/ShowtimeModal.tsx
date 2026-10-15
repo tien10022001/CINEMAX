@@ -177,14 +177,6 @@ export default function ShowtimeModal({
 
         {/* Khối danh sách Suất chiếu */}
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-4 bg-[#E63845] rounded-full inline-block" />
-            <div className="text-xs sm:text-sm font-extrabold text-white tracking-wider uppercase">
-              2D PHỤ ĐỀ
-            </div>
-          </div>
-
-          {/* Lưới các thẻ suất chiếu (Showtime Cards Grid) theo đúng Form mẫu */}
           {loading ? (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4 py-4">
               {[...Array(8)].map((_, i) => (
@@ -215,15 +207,36 @@ export default function ShowtimeModal({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
-              {slots.map((slot) => (
-                <ShowtimeCard
-                  key={slot.id + '-' + slot.time}
-                  slot={slot}
-                  theme="dark"
-                  onClick={handleSelectShowtime}
-                  dayStr={activeDateObj.dayStr}
-                />
+            <div className="space-y-5">
+              {Object.entries(
+                slots.reduce((acc: Record<string, ShowtimeSlot[]>, slot) => {
+                  const fmt = slot.format || '2D';
+                  if (!acc[fmt]) acc[fmt] = [];
+                  acc[fmt].push(slot);
+                  return acc;
+                }, {})
+              ).map(([formatName, formatSlots]) => (
+                <div key={formatName} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-4 bg-[#E63845] rounded-full inline-block" />
+                    <div className="text-xs sm:text-sm font-extrabold text-white tracking-wider uppercase">
+                      {formatName.toUpperCase().includes('IMAX')
+                        ? 'IMAX LASER PHỤ ĐỀ'
+                        : `${formatName.toUpperCase()} PHỤ ĐỀ`}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
+                    {formatSlots.map((slot) => (
+                      <ShowtimeCard
+                        key={slot.id + '-' + slot.time}
+                        slot={slot}
+                        theme="dark"
+                        onClick={handleSelectShowtime}
+                        dayStr={activeDateObj.dayStr}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}

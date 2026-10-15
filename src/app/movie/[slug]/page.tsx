@@ -222,19 +222,40 @@ export default function MovieDetailPage() {
                         Chưa có suất chiếu cho ngày này tại cụm rạp.
                       </div>
                     ) : (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
-                        {slots.map((st: ShowtimeSlot) => (
-                          <ShowtimeCard
-                            key={cinema.id + '-' + st.id + '-' + st.time}
-                            slot={st}
-                            theme="dark"
-                            dayStr={activeDateObj.day}
-                            onClick={(selectedSlot) =>
-                              router.push(
-                                `/booking?movie=${movie.id}&cinema=${cinema.id}&date=${selectedDate}&showtime=${selectedSlot.id}&time=${selectedSlot.time}`
-                              )
-                            }
-                          />
+                      <div className="space-y-4">
+                        {Object.entries(
+                          slots.reduce((acc: Record<string, ShowtimeSlot[]>, slot) => {
+                            const fmt = slot.format || '2D';
+                            if (!acc[fmt]) acc[fmt] = [];
+                            acc[fmt].push(slot);
+                            return acc;
+                          }, {})
+                        ).map(([formatName, formatSlots]) => (
+                          <div key={formatName} className="space-y-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="w-1.5 h-3.5 bg-[#E63845] rounded-full inline-block" />
+                              <div className="text-xs font-bold text-white uppercase tracking-wider">
+                                {formatName.toUpperCase().includes('IMAX')
+                                  ? 'IMAX LASER PHỤ ĐỀ'
+                                  : `${formatName.toUpperCase()} PHỤ ĐỀ`}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
+                              {formatSlots.map((st: ShowtimeSlot) => (
+                                <ShowtimeCard
+                                  key={cinema.id + '-' + st.id + '-' + st.time}
+                                  slot={st}
+                                  theme="dark"
+                                  dayStr={activeDateObj.day}
+                                  onClick={(selectedSlot) =>
+                                    router.push(
+                                      `/booking?movie=${movie.id}&cinema=${cinema.id}&date=${selectedDate}&showtime=${selectedSlot.id}&time=${selectedSlot.time}`
+                                    )
+                                  }
+                                />
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
