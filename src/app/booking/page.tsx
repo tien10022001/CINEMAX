@@ -100,7 +100,75 @@ function BookingContent() {
   const [timeLeft, setTimeLeft] = useState<number>(582); // 09:42 initial
 
   useEffect(() => {
-    setSeats(generateMockSeats(Number(selectedShowtime?.room_id) || 1));
+    let isMounted = true;
+    async function loadSeats() {
+      try {
+        const { BookingService } = await import('@/services/booking.service');
+        const stId = selectedShowtime?.id?.toString();
+        const validId = stId && stId.length === 36 ? stId : '85608755-35ca-4157-87bd-96b50577e0e5';
+
+        const dbSeats = await BookingService.getShowtimeSeats(validId);
+
+        // Đọc danh sách vé đã đặt từ localStorage để đồng bộ ghế đã bán tức thì
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
+        const localTickets = stored ? JSON.parse(stored) : [];
+        const bookedSeatLabels = new Set<string>();
+        localTickets.forEach((t: any) => {
+          if (t.seats && Array.isArray(t.seats)) {
+            t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
+          }
+        });
+
+        if (dbSeats && dbSeats.length > 0) {
+          const mapped: Seat[] = dbSeats.map((s) => {
+            const seatLabel = `${s.row_label}${s.seat_number}`;
+            const isBookedLocally = bookedSeatLabels.has(seatLabel);
+            return {
+              id: s.id,
+              row_label: s.row_label,
+              seat_number: s.seat_number,
+              grid_row: s.grid_row,
+              grid_col: s.grid_col,
+              seat_type: {
+                id: s.seat_type || 'standard',
+                code: (s.seat_type || 'STANDARD').toUpperCase() as any,
+                name: (s.seat_type || 'STANDARD').toUpperCase(),
+              },
+              seat_group: s.seat_group,
+              status: isBookedLocally ? 'sold' : (s.status as any),
+            };
+          });
+          if (isMounted) setSeats(mapped);
+          return;
+        }
+      } catch (err) {
+        console.warn('Lỗi tải ghế Supabase, dùng fallback:', err);
+      }
+
+      // Fallback nếu chưa kết nối hoặc đang test offline
+      const mockSeats = generateMockSeats(Number(selectedShowtime?.room_id) || 1);
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
+      const localTickets = stored ? JSON.parse(stored) : [];
+      const bookedSeatLabels = new Set<string>();
+      localTickets.forEach((t: any) => {
+        if (t.seats && Array.isArray(t.seats)) {
+          t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
+        }
+      });
+      const updated = mockSeats.map((s) => {
+        const label = `${s.row_label}${s.seat_number}`;
+        if (bookedSeatLabels.has(label)) {
+          return { ...s, status: 'SOLD' as const };
+        }
+        return s;
+      });
+      if (isMounted) setSeats(updated);
+    }
+
+    loadSeats();
+    return () => {
+      isMounted = false;
+    };
   }, [selectedShowtime]);
 
   useEffect(() => {
@@ -128,7 +196,12 @@ function BookingContent() {
   };
 
   const handleSeatClick = (seat: Seat) => {
-    if (seat.status === 'SOLD' || seat.status === 'HELD') return;
+    const isUnavailable =
+      seat.status === 'SOLD' ||
+      seat.status === 'sold' ||
+      seat.status === 'HELD' ||
+      seat.status === 'held';
+    if (isUnavailable) return;
 
     const isSelected = selectedSeats.some((s) => s.id === seat.id);
     if (isSelected) {
@@ -320,6 +393,13 @@ function BookingContent() {
         console.error('Error storing local ticket', e);
       }
 
+      // Đánh dấu các ghế vừa mua thành đã bán ngay lập tức
+      setSeats((prev) =>
+        prev.map((s) =>
+          selectedSeats.some((sel) => sel.id === s.id) ? { ...s, status: 'sold' as any } : s
+        )
+      );
+
       setCurrentStep(3);
     } catch (error: any) {
       console.error('Checkout error:', error);
@@ -389,6 +469,13 @@ function BookingContent() {
       console.warn('Lỗi lưu ticket localStorage:', e);
     }
 
+    // Đánh dấu các ghế vừa mua thành đã bán ngay lập tức
+    setSeats((prev) =>
+      prev.map((s) =>
+        selectedSeats.some((sel) => sel.id === s.id) ? { ...s, status: 'sold' as any } : s
+      )
+    );
+
     setIsVietQRModalOpen(false);
     setCurrentStep(3);
   };
@@ -453,8 +540,8 @@ function BookingContent() {
 
                     const renderSeatButton = (seat: Seat) => {
                       const isSelected = selectedSeats.some((s) => s.id === seat.id);
-                      const isSold = seat.status === 'SOLD';
-                      const isHeld = seat.status === 'HELD';
+                      const isSold = seat.status === 'SOLD' || seat.status === 'sold';
+                      const isHeld = seat.status === 'HELD' || seat.status === 'held';
                       const isVip = seat.seat_type?.code === 'VIP';
                       const isCouple = seat.seat_type?.code === 'COUPLE';
 
