@@ -147,8 +147,13 @@ export class MovieService {
 
   /**
    * Lấy danh sách thẻ suất chiếu chuẩn hóa từ Database Supabase kèm số ghế trống thực tế
+   * Hỗ trợ lọc theo phim, ngày chiếu và rạp
    */
-  static async getShowtimeSlots(movieId: string | number, dateStr?: string): Promise<any[]> {
+  static async getShowtimeSlots(
+    movieId: string | number,
+    dateStr?: string,
+    cinemaId?: string | number
+  ): Promise<any[]> {
     const supabase = createClient();
 
     try {

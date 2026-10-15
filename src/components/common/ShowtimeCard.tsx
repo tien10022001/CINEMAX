@@ -39,7 +39,7 @@ export default function ShowtimeCard({
     >
       {/* Ô trên: Giờ chiếu */}
       <div
-        className={`w-full h-12 rounded-sm flex flex-col items-center justify-center transition-colors shadow-xs ${
+        className={`w-full h-12 rounded-md flex flex-col items-center justify-center transition-colors shadow-xs ${
           isLate
             ? 'bg-[#B9D5F5] group-hover:bg-[#A3C7F0] text-gray-900'
             : 'bg-[#E5E7EB] group-hover:bg-[#D1D5DB] text-gray-900'
@@ -50,13 +50,13 @@ export default function ShowtimeCard({
         </span>
         {isLate && (
           <span className="text-[10px] text-gray-700 font-medium -mt-0.5">
-            {dayStr || slot.dateStr || '15/10'}
+            {dayStr || slot.dateStr || '19/10'}
           </span>
         )}
       </div>
 
       {/* Chữ dưới: Số ghế trống */}
-      <span className="text-[10px] sm:text-[11px] text-gray-600 font-medium text-center mt-1">
+      <span className="text-[10px] sm:text-[11px] text-gray-500 font-medium text-center mt-1">
         {slot.availableSeats} ghế trống
       </span>
     </div>

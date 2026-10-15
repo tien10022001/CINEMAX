@@ -49,7 +49,7 @@ export default function ShowtimeModal({
     let isMounted = true;
     setLoading(true);
 
-    MovieService.getShowtimeSlots(movie.id, selectedDate)
+    MovieService.getShowtimeSlots(movie.id, selectedDate, selectedCinemaId)
       .then((data) => {
         if (isMounted) {
           setSlots(data);
@@ -64,7 +64,7 @@ export default function ShowtimeModal({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, movie?.id, selectedDate]);
+  }, [isOpen, movie?.id, selectedDate, selectedCinemaId]);
 
   if (!isOpen || !movie) return null;
 
@@ -93,19 +93,17 @@ export default function ShowtimeModal({
         </div>
 
         {/* Tên Rạp Chiếu ở chính giữa */}
-        <div className="text-center space-y-1">
-          <div className="flex items-center justify-center gap-2">
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-              {activeCinema?.name || 'Rạp CINEMAX'}
-            </h3>
-          </div>
-          {cinemas.length > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-1">
-              <span className="text-xs text-gray-500">Đổi rạp:</span>
+        <div className="text-center space-y-1.5">
+          <h3 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+            {activeCinema?.name || 'Cinemax Hà Nội Centre'}
+          </h3>
+          <div className="flex items-center justify-center gap-2 pt-0.5">
+            <span className="text-xs text-gray-500 font-medium">Đổi rạp:</span>
+            <div className="relative inline-block">
               <select
                 value={selectedCinemaId}
                 onChange={(e) => setSelectedCinemaId(e.target.value)}
-                className="text-xs font-semibold text-blue-600 bg-gray-50 border border-gray-300 rounded px-2 py-1 focus:outline-none"
+                className="appearance-none text-xs font-semibold text-blue-600 bg-white border border-gray-300 hover:border-blue-500 rounded-md pl-3 pr-7 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs transition-all"
               >
                 {cinemas.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -113,8 +111,13 @@ export default function ShowtimeModal({
                   </option>
                 ))}
               </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-blue-600">
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                  <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Thanh chọn ngày (Date Selector Row) */}
@@ -132,11 +135,13 @@ export default function ShowtimeModal({
                 className={`flex items-baseline gap-1 pb-2 cursor-pointer transition-all relative ${
                   isSelected
                     ? 'text-blue-600 font-extrabold'
-                    : 'text-gray-800 hover:text-gray-900 font-bold opacity-80'
+                    : 'text-gray-800 hover:text-gray-900 font-bold opacity-85'
                 }`}
               >
-                <span className="text-2xl sm:text-3xl font-black">{day}</span>
-                <span className="text-xs font-bold text-gray-600">/{month} - {weekday}</span>
+                <span className={`text-2xl sm:text-3xl font-black ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>
+                  {day}
+                </span>
+                <span className="text-xs font-bold text-gray-700">/{month} - {weekday}</span>
 
                 {/* Gạch chân màu xanh khi active */}
                 {isSelected && (

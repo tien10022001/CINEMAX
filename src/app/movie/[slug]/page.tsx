@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import TrailerModal from '@/components/common/TrailerModal';
+import ShowtimeModal from '@/components/common/ShowtimeModal';
 import ShowtimeCard, { ShowtimeSlot } from '@/components/common/ShowtimeCard';
 import { MovieService } from '@/services/movie.service';
 import { MOCK_MOVIES, MOCK_CINEMAS } from '@/lib/mock-data';
@@ -18,6 +19,7 @@ export default function MovieDetailPage() {
   const movie = MOCK_MOVIES.find((m) => m.slug === slug) || MOCK_MOVIES[0];
   const [selectedDate, setSelectedDate] = useState<string>('2026-10-15');
   const [isTrailerOpen, setIsTrailerOpen] = useState<boolean>(false);
+  const [isShowtimeModalOpen, setIsShowtimeModalOpen] = useState<boolean>(false);
   const [slots, setSlots] = useState<ShowtimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
 
@@ -132,7 +134,7 @@ export default function MovieDetailPage() {
             <div className="pt-4 flex items-center gap-4">
               <button
                 type="button"
-                onClick={scrollToSchedule}
+                onClick={() => setIsShowtimeModalOpen(true)}
                 className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-8 py-3 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all flex items-center gap-2 cursor-pointer"
               >
                 <Ticket className="w-4 h-4" />
@@ -247,6 +249,13 @@ export default function MovieDetailPage() {
         onClose={() => setIsTrailerOpen(false)}
         videoUrl={movie.trailer_url || ''}
         title={movie.title}
+      />
+
+      {/* Showtime Modal Form Mẫu Chuẩn */}
+      <ShowtimeModal
+        isOpen={isShowtimeModalOpen}
+        onClose={() => setIsShowtimeModalOpen(false)}
+        movie={movie}
       />
     </div>
   );
