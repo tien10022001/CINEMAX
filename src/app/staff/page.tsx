@@ -1220,10 +1220,26 @@ export default function StaffWorkspacePage() {
   );
 
   useEffect(() => {
-    if (movieShowtimes.length > 0 && !movieShowtimes.some((s) => String(s.id) === String(posSelectedShowtimeId))) {
-      setPosSelectedShowtimeId(movieShowtimes[0].id);
+    if (movieShowtimes.length > 0) {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const isPast = (s: any) => {
+        if (posDateFilter !== 'today') return false;
+        const dt = new Date(s.start_time);
+        return dt.getHours() * 60 + dt.getMinutes() <= currentMinutes;
+      };
+
+      const currentSelected = movieShowtimes.find((s) => String(s.id) === String(posSelectedShowtimeId));
+      if (!currentSelected || isPast(currentSelected)) {
+        const nextUpcoming = movieShowtimes.find((s) => !isPast(s));
+        if (nextUpcoming) {
+          setPosSelectedShowtimeId(nextUpcoming.id);
+        } else if (!currentSelected) {
+          setPosSelectedShowtimeId(movieShowtimes[0].id);
+        }
+      }
     }
-  }, [movieShowtimes, posSelectedShowtimeId]);
+  }, [movieShowtimes, posSelectedShowtimeId, posDateFilter]);
 
   const activeShowtime = useMemo(
     () =>
@@ -2296,31 +2312,55 @@ export default function StaffWorkspacePage() {
                     <div className="grid grid-cols-2 gap-2.5">
                       {movieShowtimes.map((st) => {
                         const isSelected = st.id === activeShowtime?.id;
-                        const timeStr = new Date(st.start_time).toLocaleTimeString('vi-VN', {
+                        const dt = new Date(st.start_time);
+                        const timeStr = dt.toLocaleTimeString('vi-VN', {
                           hour: '2-digit',
                           minute: '2-digit',
                         });
+                        const now = new Date();
+                        const isToday =
+                          posDateFilter === 'today' ||
+                          st.start_time.slice(0, 10) === now.toISOString().slice(0, 10);
+                        const slotMinutes = dt.getHours() * 60 + dt.getMinutes();
+                        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                        const isPast = isToday && slotMinutes <= currentMinutes;
+
                         return (
                           <button
                             key={st.id}
                             type="button"
+                            disabled={isPast}
                             onClick={() => {
+                              if (isPast) return;
                               setPosSelectedShowtimeId(st.id);
                               setPosSelectedSeats([]);
                             }}
                             className={`p-2.5 rounded-lg border text-center transition ${
-                              isSelected
-                                ? 'bg-[#E63845] border-[#E63845] text-white'
-                                : 'bg-[#161A26] border-[#262D40] text-slate-300 hover:border-slate-500'
+                              isPast
+                                ? 'bg-[#10131B] border-[#1C2230] text-slate-500 opacity-40 cursor-not-allowed select-none'
+                                : isSelected
+                                ? 'bg-[#E63845] border-[#E63845] text-white shadow-md cursor-pointer'
+                                : 'bg-[#161A26] border-[#262D40] text-slate-300 hover:border-slate-500 cursor-pointer'
                             }`}
+                            title={isPast ? 'Suất chiếu này đã qua giờ chiếu' : ''}
                           >
-                            <div className="text-sm font-extrabold">{timeStr}</div>
                             <div
-                              className={`text-[11px] ${
-                                isSelected ? 'text-white/90' : 'text-slate-400'
+                              className={`text-sm font-extrabold ${
+                                isPast ? 'line-through text-slate-500' : ''
                               }`}
                             >
-                              {st.room?.name || 'Phòng 1'}
+                              {timeStr}
+                            </div>
+                            <div
+                              className={`text-[11px] ${
+                                isPast
+                                  ? 'text-slate-500 font-medium'
+                                  : isSelected
+                                  ? 'text-white/90'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {isPast ? 'Đã qua giờ' : st.room?.name || 'Phòng 1'}
                             </div>
                           </button>
                         );

@@ -267,10 +267,21 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
     };
   });
 
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const normalizedMockShowtimes = MOCK_SHOWTIMES.map((st) => {
+    const timePart = st.start_time.includes('T') ? st.start_time.split('T')[1] : '10:00:00+07:00';
+    const endTimePart = st.end_time.includes('T') ? st.end_time.split('T')[1] : '12:30:00+07:00';
+    return {
+      ...st,
+      start_time: `${todayIso}T${timePart}`,
+      end_time: `${todayIso}T${endTimePart}`,
+    };
+  });
+
   const dbShowtimeIds = new Set(dbShowtimes.map((s) => s.id));
   const mergedShowtimes = [
     ...dbShowtimes,
-    ...MOCK_SHOWTIMES.filter((s) => !dbShowtimeIds.has(s.id)),
+    ...normalizedMockShowtimes.filter((s) => !dbShowtimeIds.has(s.id)),
   ];
 
   // 5. Map products & product_modifiers -> FoodItem[]

@@ -231,6 +231,10 @@ export default function MovieDetailPage() {
                       };
                     });
 
+              const isSelectedToday = selectedDate === dates[0]?.date;
+              const now = new Date();
+              const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
               return (
                 <div
                   key={cinema.id}
@@ -255,26 +259,49 @@ export default function MovieDetailPage() {
                       2D Phụ đề Việt • Chọn giờ chiếu để vào chọn ghế:
                     </div>
                     <div className="flex flex-wrap gap-3">
-                      {slotsToRender.map((st) => (
-                        <button
-                          key={`${cinema.id}-${st.id}-${st.time}`}
-                          onClick={() =>
-                            router.push(
-                              `/booking?movie=${movie.id}&cinema=${cinema.id}&date=${encodeURIComponent(
-                                selectedDate
-                              )}&showtime=${st.id}&time=${encodeURIComponent(st.time)}`
-                            )
-                          }
-                          className="bg-[#0F1217] border border-[#303645] hover:border-[#E63845] hover:bg-[#E63845]/10 rounded-xl px-4 py-2.5 text-center group transition-all transform hover:scale-105 cursor-pointer min-w-[105px]"
-                        >
-                          <div className="text-sm font-black text-white group-hover:text-[#E63845] transition-colors">
-                            {st.time}
-                          </div>
-                          <div className="text-[11px] text-[#FABF2E] font-medium mt-0.5">
-                            {st.availableSeats}/80 ghế trống
-                          </div>
-                        </button>
-                      ))}
+                      {slotsToRender.map((st) => {
+                        const [slotH, slotM] = st.time.split(':').map(Number);
+                        const slotMinutes = (slotH || 0) * 60 + (slotM || 0);
+                        const isPast = isSelectedToday && slotMinutes <= currentMinutes;
+
+                        return (
+                          <button
+                            key={`${cinema.id}-${st.id}-${st.time}`}
+                            disabled={isPast}
+                            onClick={() => {
+                              if (isPast) return;
+                              router.push(
+                                `/booking?movie=${movie.id}&cinema=${cinema.id}&date=${encodeURIComponent(
+                                  selectedDate
+                                )}&showtime=${st.id}&time=${encodeURIComponent(st.time)}`
+                              );
+                            }}
+                            className={`rounded-xl px-4 py-2.5 text-center transition-all min-w-[105px] ${
+                              isPast
+                                ? 'bg-[#12151D] border border-[#232733] opacity-40 cursor-not-allowed select-none'
+                                : 'bg-[#0F1217] border border-[#303645] hover:border-[#E63845] hover:bg-[#E63845]/10 group transform hover:scale-105 cursor-pointer'
+                            }`}
+                            title={isPast ? 'Suất chiếu này đã qua giờ chiếu' : `Còn ${st.availableSeats}/80 ghế trống`}
+                          >
+                            <div
+                              className={`text-sm font-black transition-colors ${
+                                isPast
+                                  ? 'text-slate-500 line-through'
+                                  : 'text-white group-hover:text-[#E63845]'
+                              }`}
+                            >
+                              {st.time}
+                            </div>
+                            <div
+                              className={`text-[11px] font-medium mt-0.5 ${
+                                isPast ? 'text-slate-500' : 'text-[#FABF2E]'
+                              }`}
+                            >
+                              {isPast ? 'Đã chiếu' : `${st.availableSeats}/80 ghế trống`}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
