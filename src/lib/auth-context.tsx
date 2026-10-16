@@ -19,7 +19,37 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Initial pre-seeded accounts in local store if not yet set
-const SEED_USERS: (User & { password?: string })[] = [
+export const SEED_USERS: (User & { password?: string })[] = [
+  {
+    id: 'b1600656-6fad-4ad0-8ada-e79e56e073c6',
+    role_id: 2,
+    role_code: 'STAFF',
+    staff_permissions: ['CHECKIN'],
+    staff_position: 'Nhân viên Soát vé',
+    full_name: 'tuoi',
+    email: 'tuoi@cinemax.vn',
+    password: 'staff',
+    phone: '0977888999',
+    loyalty_points: 0,
+    is_active: true,
+    created_at: '2026-01-01',
+    updated_at: '2026-01-01',
+  },
+  {
+    id: '67de8101-c50f-426c-846a-f38f90656094',
+    role_id: 2,
+    role_code: 'STAFF',
+    staff_permissions: ['SUPERVISOR', 'POS', 'CHECKIN', 'CONCESSION'],
+    staff_position: 'Trưởng ca rạp',
+    full_name: 'Lê Hoàng Nam (Trưởng Ca)',
+    email: 'nam.le@cinemax.vn',
+    password: 'staff',
+    phone: '0977555666',
+    loyalty_points: 0,
+    is_active: true,
+    created_at: '2026-01-01',
+    updated_at: '2026-01-01',
+  },
   {
     id: 'fba180c1-ee08-4306-b3be-3ab98d1e217c',
     role_id: 3,
@@ -203,7 +233,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let updated = false;
         SEED_USERS.forEach((seedUser) => {
           const idx = parsedUsers.findIndex(
-            (u) => u.email.toLowerCase() === seedUser.email.toLowerCase()
+            (u) =>
+              (u.id && u.id === seedUser.id) ||
+              (u.email && u.email.toLowerCase() === seedUser.email.toLowerCase()) ||
+              (u.full_name && seedUser.full_name && u.full_name.toLowerCase() === seedUser.full_name.toLowerCase())
           );
           if (idx === -1) {
             parsedUsers.push(seedUser);
@@ -211,13 +244,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else if (seedUser.role_code !== parsedUsers[idx].role_code || seedUser.role_id !== parsedUsers[idx].role_id) {
             parsedUsers[idx] = {
               ...parsedUsers[idx],
+              id: seedUser.id,
               role_code: seedUser.role_code,
               role_id: seedUser.role_id,
               staff_permissions: seedUser.staff_permissions,
               staff_position: seedUser.staff_position,
             };
             updated = true;
-          } else if (seedUser.staff_permissions && !parsedUsers[idx].staff_permissions) {
+          } else if (seedUser.staff_permissions && (!parsedUsers[idx].staff_permissions || parsedUsers[idx].staff_permissions.length === 0)) {
             parsedUsers[idx] = {
               ...parsedUsers[idx],
               staff_permissions: seedUser.staff_permissions,
