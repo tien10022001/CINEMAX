@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
 import { useData } from '@/lib/data-context';
+import { useAuth } from '@/lib/auth-context';
 import { createClient } from '@/lib/supabase/client';
 import {
   syncOrderToSupabase,
@@ -320,17 +322,41 @@ export default function StaffWorkspacePage() {
     refreshFromSupabase,
   } = useData();
 
+  const { currentUser, logout } = useAuth();
+  const router = useRouter();
+
   // ==========================================================================
   // CORE NAVIGATION & STAFF STATE
   // ==========================================================================
-  const [staffRole, setStaffRole] = useState<StaffRoleCode>('SUPERVISOR');
+  const [staffName, setStaffName] = useState<string>(currentUser?.full_name || 'Nhân viên Cinemax');
+  const [staffRole, setStaffRole] = useState<StaffRoleCode>(() => {
+    if (currentUser?.role_code === 'ADMIN') return 'SUPERVISOR';
+    if (currentUser?.staff_permissions?.includes('SUPERVISOR')) return 'SUPERVISOR';
+    if (currentUser?.staff_permissions?.includes('POS')) return 'POS';
+    if (currentUser?.staff_permissions?.includes('CHECKIN')) return 'CHECKIN';
+    if (currentUser?.staff_permissions?.includes('CONCESSION')) return 'CONCESSION';
+    return 'SUPERVISOR';
+  });
   const [activeTab, setActiveTab] = useState<StaffTab>('checkin');
-  const [staffName, setStaffName] = useState<string>('Nguyễn Văn An');
   const [posTerminal, setPosTerminal] = useState<string>('POS-01');
   const [shiftLabel, setShiftLabel] = useState<string>('Ca Tối (14:00 - 22:00)');
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
   const [newPasswordInput, setNewPasswordInput] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentUser?.full_name) {
+      setStaffName(currentUser.full_name);
+    }
+    if (currentUser?.role_code === 'ADMIN') {
+      setStaffRole('SUPERVISOR');
+    } else if (currentUser?.staff_permissions && currentUser.staff_permissions.length > 0) {
+      if (currentUser.staff_permissions.includes('SUPERVISOR')) setStaffRole('SUPERVISOR');
+      else if (currentUser.staff_permissions.includes('POS')) setStaffRole('POS');
+      else if (currentUser.staff_permissions.includes('CHECKIN')) setStaffRole('CHECKIN');
+      else if (currentUser.staff_permissions.includes('CONCESSION')) setStaffRole('CONCESSION');
+    }
+  }, [currentUser]);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -1904,12 +1930,16 @@ export default function StaffWorkspacePage() {
 
         {/* Minimal Footer */}
         <div className="p-4 border-t border-[#1A1F2C] space-y-2">
-          <Link
-            href="/"
-            className="block w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-[#141822] transition"
+          <button
+            type="button"
+            onClick={() => {
+              logout();
+              router.push('/');
+            }}
+            className="block w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-[#E63845] hover:bg-[#141822] transition cursor-pointer"
           >
-            Đăng xuất
-          </Link>
+            Đăng xuất ({staffName})
+          </button>
         </div>
       </aside>
 
