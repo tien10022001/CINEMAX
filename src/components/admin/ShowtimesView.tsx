@@ -25,7 +25,8 @@ import {
   Copy,
   Sparkles,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Eye
 } from 'lucide-react';
 import {
   Showtime,
@@ -64,20 +65,19 @@ export default function ShowtimesView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmShowtime, setDeleteConfirmShowtime] = useState<{ id: string; title: string; time: string; room: string } | null>(null);
 
-  // Quick Batch Schedule Modal State
+  // Quick Batch Schedule Modal State (Tạo Suất Chiếu Nhanh bằng cách tích ô)
   const [quickBatchModalOpen, setQuickBatchModalOpen] = useState(false);
-  const [quickMode, setQuickMode] = useState<'AUTO_FILL' | 'COPY_DAY'>('AUTO_FILL');
-  const [quickAudId, setQuickAudId] = useState<string>('');
-  const [quickMovieId, setQuickMovieId] = useState<string>('');
-  const [quickStartTime, setQuickStartTime] = useState<string>('08:30');
-  const [quickBuffer, setQuickBuffer] = useState<number>(15);
-  const [quickEndTimeDay, setQuickEndTimeDay] = useState<string>('23:30');
-  const [selectedSlotIndices, setSelectedSlotIndices] = useState<number[]>([]);
-  const [copySourceDate, setCopySourceDate] = useState<string>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
-  });
+  const [selectedQuickMovieIds, setSelectedQuickMovieIds] = useState<string[]>([]);
+  const [selectedQuickAuditoriumIds, setSelectedQuickAuditoriumIds] = useState<string[]>([]);
+  const [onlyCompatibleRooms, setOnlyCompatibleRooms] = useState(true);
+  const [scheduleDuration, setScheduleDuration] = useState<'1_DAY' | '7_DAYS' | '1_MONTH'>('1_DAY');
+  const [quickStartDate, setQuickStartDate] = useState(selectedDate);
+  const [applyAllWeekdays, setApplyAllWeekdays] = useState(true);
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([1, 2, 3, 4, 5, 6, 0]);
+  const [quickOperatingStart, setQuickOperatingStart] = useState('08:00');
+  const [quickOperatingEnd, setQuickOperatingEnd] = useState('00:30');
+  const [quickCleaningBuffer, setQuickCleaningBuffer] = useState(15);
+  const [isPreviewDrawerOpen, setIsPreviewDrawerOpen] = useState(false);
 
   // Form State for showtime (create or edit)
   const [form, setForm] = useState({
@@ -469,202 +469,215 @@ export default function ShowtimesView({
 
   const conflictCount = showtimes.filter(checkOverlap).length;
 
-  // QUICK BATCH SCHEDULING LOGIC
+  // QUICK BATCH SCHEDULING LOGIC (TẠO SUẤT CHIẾU NHANH BẰNG CÁCH TÍCH Ô)
   const handleOpenQuickBatchModal = () => {
-    const firstAud = auditoriums[0];
-    const initialAudId = firstAud?.id || '';
-    setQuickAudId(initialAudId);
-
-    const validMovies = movies.filter((m) => isMovieCompatibleWithAuditorium(m, firstAud));
-    const initialMovieId = validMovies[0]?.id || movies[0]?.id || '';
-    setQuickMovieId(initialMovieId);
-    setQuickBuffer(firstAud?.cleaning_buffer_minutes || 15);
-    setQuickStartTime('08:30');
-    setQuickEndTimeDay('23:30');
-
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() - 1);
-    setCopySourceDate(d.toISOString().split('T')[0]);
-
+    // Mặc định chọn tất cả phim
+    setSelectedQuickMovieIds(movies.map((m) => m.id));
+    // Mặc định chọn tất cả phòng
+    setSelectedQuickAuditoriumIds(auditoriums.map((a) => a.id));
+    setOnlyCompatibleRooms(true);
+    setScheduleDuration('1_DAY');
+    setQuickStartDate(selectedDate);
+    setApplyAllWeekdays(true);
+    setSelectedWeekdays([1, 2, 3, 4, 5, 6, 0]);
+    setQuickOperatingStart('08:00');
+    setQuickOperatingEnd('00:30');
+    setQuickCleaningBuffer(15);
+    setIsPreviewDrawerOpen(false);
     setQuickBatchModalOpen(true);
   };
 
-  const targetQuickAud = auditoriums.find((a) => a.id === quickAudId) || auditoriums[0];
-  const compatibleMoviesForQuickAud = React.useMemo(() => {
-    if (!targetQuickAud) return movies;
-    return movies.filter((m) => isMovieCompatibleWithAuditorium(m, targetQuickAud));
-  }, [movies, targetQuickAud]);
+  // Danh sách phòng chiếu sau khi áp dụng bộ lọc tương thích
+  const filteredAuditoriumsForBatch = React.useMemo(() => {
+    if (!onlyCompatibleRooms || selectedQuickMovieIds.length === 0) {
+      return auditoriums;
+    }
+    const chosenMovies = movies.filter((m) => selectedQuickMovieIds.includes(m.id));
+    return auditoriums.filter((aud) => {
+      return chosenMovies.some((m) => isMovieCompatibleWithAuditorium(m, aud));
+    });
+  }, [auditoriums, movies, selectedQuickMovieIds, onlyCompatibleRooms]);
 
-  const targetQuickMovie = movies.find((m) => m.id === quickMovieId) || compatibleMoviesForQuickAud[0] || movies[0];
-
+  // Thuật toán sinh danh sách suất chiếu dự kiến (generatedQuickSlots)
   const generatedQuickSlots = React.useMemo(() => {
-    if (!targetQuickMovie || !targetQuickAud || !quickStartTime || !quickEndTimeDay) return [];
-    const duration = targetQuickMovie.duration_minutes || 120;
-    const buffer = quickBuffer || 15;
-    const totalSlotMins = duration + buffer;
+    if (selectedQuickMovieIds.length === 0 || selectedQuickAuditoriumIds.length === 0) {
+      return [];
+    }
 
-    const [startH, startM] = quickStartTime.split(':').map(Number);
-    const [endDayH, endDayM] = quickEndTimeDay.split(':').map(Number);
-    if (isNaN(startH) || isNaN(startM) || isNaN(endDayH) || isNaN(endDayM)) return [];
+    const totalDays = scheduleDuration === '1_DAY' ? 1 : scheduleDuration === '7_DAYS' ? 7 : 30;
+
+    const [startH, startM] = (quickOperatingStart || '08:00').split(':').map(Number);
+    const [endH, endM] = (quickOperatingEnd || '00:30').split(':').map(Number);
+    if (isNaN(startH) || isNaN(startM) || isNaN(endH) || isNaN(endM)) return [];
 
     const startMinutesOfDay = startH * 60 + startM;
-    const endMinutesOfDay = endDayH * 60 + endDayM;
+    let endMinutesOfDay = endH * 60 + endM;
+    if (endMinutesOfDay <= startMinutesOfDay) {
+      endMinutesOfDay += 24 * 60; // Ca chiếu kéo dài qua nửa đêm
+    }
 
-    const existingRoomShowtimes = showtimes.filter((st) => {
-      const stDate = st.starts_at ? new Date(st.starts_at).toISOString().split('T')[0] : '';
-      return st.auditorium_id === targetQuickAud.id && stDate === selectedDate;
-    });
+    const selectedMovies = movies.filter((m) => selectedQuickMovieIds.includes(m.id));
+    const selectedAuds = auditoriums.filter((a) => selectedQuickAuditoriumIds.includes(a.id));
 
     const slots: Array<{
-      index: number;
-      startStr: string;
-      endStr: string;
+      movieId: string;
+      movieTitle: string;
+      movieDuration: number;
+      movieFormat: string;
+      auditoriumId: string;
+      auditoriumName: string;
+      auditoriumScreenType: string;
+      dateStr: string;
+      startTimeStr: string;
+      endTimeStr: string;
       startsAt: Date;
       endsAt: Date;
       isConflict: boolean;
     }> = [];
 
-    let currentStartMins = startMinutesOfDay;
-    let idx = 0;
+    for (let dayOffset = 0; dayOffset < totalDays; dayOffset++) {
+      const currentDayDate = new Date(`${quickStartDate}T00:00:00`);
+      currentDayDate.setDate(currentDayDate.getDate() + dayOffset);
+      const dayOfWeek = currentDayDate.getDay(); // 0 = CN, 1 = T2, ..., 6 = T7
 
-    while (currentStartMins + duration <= endMinutesOfDay + 60 && idx < 10) {
-      const curH = Math.floor(currentStartMins / 60) % 24;
-      const curM = currentStartMins % 60;
-      const startStr = `${String(curH).padStart(2, '0')}:${String(curM).padStart(2, '0')}`;
+      if (!applyAllWeekdays && !selectedWeekdays.includes(dayOfWeek)) {
+        continue;
+      }
 
-      const movieEndMins = currentStartMins + duration;
-      const endH = Math.floor(movieEndMins / 60) % 24;
-      const endM = movieEndMins % 60;
-      const endStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+      const currentDayStr = currentDayDate.toISOString().split('T')[0];
 
-      const startsAt = new Date(`${selectedDate}T${startStr}:00`);
-      const endsAt = new Date(startsAt.getTime() + totalSlotMins * 60000);
+      selectedAuds.forEach((aud) => {
+        const compatibleMovies = selectedMovies.filter((m) => isMovieCompatibleWithAuditorium(m, aud));
+        if (compatibleMovies.length === 0) return;
 
-      const slotStartTime = startsAt.getTime();
-      const slotEndTime = endsAt.getTime();
+        const existingRoomShowtimes = showtimes.filter((st) => {
+          return st.auditorium_id === aud.id && isShowtimeInBusinessDay(st, currentDayStr);
+        });
 
-      const hasConflict = existingRoomShowtimes.some((st) => {
-        const stStart = new Date(st.starts_at).getTime();
-        const stEnd = new Date(st.ends_at).getTime();
-        return Math.max(slotStartTime, stStart) < Math.min(slotEndTime, stEnd);
+        let currentMin = startMinutesOfDay;
+        let movieRoundRobinIndex = 0;
+        let loopGuard = 0;
+
+        while (loopGuard < 25) {
+          loopGuard++;
+          const movie = compatibleMovies[movieRoundRobinIndex % compatibleMovies.length];
+          const duration = movie.duration_minutes || 120;
+          const buffer = quickCleaningBuffer || 15;
+
+          if (currentMin + duration > endMinutesOfDay) {
+            break;
+          }
+
+          const startDayOffset = Math.floor(currentMin / 1440);
+          const startMinuteInDay = currentMin % 1440;
+          const curStartH = Math.floor(startMinuteInDay / 60);
+          const curStartM = startMinuteInDay % 60;
+
+          const slotStartDate = new Date(`${quickStartDate}T00:00:00`);
+          slotStartDate.setDate(slotStartDate.getDate() + dayOffset + startDayOffset);
+          slotStartDate.setHours(curStartH, curStartM, 0, 0);
+
+          const slotEndDate = new Date(slotStartDate.getTime() + duration * 60000);
+
+          const startStr = `${String(curStartH).padStart(2, '0')}:${String(curStartM).padStart(2, '0')}`;
+          const endStr = `${String(slotEndDate.getHours()).padStart(2, '0')}:${String(slotEndDate.getMinutes()).padStart(2, '0')}`;
+
+          const slotStartMs = slotStartDate.getTime();
+          const slotEndWithBufferMs = slotEndDate.getTime() + buffer * 60000;
+
+          const hasConflict = existingRoomShowtimes.some((st) => {
+            const stStart = new Date(st.starts_at).getTime();
+            const stEnd = new Date(st.ends_at).getTime();
+            return Math.max(slotStartMs, stStart) < Math.min(slotEndWithBufferMs, stEnd);
+          });
+
+          const chosenFormat = aud.screen_type === 'IMAX'
+            ? (movie.formats?.includes('IMAX') ? 'IMAX' : '2D')
+            : '2D';
+
+          slots.push({
+            movieId: movie.id,
+            movieTitle: movie.title,
+            movieDuration: duration,
+            movieFormat: chosenFormat,
+            auditoriumId: aud.id,
+            auditoriumName: aud.name,
+            auditoriumScreenType: aud.screen_type,
+            dateStr: currentDayStr,
+            startTimeStr: startStr,
+            endTimeStr: endStr,
+            startsAt: slotStartDate,
+            endsAt: slotEndDate,
+            isConflict: hasConflict
+          });
+
+          currentMin += duration + buffer;
+          movieRoundRobinIndex++;
+        }
       });
-
-      slots.push({
-        index: idx,
-        startStr,
-        endStr,
-        startsAt,
-        endsAt: new Date(startsAt.getTime() + duration * 60000),
-        isConflict: hasConflict
-      });
-
-      currentStartMins += totalSlotMins;
-      idx++;
     }
 
     return slots;
-  }, [targetQuickMovie, targetQuickAud, quickStartTime, quickEndTimeDay, quickBuffer, selectedDate, showtimes]);
+  }, [
+    selectedQuickMovieIds,
+    selectedQuickAuditoriumIds,
+    scheduleDuration,
+    quickStartDate,
+    applyAllWeekdays,
+    selectedWeekdays,
+    quickOperatingStart,
+    quickOperatingEnd,
+    quickCleaningBuffer,
+    movies,
+    auditoriums,
+    showtimes
+  ]);
 
-  // Cập nhật slot selection khi generated slots thay đổi
-  React.useEffect(() => {
-    if (generatedQuickSlots.length > 0) {
-      setSelectedSlotIndices(generatedQuickSlots.filter((s) => !s.isConflict).map((s) => s.index));
-    }
+  // Danh sách các suất hợp lệ có thể tạo
+  const validQuickSlots = React.useMemo(() => {
+    return generatedQuickSlots.filter((s) => !s.isConflict);
   }, [generatedQuickSlots]);
 
-  // Danh sách suất của ngày nguồn để sao chép
-  const sourceDayShowtimes = React.useMemo(() => {
-    return showtimes.filter((st) => {
-      const d = st.starts_at ? new Date(st.starts_at).toISOString().split('T')[0] : '';
-      return d === copySourceDate;
-    });
-  }, [showtimes, copySourceDate]);
-
-  // Thực thi tạo hàng loạt
+  // Thực thi tạo suất chiếu hàng loạt
   const handleExecuteQuickBatch = async () => {
-    if (quickMode === 'AUTO_FILL') {
-      if (!targetQuickMovie || !targetQuickAud) {
-        showToast('Vui lòng chọn phim và phòng!');
-        return;
-      }
-      const slotsToCreate = generatedQuickSlots.filter((s) => selectedSlotIndices.includes(s.index));
-      if (slotsToCreate.length === 0) {
-        showToast('Vui lòng chọn ít nhất 1 khung giờ hợp lệ!');
-        return;
-      }
+    if (validQuickSlots.length === 0) {
+      showToast('Không có suất chiếu hợp lệ nào để tạo!');
+      return;
+    }
 
-      setIsSubmitting(true);
-      try {
-        const defaultPrices: Partial<ShowtimePrice>[] = [
-          { seat_type: 'STANDARD', audience_type: 'ADULT', price: 85000, currency: 'VND' },
-          { seat_type: 'STANDARD', audience_type: 'STUDENT_U22', price: 65000, currency: 'VND' },
-          { seat_type: 'STANDARD', audience_type: 'CHILD', price: 55000, currency: 'VND' },
-          { seat_type: 'VIP', audience_type: 'ADULT', price: 105000, currency: 'VND' },
-          { seat_type: 'VIP', audience_type: 'STUDENT_U22', price: 85000, currency: 'VND' },
-          { seat_type: 'COUPLE', audience_type: 'ADULT', price: 210000, currency: 'VND' }
-        ];
+    setIsSubmitting(true);
+    try {
+      const defaultPrices: Partial<ShowtimePrice>[] = [
+        { seat_type: 'STANDARD', audience_type: 'ADULT', price: 85000, currency: 'VND' },
+        { seat_type: 'STANDARD', audience_type: 'STUDENT_U22', price: 65000, currency: 'VND' },
+        { seat_type: 'STANDARD', audience_type: 'CHILD', price: 55000, currency: 'VND' },
+        { seat_type: 'VIP', audience_type: 'ADULT', price: 105000, currency: 'VND' },
+        { seat_type: 'VIP', audience_type: 'STUDENT_U22', price: 85000, currency: 'VND' },
+        { seat_type: 'COUPLE', audience_type: 'ADULT', price: 210000, currency: 'VND' }
+      ];
 
-        for (const slot of slotsToCreate) {
-          await onSaveShowtime(
-            {
-              movie_id: targetQuickMovie.id,
-              auditorium_id: targetQuickAud.id,
-              format: targetQuickAud.screen_type === 'IMAX' ? 'IMAX' : '2D',
-              language_version: targetQuickMovie.language || 'Phụ đề Tiếng Việt',
-              starts_at: slot.startsAt.toISOString(),
-              ends_at: slot.endsAt.toISOString(),
-              status: 'open'
-            },
-            defaultPrices
-          );
-        }
-
-        showToast(`Đã tạo thành công ${slotsToCreate.length} suất chiếu cho ${targetQuickAud.name}!`);
-        setQuickBatchModalOpen(false);
-      } catch (err: any) {
-        showToast('Lỗi khi tạo suất hàng loạt: ' + (err.message || 'Thử lại'));
-      } finally {
-        setIsSubmitting(false);
-      }
-    } else {
-      // COPY_DAY MODE
-      if (sourceDayShowtimes.length === 0) {
-        showToast(`Không có suất chiếu nào trong ngày nguồn (${copySourceDate})!`);
-        return;
+      for (const slot of validQuickSlots) {
+        const movieObj = movies.find((m) => m.id === slot.movieId);
+        await onSaveShowtime(
+          {
+            movie_id: slot.movieId,
+            auditorium_id: slot.auditoriumId,
+            format: slot.movieFormat,
+            language_version: movieObj?.language || 'Phụ đề Tiếng Việt',
+            starts_at: slot.startsAt.toISOString(),
+            ends_at: slot.endsAt.toISOString(),
+            status: 'open'
+          },
+          defaultPrices
+        );
       }
 
-      setIsSubmitting(true);
-      try {
-        let copiedCount = 0;
-        for (const st of sourceDayShowtimes) {
-          const oldStart = new Date(st.starts_at);
-          const oldEnd = new Date(st.ends_at);
-
-          const startH = String(oldStart.getHours()).padStart(2, '0');
-          const startM = String(oldStart.getMinutes()).padStart(2, '0');
-          const newStart = new Date(`${selectedDate}T${startH}:${startM}:00`);
-          const durationMs = oldEnd.getTime() - oldStart.getTime();
-          const newEnd = new Date(newStart.getTime() + durationMs);
-
-          await onSaveShowtime({
-            movie_id: st.movie_id,
-            auditorium_id: st.auditorium_id,
-            format: st.format,
-            language_version: st.language_version,
-            starts_at: newStart.toISOString(),
-            ends_at: newEnd.toISOString(),
-            status: st.status
-          });
-          copiedCount++;
-        }
-
-        showToast(`Đã sao chép thành công ${copiedCount} suất chiếu sang ngày ${selectedDate}!`);
-        setQuickBatchModalOpen(false);
-      } catch (err: any) {
-        showToast('Lỗi khi sao chép lịch: ' + (err.message || 'Thử lại'));
-      } finally {
-        setIsSubmitting(false);
-      }
+      showToast(`Đã tự động tạo thành công ${validQuickSlots.length} suất chiếu!`);
+      setQuickBatchModalOpen(false);
+    } catch (err: any) {
+      showToast('Lỗi khi tạo suất hàng loạt: ' + (err.message || 'Thử lại'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1003,314 +1016,416 @@ export default function ShowtimesView({
           </div>
         </div>
 
-      {/* Modal 0: Quick Batch Showtime Generator */}
+      {/* Modal 0: TẠO SUẤT CHIẾU NHANH THEO FORM TÍCH Ô 4 BƯỚC */}
       {quickBatchModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#121622] border border-[#2D3A54] rounded-3xl w-full max-w-2xl p-5 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto custom-scrollbar">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-[#121622] border border-[#26334D] rounded-3xl w-full max-w-3xl flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-[#222B3D] pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E63845] to-[#F43F5E] flex items-center justify-center text-white shadow-md shadow-[#E63845]/20">
-                  <Zap className="w-4 h-4 fill-current" />
+            <div className="px-6 py-4 border-b border-[#222B3D] flex items-center justify-between bg-[#0E121B] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#E63845] to-[#F43F5E] flex items-center justify-center text-white shadow-lg shadow-[#E63845]/25">
+                  <Zap className="w-5 h-5 fill-current" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-base">Tạo Suất Chiếu Nhanh</h3>
-                  <p className="text-[11px] text-[#8E9AAF]">Ngày áp dụng: <strong className="text-[#06B6D4]">{selectedDate}</strong></p>
+                  <h3 className="font-bold text-white text-base tracking-wide uppercase">
+                    Tạo Suất Chiếu Nhanh
+                  </h3>
+                  <p className="text-xs text-[#8E9AAF]">
+                    Tự động tính toán và xếp chuỗi suất chiếu hàng loạt theo phòng và thời gian
+                  </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setQuickBatchModalOpen(false)}
-                className="w-8 h-8 rounded-lg bg-[#1A202E] text-[#8E9AAF] hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+                className="w-8 h-8 rounded-xl bg-[#1A202E] text-[#8E9AAF] hover:text-white flex items-center justify-center cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Mode Switch Tabs */}
-            <div className="flex items-center bg-[#0E121B] p-1 rounded-xl border border-[#222B3D]">
-              <button
-                type="button"
-                onClick={() => setQuickMode('AUTO_FILL')}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  quickMode === 'AUTO_FILL'
-                    ? 'bg-[#E63845] text-white shadow'
-                    : 'text-[#8E9AAF] hover:text-white'
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>Tự Động Lên Lịch Phòng</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickMode('COPY_DAY')}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  quickMode === 'COPY_DAY'
-                    ? 'bg-[#E63845] text-white shadow'
-                    : 'text-[#8E9AAF] hover:text-white'
-                }`}
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>Sao Chép Lịch Từ Ngày Khác</span>
-              </button>
-            </div>
-
-            {/* TAB 1: AUTO_FILL MODE */}
-            {quickMode === 'AUTO_FILL' && (
-              <div className="space-y-3.5 text-xs">
-                {/* Phòng & Phim */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[#8E9AAF] font-semibold text-[11px]">Phòng chiếu</label>
-                    <select
-                      value={quickAudId}
-                      onChange={(e) => {
-                        const newAudId = e.target.value;
-                        setQuickAudId(newAudId);
-                        const aud = auditoriums.find((a) => a.id === newAudId);
-                        if (aud) {
-                          setQuickBuffer(aud.cleaning_buffer_minutes || 15);
-                          const validMovies = movies.filter((m) => isMovieCompatibleWithAuditorium(m, aud));
-                          if (!validMovies.some((m) => m.id === quickMovieId)) {
-                            setQuickMovieId(validMovies[0]?.id || movies[0]?.id || '');
-                          }
-                        }
-                      }}
-                      className="w-full bg-[#171D2B] border border-[#253045] rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-[#E63845]"
-                    >
-                      {auditoriums.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name} ({a.screen_type} • {a.total_seats} ghế)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[#8E9AAF] font-semibold text-[11px]">
-                      Phim ({compatibleMoviesForQuickAud.length} phim chuẩn {targetQuickAud?.screen_type})
-                    </label>
-                    <select
-                      value={quickMovieId}
-                      onChange={(e) => setQuickMovieId(e.target.value)}
-                      className="w-full bg-[#171D2B] border border-[#253045] rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-[#E63845]"
-                    >
-                      {compatibleMoviesForQuickAud.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.title} ({m.duration_minutes}p)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Giờ bắt đầu, Giờ kết thúc ngày, Buffer */}
-                <div className="grid grid-cols-3 gap-2.5 p-3 rounded-xl bg-[#0E121B] border border-[#20293A]">
-                  <div className="space-y-1">
-                    <label className="text-[#8E9AAF] text-[10px] font-semibold">Suất đầu tiên</label>
-                    <input
-                      type="time"
-                      value={quickStartTime}
-                      onChange={(e) => setQuickStartTime(e.target.value)}
-                      className="w-full bg-[#171D2B] border border-[#253045] rounded-lg px-2 py-1.5 text-white font-mono font-bold text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[#8E9AAF] text-[10px] font-semibold">Kết thúc trước</label>
-                    <input
-                      type="time"
-                      value={quickEndTimeDay}
-                      onChange={(e) => setQuickEndTimeDay(e.target.value)}
-                      className="w-full bg-[#171D2B] border border-[#253045] rounded-lg px-2 py-1.5 text-white font-mono font-bold text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[#8E9AAF] text-[10px] font-semibold">Đệm dọn rạp</label>
-                    <select
-                      value={quickBuffer}
-                      onChange={(e) => setQuickBuffer(Number(e.target.value))}
-                      className="w-full bg-[#171D2B] border border-[#253045] rounded-lg px-2 py-1.5 text-white text-xs font-medium"
-                    >
-                      <option value={10}>10 phút</option>
-                      <option value={15}>15 phút</option>
-                      <option value={20}>20 phút</option>
-                      <option value={30}>30 phút</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Danh sách các suất chiếu dự kiến sinh tự động */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] text-[#8E9AAF]">
-                    <span>Danh sách suất chiếu tự động tính toán ({generatedQuickSlots.length} suất)</span>
+            {/* Form Content cuộn nội bộ */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 custom-scrollbar text-xs">
+              {/* 1. Chọn phim */}
+              <div className="space-y-2.5 bg-[#0E121B]/80 border border-[#1E2638] p-4 rounded-2xl">
+                <div className="flex items-center justify-between pb-1.5 border-b border-[#1E2638]">
+                  <label className="font-bold text-white text-sm flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#E63845] text-white text-[11px] font-black flex items-center justify-center">1</span>
+                    <span>Chọn phim</span>
+                    <span className="text-xs text-[#8E9AAF] font-normal">
+                      (Đã chọn {selectedQuickMovieIds.length}/{movies.length})
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-2 text-xs">
                     <button
                       type="button"
-                      onClick={() => {
-                        const validIdx = generatedQuickSlots.filter((s) => !s.isConflict).map((s) => s.index);
-                        setSelectedSlotIndices(selectedSlotIndices.length === validIdx.length ? [] : validIdx);
-                      }}
-                      className="text-[#06B6D4] hover:underline cursor-pointer font-medium"
+                      onClick={() => setSelectedQuickMovieIds(movies.map((m) => m.id))}
+                      className="text-[#06B6D4] hover:underline cursor-pointer font-semibold"
                     >
-                      {selectedSlotIndices.length > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả suất hợp lệ'}
+                      [Chọn tất cả]
+                    </button>
+                    <span className="text-[#3A4760]">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuickMovieIds([])}
+                      className="text-[#8E9AAF] hover:text-white cursor-pointer"
+                    >
+                      [Bỏ chọn]
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                  {movies.map((m) => {
+                    const isChecked = selectedQuickMovieIds.includes(m.id);
+                    const mFormats = m.formats && m.formats.length > 0 ? m.formats.join(' / ') : '2D';
+                    return (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          setSelectedQuickMovieIds((prev) =>
+                            prev.includes(m.id) ? prev.filter((id) => id !== m.id) : [...prev, m.id]
+                          );
+                        }}
+                        className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 cursor-pointer select-none transition-all ${
+                          isChecked
+                            ? 'bg-[#152336] border-[#06B6D4]/60 shadow-sm text-white'
+                            : 'bg-[#141924] border-[#222B3D] text-[#8E9AAF] hover:bg-[#1A2232] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="w-4 h-4 accent-[#E63845] rounded cursor-pointer pointer-events-none shrink-0"
+                          />
+                          <span className="font-bold text-xs truncate text-white" title={m.title}>
+                            {m.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 text-[11px]">
+                          <span className="text-[#8E9AAF]">{m.duration_minutes} phút</span>
+                          <span className="text-[#5C677D]">|</span>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-[#1C2536] text-[#06B6D4] border border-[#28354A]">
+                            {mFormats}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Chọn phòng chiếu */}
+              <div className="space-y-2.5 bg-[#0E121B]/80 border border-[#1E2638] p-4 rounded-2xl">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-[#1E2638]">
+                  <label className="font-bold text-white text-sm flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#E63845] text-white text-[11px] font-black flex items-center justify-center">2</span>
+                    <span>Chọn phòng chiếu</span>
+                    <span className="text-xs text-[#8E9AAF] font-normal">
+                      (Đã chọn {selectedQuickAuditoriumIds.length}/{filteredAuditoriumsForBatch.length})
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-3 text-xs">
+                    <label className="flex items-center gap-1.5 text-[#FABF2E] cursor-pointer font-medium select-none">
+                      <input
+                        type="checkbox"
+                        checked={onlyCompatibleRooms}
+                        onChange={(e) => setOnlyCompatibleRooms(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-[#FABF2E] rounded cursor-pointer"
+                      />
+                      <span>Chỉ hiện phòng tương thích với phim đã chọn</span>
+                    </label>
+                    <span className="text-[#3A4760]">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuickAuditoriumIds(filteredAuditoriumsForBatch.map((a) => a.id))}
+                      className="text-[#06B6D4] hover:underline cursor-pointer font-semibold"
+                    >
+                      [Chọn tất cả]
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuickAuditoriumIds([])}
+                      className="text-[#8E9AAF] hover:text-white cursor-pointer"
+                    >
+                      [Bỏ chọn]
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto custom-scrollbar pr-1">
+                  {filteredAuditoriumsForBatch.map((aud) => {
+                    const isChecked = selectedQuickAuditoriumIds.includes(aud.id);
+                    return (
+                      <div
+                        key={aud.id}
+                        onClick={() => {
+                          setSelectedQuickAuditoriumIds((prev) =>
+                            prev.includes(aud.id) ? prev.filter((id) => id !== aud.id) : [...prev, aud.id]
+                          );
+                        }}
+                        className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 cursor-pointer select-none transition-all ${
+                          isChecked
+                            ? 'bg-[#152336] border-[#06B6D4]/60 shadow-sm text-white'
+                            : 'bg-[#141924] border-[#222B3D] text-[#8E9AAF] hover:bg-[#1A2232] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="w-4 h-4 accent-[#E63845] rounded cursor-pointer pointer-events-none shrink-0"
+                          />
+                          <div className="font-bold text-xs truncate text-white">
+                            {aud.name} – {aud.screen_type === 'IMAX' ? 'IMAX Laser' : '2D Tiêu chuẩn'}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] shrink-0 text-[#8E9AAF]">
+                          <span>• {aud.total_seats} ghế</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Thời gian tạo lịch */}
+              <div className="space-y-3 bg-[#0E121B]/80 border border-[#1E2638] p-4 rounded-2xl">
+                <label className="font-bold text-white text-sm flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#E63845] text-white text-[11px] font-black flex items-center justify-center">3</span>
+                  <span>Thời gian tạo lịch</span>
+                </label>
+
+                {/* Radio chọn khoảng thời gian */}
+                <div className="flex flex-wrap items-center gap-5 pt-0.5">
+                  {[
+                    { id: '1_DAY', label: '1 ngày' },
+                    { id: '7_DAYS', label: '7 ngày' },
+                    { id: '1_MONTH', label: '1 tháng' }
+                  ].map((opt) => (
+                    <label key={opt.id} className="flex items-center gap-2 cursor-pointer text-white font-medium select-none">
+                      <input
+                        type="radio"
+                        name="scheduleDurationRadio"
+                        value={opt.id}
+                        checked={scheduleDuration === opt.id}
+                        onChange={() => setScheduleDuration(opt.id as any)}
+                        className="w-4 h-4 accent-[#E63845] cursor-pointer"
+                      />
+                      <span className="text-xs">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <div className="space-y-1">
+                    <label className="text-[#8E9AAF] font-medium text-[11px]">Ngày bắt đầu:</label>
+                    <input
+                      type="date"
+                      value={quickStartDate}
+                      onChange={(e) => setQuickStartDate(e.target.value)}
+                      className="w-full bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#E63845]"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-white font-medium cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={applyAllWeekdays}
+                        onChange={(e) => setApplyAllWeekdays(e.target.checked)}
+                        className="w-4 h-4 accent-[#E63845] rounded cursor-pointer"
+                      />
+                      <span>Áp dụng tất cả các ngày trong tuần</span>
+                    </label>
+
+                    {!applyAllWeekdays && (
+                      <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                        <span className="text-[#8E9AAF] text-[11px] mr-1">hoặc:</span>
+                        {[
+                          { day: 1, label: 'T2' },
+                          { day: 2, label: 'T3' },
+                          { day: 3, label: 'T4' },
+                          { day: 4, label: 'T5' },
+                          { day: 5, label: 'T6' },
+                          { day: 6, label: 'T7' },
+                          { day: 0, label: 'CN' }
+                        ].map((w) => {
+                          const isChecked = selectedWeekdays.includes(w.day);
+                          return (
+                            <button
+                              key={w.day}
+                              type="button"
+                              onClick={() => {
+                                setSelectedWeekdays((prev) =>
+                                  prev.includes(w.day) ? prev.filter((d) => d !== w.day) : [...prev, w.day]
+                                );
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                isChecked
+                                  ? 'bg-[#E63845] text-white shadow'
+                                  : 'bg-[#141924] border border-[#222B3D] text-[#8E9AAF] hover:text-white'
+                              }`}
+                            >
+                              {w.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Cấu hình suất */}
+              <div className="space-y-3 bg-[#0E121B]/80 border border-[#1E2638] p-4 rounded-2xl">
+                <label className="font-bold text-white text-sm flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#E63845] text-white text-[11px] font-black flex items-center justify-center">4</span>
+                  <span>Cấu hình suất</span>
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[#8E9AAF] font-medium text-[11px]">Giờ hoạt động:</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={quickOperatingStart}
+                        onChange={(e) => setQuickOperatingStart(e.target.value)}
+                        className="flex-1 bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-2 text-white font-mono font-bold text-xs"
+                      />
+                      <span className="text-[#8E9AAF]">đến</span>
+                      <input
+                        type="time"
+                        value={quickOperatingEnd}
+                        onChange={(e) => setQuickOperatingEnd(e.target.value)}
+                        className="flex-1 bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-2 text-white font-mono font-bold text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[#8E9AAF] font-medium text-[11px]">Thời gian dọn phòng giữa 2 suất:</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={5}
+                        max={60}
+                        step={5}
+                        value={quickCleaningBuffer}
+                        onChange={(e) => setQuickCleaningBuffer(Number(e.target.value))}
+                        className="w-24 bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-2 text-white font-mono font-bold text-xs text-center"
+                      />
+                      <span className="text-[#8E9AAF]">phút</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ngăn kéo Xem trước chi tiết các suất chiếu dự kiến */}
+              {isPreviewDrawerOpen && (
+                <div className="p-4 rounded-2xl bg-[#090D15] border border-[#06B6D4]/30 space-y-3 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between border-b border-[#1E2638] pb-2">
+                    <h4 className="font-bold text-white text-xs flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-[#06B6D4]" />
+                      <span>Chi tiết các suất chiếu dự kiến sinh tự động ({generatedQuickSlots.length} suất)</span>
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setIsPreviewDrawerOpen(false)}
+                      className="text-xs text-[#8E9AAF] hover:text-white cursor-pointer"
+                    >
+                      Đóng xem trước ✕
                     </button>
                   </div>
 
-                  <div className="space-y-1.5 max-h-52 overflow-y-auto custom-scrollbar p-1">
-                    {generatedQuickSlots.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-[#5C677D] border border-dashed border-[#222B3D] rounded-xl">
-                        Không có khung giờ nào phù hợp trong khoảng thời gian đã chọn.
-                      </div>
-                    ) : (
-                      generatedQuickSlots.map((slot) => {
-                        const isChecked = selectedSlotIndices.includes(slot.index);
-                        return (
-                          <div
-                            key={slot.index}
-                            onClick={() => {
-                              if (slot.isConflict) return;
-                              setSelectedSlotIndices((prev) =>
-                                prev.includes(slot.index)
-                                  ? prev.filter((i) => i !== slot.index)
-                                  : [...prev, slot.index]
-                              );
-                            }}
-                            className={`p-2.5 rounded-xl border flex items-center justify-between transition-all select-none ${
-                              slot.isConflict
-                                ? 'bg-[#3B191C]/40 border-[#EF4444]/40 opacity-60 cursor-not-allowed'
-                                : isChecked
-                                ? 'bg-[#152336] border-[#06B6D4]/60 text-white cursor-pointer shadow-sm'
-                                : 'bg-[#161D2B] border-[#222B3D] text-[#8E9AAF] hover:border-[#33425E] cursor-pointer'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                disabled={slot.isConflict}
-                                onChange={() => {}}
-                                className="w-4 h-4 accent-[#E63845] rounded cursor-pointer pointer-events-none"
-                              />
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-white text-xs">Suất {slot.index + 1}:</span>
-                                <span className="font-mono font-bold text-[#06B6D4] text-xs">
-                                  {slot.startStr} ➔ {slot.endStr}
-                                </span>
-                                <span className="text-[10px] text-[#5C677D]">({targetQuickMovie?.duration_minutes}p + {quickBuffer}p)</span>
-                              </div>
-                            </div>
-
+                  {generatedQuickSlots.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-[#5C677D]">
+                      Chưa có suất chiếu nào được tạo. Vui lòng chọn ít nhất 1 phim và 1 phòng chiếu!
+                    </div>
+                  ) : (
+                    <div className="max-h-60 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                      {generatedQuickSlots.map((slot, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${
+                            slot.isConflict
+                              ? 'bg-[#3B191C]/40 border-[#EF4444]/40 text-[#EF4444]'
+                              : 'bg-[#121824] border-[#1E283C] text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-mono text-[10px] text-[#06B6D4] font-bold">#{idx + 1}</span>
+                            <span className="font-bold text-white truncate max-w-[150px]" title={slot.movieTitle}>
+                              {slot.movieTitle}
+                            </span>
+                            <span className="text-[10px] text-[#8E9AAF]">({slot.auditoriumName})</span>
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-[#E63845] text-white font-bold">{slot.movieFormat}</span>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="font-mono text-[11px] text-[#FABF2E] font-bold">
+                              {slot.dateStr} | {slot.startTimeStr} - {slot.endTimeStr}
+                            </span>
                             {slot.isConflict ? (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/40 flex items-center gap-1">
+                              <span className="text-[10px] text-[#EF4444] font-bold flex items-center gap-1">
                                 <AlertTriangle className="w-3 h-3" />
-                                <span>Trùng suất có sẵn!</span>
+                                <span>Trùng!</span>
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#22C55E]/15 text-[#22C55E]">
-                                Hợp lệ
-                              </span>
+                              <span className="text-[10px] text-[#22C55E] font-bold">Hợp lệ</span>
                             )}
                           </div>
-                        );
-                      })
-                    )}
-                  </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* TAB 2: COPY_DAY MODE */}
-            {quickMode === 'COPY_DAY' && (
-              <div className="space-y-4 text-xs">
-                <div className="p-3.5 rounded-xl bg-[#0E121B] border border-[#20293A] space-y-2">
-                  <label className="text-[#8E9AAF] font-semibold text-[11px] block">
-                    Chọn ngày nguồn cần sao chép lịch:
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={copySourceDate}
-                      onChange={(e) => setCopySourceDate(e.target.value)}
-                      className="flex-1 bg-[#171D2B] border border-[#253045] rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#E63845]"
-                    />
-                  </div>
-                  <p className="text-[11px] text-[#8E9AAF]">
-                    Toàn bộ suất chiếu của ngày <strong className="text-white">{copySourceDate}</strong> sẽ được nhân bản sang ngày <strong className="text-[#06B6D4]">{selectedDate}</strong> với cùng khung giờ và phòng chiếu tương ứng.
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-[#161D2B] border border-[#222B3D] space-y-2">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-semibold text-white">
-                      Suất chiếu tìm thấy trong ngày {copySourceDate}:
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#06B6D4]/20 text-[#06B6D4]">
-                      {sourceDayShowtimes.length} suất
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
-                    {sourceDayShowtimes.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-[#5C677D]">
-                        Không có suất chiếu nào trong ngày nguồn đã chọn.
-                      </div>
-                    ) : (
-                      sourceDayShowtimes.map((st) => {
-                        const m = st.movie || movies.find((movie) => movie.id === st.movie_id);
-                        const aud = st.auditorium || auditoriums.find((a) => a.id === st.auditorium_id);
-                        const startTime = new Date(st.starts_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-                        const endTime = new Date(st.ends_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-
-                        return (
-                          <div
-                            key={st.id}
-                            className="p-2 rounded-lg bg-[#0E121B] border border-[#1F2739] flex items-center justify-between text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-white">{m?.title || 'Phim'}</span>
-                              <span className="text-[10px] text-[#06B6D4]">({aud?.name})</span>
-                            </div>
-                            <span className="font-mono text-[11px] text-[#8E9AAF]">
-                              {startTime} - {endTime}
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Modal Actions Footer */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#222B3D]">
+            {/* Footer Modal Actions */}
+            <div className="px-6 py-4 border-t border-[#222B3D] bg-[#0E121B] flex items-center justify-between shrink-0">
               <button
                 type="button"
-                onClick={() => setQuickBatchModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-[#1A202E] hover:bg-[#252E42] text-[#8E9AAF] hover:text-white font-bold text-xs cursor-pointer transition-colors"
+                onClick={() => setIsPreviewDrawerOpen(!isPreviewDrawerOpen)}
+                className="px-3.5 py-2 rounded-xl bg-[#141924] hover:bg-[#1D2536] border border-[#222B3D] hover:border-[#06B6D4] text-[#06B6D4] font-bold text-xs flex items-center gap-2 cursor-pointer transition-all"
               >
-                Hủy
-              </button>
-              <button
-                type="button"
-                disabled={isSubmitting || (quickMode === 'AUTO_FILL' ? selectedSlotIndices.length === 0 : sourceDayShowtimes.length === 0)}
-                onClick={handleExecuteQuickBatch}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#E63845] to-[#F43F5E] hover:from-[#D42B38] hover:to-[#E11D48] text-white font-bold text-xs cursor-pointer shadow-lg shadow-[#E63845]/30 disabled:opacity-50 transition-all flex items-center gap-1.5"
-              >
-                {isSubmitting ? (
-                  <span>Đang Tạo...</span>
-                ) : quickMode === 'AUTO_FILL' ? (
-                  <>
-                    <Zap className="w-3.5 h-3.5 fill-current" />
-                    <span>Tạo {selectedSlotIndices.length} Suất Chiếu Nhanh</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Sao Chép {sourceDayShowtimes.length} Suất Sang Hôm Nay</span>
-                  </>
+                <Eye className="w-4 h-4" />
+                <span>Xem trước: {validQuickSlots.length} suất</span>
+                {generatedQuickSlots.length > validQuickSlots.length && (
+                  <span className="text-[10px] text-[#EF4444]">
+                    (bỏ qua {generatedQuickSlots.length - validQuickSlots.length} suất trùng)
+                  </span>
                 )}
               </button>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setQuickBatchModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-[#1A202E] hover:bg-[#252E42] text-[#8E9AAF] hover:text-white font-bold text-xs cursor-pointer transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting || validQuickSlots.length === 0}
+                  onClick={handleExecuteQuickBatch}
+                  className="px-6 py-2 rounded-xl bg-gradient-to-r from-[#E63845] to-[#F43F5E] hover:from-[#D42B38] hover:to-[#E11D48] text-white font-bold text-xs cursor-pointer shadow-lg shadow-[#E63845]/30 disabled:opacity-50 transition-all flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <span>Đang tạo {validQuickSlots.length} suất...</span>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4 fill-current" />
+                      <span>Tạo suất chiếu</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
