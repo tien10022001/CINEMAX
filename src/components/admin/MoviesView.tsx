@@ -27,9 +27,10 @@ import {
   ChevronRight,
   ChevronLeft,
   Upload,
-  Loader2
+  Loader2,
+  Flame
 } from 'lucide-react';
-import { Movie, Genre, AgeRating, MovieStatus } from '@/lib/types-redesign';
+import { Movie, Genre, AgeRating, MovieStatus, MovieTier } from '@/lib/types-redesign';
 
 interface MoviesViewProps {
   movies: Movie[];
@@ -134,6 +135,10 @@ export default function MoviesView({
     meta_title: string;
     meta_description: string;
     imdb_score: number;
+
+    // 5. Hạng mục & Ưu tiên xếp suất
+    tier: MovieTier;
+    is_blockbuster: boolean;
   }>({
     title: '',
     original_title: '',
@@ -156,7 +161,9 @@ export default function MoviesView({
     studio: 'Warner Bros. Pictures',
     meta_title: '',
     meta_description: '',
-    imdb_score: 8.5
+    imdb_score: 8.5,
+    tier: 'STANDARD',
+    is_blockbuster: false
   });
 
   // Custom options state for "Khác" (user-defined additions)
@@ -225,7 +232,9 @@ export default function MoviesView({
       studio: 'Warner Bros. Pictures',
       meta_title: '',
       meta_description: '',
-      imdb_score: 8.5
+      imdb_score: 8.5,
+      tier: 'STANDARD',
+      is_blockbuster: false
     });
     setModalOpen(true);
   };
@@ -298,7 +307,9 @@ export default function MoviesView({
       studio: m.studio || '',
       meta_title: m.meta_title || m.title || '',
       meta_description: m.meta_description || m.synopsis || '',
-      imdb_score: m.imdb_score || 8.0
+      imdb_score: m.imdb_score || 8.0,
+      tier: m.tier || (m.is_blockbuster ? 'BLOCKBUSTER' : 'STANDARD'),
+      is_blockbuster: m.is_blockbuster ?? (m.tier === 'BLOCKBUSTER' || false)
     });
     setModalOpen(true);
   };
@@ -496,7 +507,11 @@ export default function MoviesView({
         // 4. SEO & Marketing
         meta_title: form.meta_title.trim() || null,
         meta_description: form.meta_description.trim() || null,
-        imdb_score: Number(form.imdb_score) || 8.0
+        imdb_score: Number(form.imdb_score) || 8.0,
+
+        // 5. Hạng mục & Ưu tiên xếp suất
+        tier: form.tier,
+        is_blockbuster: form.is_blockbuster
       });
 
       showToast(`Đã lưu thông tin phim "${form.title}" thành công!`);
@@ -645,9 +660,27 @@ export default function MoviesView({
               {/* Info */}
               <div className="flex-1 flex flex-col justify-between min-w-0">
                 <div className="space-y-2">
-                  <h3 className="font-bold text-white text-base truncate" title={movie.title}>
-                    {movie.title}
-                  </h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-white text-base truncate" title={movie.title}>
+                      {movie.title}
+                    </h3>
+                    {(movie.is_blockbuster || movie.tier === 'BLOCKBUSTER') && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-[#E63845] to-[#F59E0B] text-white flex items-center gap-1 shadow-sm shrink-0">
+                        <Flame className="w-3 h-3 fill-current" />
+                        <span>BOM TẤN</span>
+                      </span>
+                    )}
+                    {movie.tier === 'EVENT' && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#8B5CF6]/25 text-[#C4B5FD] border border-[#8B5CF6]/40 shrink-0">
+                        Sự kiện
+                      </span>
+                    )}
+                    {movie.tier === 'NICHE' && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#1E293B] text-[#94A3B8] border border-[#334155] shrink-0">
+                        Ít khách
+                      </span>
+                    )}
+                  </div>
 
                   {/* Structured vertical key-value info */}
                   <div className="space-y-1 text-xs text-[#CBD5E1]">
@@ -916,6 +949,110 @@ export default function MoviesView({
                                   className="w-full bg-[#161C28] border border-[#263246] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#E63845]"
                                 />
                               </div>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Hàng Mới: Hạng Mục Bom Tấn & Mức Độ Ưu Tiên Xếp Suất */}
+                        <tr className="hover:bg-[#141924]/60 transition-colors">
+                          <td className="py-3 px-4 align-top">
+                            <div className="flex items-center gap-2 text-white font-bold">
+                              <Flame className="w-4 h-4 text-[#E63845]" />
+                              <span>Hạng Mục Phim</span>
+                            </div>
+                            <div className="text-[11px] text-[#8E9AAF] mt-0.5">Ưu tiên auto xếp suất</div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="space-y-2.5">
+                              {/* 4 Lựa chọn Hạng mục */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {[
+                                  {
+                                    id: 'BLOCKBUSTER' as MovieTier,
+                                    label: 'Bom Tấn / Hot',
+                                    badge: 'Ưu tiên cao',
+                                    desc: 'Phòng lớn/IMAX, giờ vàng chiều-tối',
+                                    color: 'border-[#E63845] bg-[#E63845]/15 text-white',
+                                    icon: <Flame className="w-3.5 h-3.5 text-[#E63845] fill-current" />
+                                  },
+                                  {
+                                    id: 'STANDARD' as MovieTier,
+                                    label: 'Phổ Thông',
+                                    badge: 'Tiêu chuẩn',
+                                    desc: 'Phân bổ đều trưa, chiều, tối',
+                                    color: 'border-[#06B6D4] bg-[#06B6D4]/15 text-white',
+                                    icon: <Film className="w-3.5 h-3.5 text-[#06B6D4]" />
+                                  },
+                                  {
+                                    id: 'NICHE' as MovieTier,
+                                    label: 'Ít Khách / Kén',
+                                    badge: 'Ưu tiên thấp',
+                                    desc: 'Phòng nhỏ, 1-3 suất, giờ thấp điểm',
+                                    color: 'border-[#64748B] bg-[#64748B]/15 text-[#CBD5E1]',
+                                    icon: <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
+                                  },
+                                  {
+                                    id: 'EVENT' as MovieTier,
+                                    label: 'Sự Kiện Đặc Biệt',
+                                    badge: 'Giữ giờ cố định',
+                                    desc: 'Concert, thể thao, không tự dời',
+                                    color: 'border-[#8B5CF6] bg-[#8B5CF6]/15 text-[#E2E8F0]',
+                                    icon: <Sparkles className="w-3.5 h-3.5 text-[#A78BFA]" />
+                                  }
+                                ].map((item) => {
+                                  const isSelected = form.tier === item.id || (item.id === 'BLOCKBUSTER' && form.is_blockbuster);
+                                  return (
+                                    <button
+                                      key={item.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setForm((prev) => ({
+                                          ...prev,
+                                          tier: item.id,
+                                          is_blockbuster: item.id === 'BLOCKBUSTER'
+                                        }));
+                                      }}
+                                      className={`p-2 rounded-xl border text-left cursor-pointer transition-all ${
+                                        isSelected
+                                          ? `${item.color} shadow-sm`
+                                          : 'bg-[#161C28] border-[#243147] text-[#8E9AAF] hover:border-[#384663] hover:text-white'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-1.5 font-bold text-xs">
+                                          {item.icon}
+                                          <span>{item.label}</span>
+                                        </div>
+                                        {isSelected && <Check className="w-3.5 h-3.5 text-[#E63845]" />}
+                                      </div>
+                                      <div className="text-[10px] text-[#8E9AAF] leading-tight line-clamp-2">
+                                        {item.desc}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Checkbox Đánh dấu nhanh là Bom Tấn */}
+                              <label className="flex items-center gap-2 p-2 rounded-xl bg-[#182030] border border-[#2B3952] cursor-pointer text-white font-medium select-none w-fit">
+                                <input
+                                  type="checkbox"
+                                  checked={form.is_blockbuster}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      is_blockbuster: checked,
+                                      tier: checked ? 'BLOCKBUSTER' : (prev.tier === 'BLOCKBUSTER' ? 'STANDARD' : prev.tier)
+                                    }));
+                                  }}
+                                  className="w-4 h-4 accent-[#E63845] rounded cursor-pointer"
+                                />
+                                <span className="text-xs flex items-center gap-1.5">
+                                  <Flame className="w-3.5 h-3.5 text-[#E63845] fill-current" />
+                                  <span>Đánh dấu là <strong>Phim Bom Tấn (Blockbuster)</strong> – Tự động kích hoạt phòng lớn & giờ cao điểm</span>
+                                </span>
+                              </label>
                             </div>
                           </td>
                         </tr>

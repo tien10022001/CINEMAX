@@ -14,7 +14,7 @@ export type RoomStatus = 'active' | 'maintenance';
 export type SeatType = 'STANDARD' | 'VIP' | 'COUPLE' | 'WHEELCHAIR';
 export type SeatStatus = 'ACTIVE' | 'BLOCKED';
 export type AudienceType = 'ADULT' | 'STUDENT_U22' | 'CHILD' | 'SENIOR';
-export type ShowtimeStatus = 'scheduled' | 'open' | 'closed' | 'cancelled' | 'finished';
+export type ShowtimeStatus = 'scheduled' | 'open' | 'closed' | 'cancelled' | 'finished' | 'draft';
 export type ShowtimeSeatStatus = 'available' | 'held' | 'sold' | 'blocked';
 export type ProductType = 'FOOD' | 'BEVERAGE' | 'COMBO';
 export type MovementType = 'IMPORT' | 'SALE' | 'LOSS' | 'ADJUSTMENT';
@@ -72,6 +72,9 @@ export interface Genre {
   created_at?: string;
 }
 
+// 4.5. movie tier / priority
+export type MovieTier = 'BLOCKBUSTER' | 'STANDARD' | 'NICHE' | 'EVENT';
+
 // 5. movies
 export interface Movie {
   id: string;
@@ -99,6 +102,8 @@ export interface Movie {
   imdb_score?: number | null;
   formats?: string[] | null;
   original_title?: string | null;
+  tier?: MovieTier;
+  is_blockbuster?: boolean;
 }
 
 // 6. auditoriums

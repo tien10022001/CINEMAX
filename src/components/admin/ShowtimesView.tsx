@@ -26,7 +26,10 @@ import {
   Sparkles,
   Maximize2,
   Minimize2,
-  Eye
+  Eye,
+  Flame,
+  ShieldAlert,
+  Users
 } from 'lucide-react';
 import {
   Showtime,
@@ -65,11 +68,12 @@ export default function ShowtimesView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmShowtime, setDeleteConfirmShowtime] = useState<{ id: string; title: string; time: string; room: string } | null>(null);
 
-  // Quick Batch Schedule Modal State (Tạo Suất Chiếu Nhanh bằng cách tích ô)
+  // Quick Batch Schedule Modal State (Tạo Suất Chiếu Nhanh bằng cách tích ô theo Rule)
   const [quickBatchModalOpen, setQuickBatchModalOpen] = useState(false);
   const [selectedQuickMovieIds, setSelectedQuickMovieIds] = useState<string[]>([]);
   const [selectedQuickAuditoriumIds, setSelectedQuickAuditoriumIds] = useState<string[]>([]);
   const [onlyCompatibleRooms, setOnlyCompatibleRooms] = useState(true);
+  const [allow2DInImax, setAllow2DInImax] = useState(false);
   const [scheduleDuration, setScheduleDuration] = useState<'1_DAY' | '7_DAYS' | '1_MONTH'>('1_DAY');
   const [quickStartDate, setQuickStartDate] = useState(selectedDate);
   const [applyAllWeekdays, setApplyAllWeekdays] = useState(true);
@@ -77,6 +81,11 @@ export default function ShowtimesView({
   const [quickOperatingStart, setQuickOperatingStart] = useState('08:00');
   const [quickOperatingEnd, setQuickOperatingEnd] = useState('00:30');
   const [quickCleaningBuffer, setQuickCleaningBuffer] = useState(15);
+  const [quickTrailerMinutes, setQuickTrailerMinutes] = useState(10);
+  const [staggerRooms, setStaggerRooms] = useState(true);
+  const [staggerSameMovie, setStaggerSameMovie] = useState(true);
+  const [autoShiftConflicts, setAutoShiftConflicts] = useState(true);
+  const [publishStatus, setPublishStatus] = useState<'open' | 'draft'>('open');
   const [isPreviewDrawerOpen, setIsPreviewDrawerOpen] = useState(false);
 
   // Form State for showtime (create or edit)
@@ -260,11 +269,17 @@ export default function ShowtimesView({
   // State lọc phim theo định dạng rạp (mặc định = true: phòng 2D chỉ hiện phim 2D, phòng IMAX chỉ hiện phim IMAX)
   const [filterMoviesByRoomType, setFilterMoviesByRoomType] = useState(true);
 
-  // Hàm kiểm tra định dạng phim có tương thích với loại rạp không
-  const isMovieCompatibleWithAuditorium = (movie: Movie, aud?: Auditorium | null) => {
+  // Hàm kiểm tra định dạng phim có tương thích với loại rạp không theo Rule
+  const isMovieCompatibleWithAuditorium = (movie: Movie, aud?: Auditorium | null, allowImax2D?: boolean) => {
     if (!aud) return true;
     const roomType = (aud.screen_type || '2D').toUpperCase();
     const movieFormats = (movie.formats && movie.formats.length > 0) ? movie.formats : ['2D'];
+
+    // Rule: 2D: Chỉ xếp vào phòng 2D; có thể vào IMAX nếu quản lý bật cho phép
+    if (roomType === 'IMAX' && (allowImax2D ?? allow2DInImax)) {
+      if (movieFormats.some((fmt) => fmt.toUpperCase().includes('2D'))) return true;
+    }
+
     return movieFormats.some((fmt) => {
       const upper = fmt.toUpperCase();
       if (roomType === '2D') return upper.includes('2D');
@@ -469,13 +484,14 @@ export default function ShowtimesView({
 
   const conflictCount = showtimes.filter(checkOverlap).length;
 
-  // QUICK BATCH SCHEDULING LOGIC (TẠO SUẤT CHIẾU NHANH BẰNG CÁCH TÍCH Ô)
+  // QUICK BATCH SCHEDULING LOGIC (TẠO SUẤT CHIẾU THEO RULE)
   const handleOpenQuickBatchModal = () => {
     // Mặc định chọn tất cả phim
     setSelectedQuickMovieIds(movies.map((m) => m.id));
     // Mặc định chọn tất cả phòng
     setSelectedQuickAuditoriumIds(auditoriums.map((a) => a.id));
     setOnlyCompatibleRooms(true);
+    setAllow2DInImax(false);
     setScheduleDuration('1_DAY');
     setQuickStartDate(selectedDate);
     setApplyAllWeekdays(true);
@@ -483,6 +499,11 @@ export default function ShowtimesView({
     setQuickOperatingStart('08:00');
     setQuickOperatingEnd('00:30');
     setQuickCleaningBuffer(15);
+    setQuickTrailerMinutes(10);
+    setStaggerRooms(true);
+    setStaggerSameMovie(true);
+    setAutoShiftConflicts(true);
+    setPublishStatus('open');
     setIsPreviewDrawerOpen(false);
     setQuickBatchModalOpen(true);
   };
@@ -494,11 +515,11 @@ export default function ShowtimesView({
     }
     const chosenMovies = movies.filter((m) => selectedQuickMovieIds.includes(m.id));
     return auditoriums.filter((aud) => {
-      return chosenMovies.some((m) => isMovieCompatibleWithAuditorium(m, aud));
+      return chosenMovies.some((m) => isMovieCompatibleWithAuditorium(m, aud, allow2DInImax));
     });
-  }, [auditoriums, movies, selectedQuickMovieIds, onlyCompatibleRooms]);
+  }, [auditoriums, movies, selectedQuickMovieIds, onlyCompatibleRooms, allow2DInImax]);
 
-  // Thuật toán sinh danh sách suất chiếu dự kiến (generatedQuickSlots)
+  // Thuật toán sinh danh sách suất chiếu dự kiến theo hệ thống Business Rules (generatedQuickSlots)
   const generatedQuickSlots = React.useMemo(() => {
     if (selectedQuickMovieIds.length === 0 || selectedQuickAuditoriumIds.length === 0) {
       return [];
@@ -519,10 +540,23 @@ export default function ShowtimesView({
     const selectedMovies = movies.filter((m) => selectedQuickMovieIds.includes(m.id));
     const selectedAuds = auditoriums.filter((a) => selectedQuickAuditoriumIds.includes(a.id));
 
+    // Helper phân loại phim theo Rule
+    const getMovieRuleProfile = (m: Movie) => {
+      const isBlockbuster = Boolean(m.is_blockbuster || m.tier === 'BLOCKBUSTER' || (m.imdb_score && m.imdb_score >= 8.5));
+      const isFamily = m.age_rating === 'P' || m.age_rating === 'K' || Boolean(m.genres && m.genres.some((g) => ['hoạt hình', 'gia đình', 'kids', 'family', 'animation'].includes(g.name.toLowerCase())));
+      const isHorror = Boolean(m.genres && m.genres.some((g) => g.name.toLowerCase().includes('kinh dị') || g.name.toLowerCase().includes('horror')));
+      const isAdult = m.age_rating === 'T18';
+      const isLong = (m.duration_minutes || 0) >= 150;
+      const isEvent = m.tier === 'EVENT';
+      const isNiche = m.tier === 'NICHE';
+      return { isBlockbuster, isFamily, isHorror, isAdult, isLong, isEvent, isNiche };
+    };
+
     const slots: Array<{
       movieId: string;
       movieTitle: string;
       movieDuration: number;
+      trailerMinutes: number;
       movieFormat: string;
       auditoriumId: string;
       auditoriumName: string;
@@ -533,7 +567,19 @@ export default function ShowtimesView({
       startsAt: Date;
       endsAt: Date;
       isConflict: boolean;
+      conflictReason?: string;
+      ruleTags: string[];
+      isBlockbuster: boolean;
+      isFamily: boolean;
+      isHorror: boolean;
     }> = [];
+
+    // Ưu tiên xếp phòng lớn và phòng IMAX trước để tối ưu phim bom tấn
+    const sortedAuds = [...selectedAuds].sort((a, b) => {
+      if (a.screen_type === 'IMAX' && b.screen_type !== 'IMAX') return -1;
+      if (b.screen_type === 'IMAX' && a.screen_type !== 'IMAX') return 1;
+      return (b.total_seats || 0) - (a.total_seats || 0);
+    });
 
     for (let dayOffset = 0; dayOffset < totalDays; dayOffset++) {
       const currentDayDate = new Date(`${quickStartDate}T00:00:00`);
@@ -544,27 +590,121 @@ export default function ShowtimesView({
         continue;
       }
 
+      const isWeekend = [5, 6, 0].includes(dayOfWeek); // T6, T7, CN
       const currentDayStr = currentDayDate.toISOString().split('T')[0];
 
-      selectedAuds.forEach((aud) => {
-        const compatibleMovies = selectedMovies.filter((m) => isMovieCompatibleWithAuditorium(m, aud));
+      // Theo dõi lịch bắt đầu của các phim trong ngày để hỗ trợ Rule Staggering (giãn giờ cùng phim)
+      const dayMovieStarts: Array<{ movieId: string; startMin: number }> = [];
+
+      sortedAuds.forEach((aud, audIndex) => {
+        const compatibleMovies = selectedMovies.filter((m) => isMovieCompatibleWithAuditorium(m, aud, allow2DInImax));
         if (compatibleMovies.length === 0) return;
 
         const existingRoomShowtimes = showtimes.filter((st) => {
           return st.auditorium_id === aud.id && isShowtimeInBusinessDay(st, currentDayStr);
         });
 
-        let currentMin = startMinutesOfDay;
-        let movieRoundRobinIndex = 0;
+        // Rule: Tránh dồn khách toàn cụm rạp: So le 10–15 phút giữa các phòng
+        const clusterStaggerOffset = staggerRooms ? (audIndex * 15) % 45 : 0;
+        let currentMin = startMinutesOfDay + clusterStaggerOffset;
+
+        const movieUsageCount: Record<string, number> = {};
+        compatibleMovies.forEach((m) => {
+          movieUsageCount[m.id] = 0;
+        });
+
         let loopGuard = 0;
 
         while (loopGuard < 25) {
           loopGuard++;
-          const movie = compatibleMovies[movieRoundRobinIndex % compatibleMovies.length];
-          const duration = movie.duration_minutes || 120;
-          const buffer = quickCleaningBuffer || 15;
 
-          if (currentMin + duration > endMinutesOfDay) {
+          if (currentMin + 60 > endMinutesOfDay) {
+            break;
+          }
+
+          // Xác định khung giờ hiện tại trong ngày
+          const timeOfDayMin = currentMin % 1440;
+          const isMorning = timeOfDayMin < 11 * 60 + 30; // 08:00 - 11:30
+          const isAfternoon = timeOfDayMin >= 11 * 60 + 30 && timeOfDayMin < 17 * 60 + 30; // 11:30 - 17:30
+          const isPeakEvening = timeOfDayMin >= 17 * 60 + 30 && timeOfDayMin < 22 * 60; // 17:30 - 22:00 (Giờ vàng)
+          const isLateNight = timeOfDayMin >= 22 * 60 || currentMin >= 1440; // Sau 22:00
+
+          // Lọc danh sách phim hợp lệ cho khung giờ theo Rule
+          let candidatePool = compatibleMovies.filter((m) => {
+            const prof = getMovieRuleProfile(m);
+
+            // Rule: Phim kinh dị ít hoặc không xếp suất sáng
+            if (isMorning && prof.isHorror) return false;
+
+            // Rule: Phim gia đình hạn chế suất muộn sau 20:30
+            if ((isLateNight || timeOfDayMin >= 20 * 60 + 30) && prof.isFamily) return false;
+
+            // Rule: Phim giới hạn tuổi T18 ưu tiên sau 18:00
+            if (isMorning && prof.isAdult) return false;
+
+            // Rule: Phim dài trên 150p không tạo suất bắt đầu quá muộn
+            if (prof.isLong && currentMin + (m.duration_minutes || 150) + 15 > endMinutesOfDay) return false;
+
+            // Rule: Phim ít khách (Niche) ngày thường giảm suất, chỉ chiếu 1-3 suất/ngày giờ thấp điểm
+            if (prof.isNiche && (movieUsageCount[m.id] || 0) >= 2) return false;
+            if (prof.isNiche && isPeakEvening) return false; // Không xếp Niche vào giờ vàng tối
+
+            return true;
+          });
+
+          if (candidatePool.length === 0) {
+            candidatePool = compatibleMovies;
+          }
+
+          // Sắp xếp ưu tiên phim trong khung giờ
+          const sortedCandidates = [...candidatePool].sort((a, b) => {
+            const profA = getMovieRuleProfile(a);
+            const profB = getMovieRuleProfile(b);
+
+            // Ưu tiên 1: Khung giờ vàng tối (17:30 - 22:00) hoặc Phòng IMAX -> Bom Tấn lên hàng đầu
+            if (isPeakEvening || aud.screen_type === 'IMAX') {
+              if (profA.isBlockbuster && !profB.isBlockbuster) return -1;
+              if (profB.isBlockbuster && !profA.isBlockbuster) return 1;
+            }
+
+            // Ưu tiên 2: Cuối tuần / Ban ngày -> Phim Gia Đình / Hoạt Hình
+            if ((isWeekend || isMorning) && !isPeakEvening) {
+              if (profA.isFamily && !profB.isFamily) return -1;
+              if (profB.isFamily && !profA.isFamily) return 1;
+            }
+
+            // Ưu tiên 3: Tối & Đêm -> Phim Kinh Dị & Phim T18
+            if ((isPeakEvening || isLateNight) && !isMorning) {
+              if (profA.isHorror && !profB.isHorror) return -1;
+              if (profB.isHorror && !profA.isHorror) return 1;
+              if (profA.isAdult && !profB.isAdult) return -1;
+              if (profB.isAdult && !profA.isAdult) return 1;
+            }
+
+            // Luân phiên chia đều số suất giữa các phim
+            return (movieUsageCount[a.id] || 0) - (movieUsageCount[b.id] || 0);
+          });
+
+          // Rule: Giãn giờ cùng phim (Staggering cùng phim chiếu nhiều phòng)
+          let movie = sortedCandidates[0] || compatibleMovies[0];
+          if (staggerSameMovie && sortedCandidates.length > 1) {
+            const conflictRecent = dayMovieStarts.find((item) => {
+              const diff = Math.abs(item.startMin - currentMin);
+              const minGap = getMovieRuleProfile(movie).isBlockbuster ? 25 : 45;
+              return item.movieId === movie.id && diff < minGap;
+            });
+            if (conflictRecent && sortedCandidates[1]) {
+              movie = sortedCandidates[1];
+            }
+          }
+
+          const duration = movie.duration_minutes || 120;
+          const trailer = quickTrailerMinutes || 10;
+          const buffer = quickCleaningBuffer || 15;
+          const showDuration = duration + trailer; // Thời lượng suất = trailer + phim
+
+          // Rule: Không tạo suất kết thúc sau giờ đóng rạp
+          if (currentMin + showDuration > endMinutesOfDay) {
             break;
           }
 
@@ -577,7 +717,7 @@ export default function ShowtimesView({
           slotStartDate.setDate(slotStartDate.getDate() + dayOffset + startDayOffset);
           slotStartDate.setHours(curStartH, curStartM, 0, 0);
 
-          const slotEndDate = new Date(slotStartDate.getTime() + duration * 60000);
+          const slotEndDate = new Date(slotStartDate.getTime() + showDuration * 60000);
 
           const startStr = `${String(curStartH).padStart(2, '0')}:${String(curStartM).padStart(2, '0')}`;
           const endStr = `${String(slotEndDate.getHours()).padStart(2, '0')}:${String(slotEndDate.getMinutes()).padStart(2, '0')}`;
@@ -585,11 +725,65 @@ export default function ShowtimesView({
           const slotStartMs = slotStartDate.getTime();
           const slotEndWithBufferMs = slotEndDate.getTime() + buffer * 60000;
 
-          const hasConflict = existingRoomShowtimes.some((st) => {
+          // Rule: Kiểm tra xung đột với suất đã có và vé đã bán
+          const conflictingShowtimes = existingRoomShowtimes.filter((st) => {
             const stStart = new Date(st.starts_at).getTime();
             const stEnd = new Date(st.ends_at).getTime();
             return Math.max(slotStartMs, stStart) < Math.min(slotEndWithBufferMs, stEnd);
           });
+
+          if (conflictingShowtimes.length > 0) {
+            // Rule: Vé đã bán / Suất cố định: Không tự dời hoặc sửa. Tự tìm slot trống gần nhất (Auto-shift)
+            if (autoShiftConflicts) {
+              const maxConflictEndMs = Math.max(...conflictingShowtimes.map((st) => new Date(st.ends_at).getTime()));
+              const shiftMinutes = Math.ceil((maxConflictEndMs - slotStartMs) / 60000) + buffer;
+              const nextAvailableMin = currentMin + shiftMinutes;
+
+              if (nextAvailableMin + showDuration <= endMinutesOfDay) {
+                currentMin = nextAvailableMin;
+                continue; // Xếp slot kế tiếp không bị trùng
+              }
+            }
+
+            // Nếu không thể shift mà không vượt giờ đóng rạp -> Đánh dấu xung đột
+            slots.push({
+              movieId: movie.id,
+              movieTitle: movie.title,
+              movieDuration: duration,
+              trailerMinutes: trailer,
+              movieFormat: aud.screen_type === 'IMAX' ? (movie.formats?.includes('IMAX') ? 'IMAX' : '2D') : '2D',
+              auditoriumId: aud.id,
+              auditoriumName: aud.name,
+              auditoriumScreenType: aud.screen_type,
+              dateStr: currentDayStr,
+              startTimeStr: startStr,
+              endTimeStr: endStr,
+              startsAt: slotStartDate,
+              endsAt: slotEndDate,
+              isConflict: true,
+              conflictReason: 'Trùng lịch suất chiếu hiện có trong phòng',
+              ruleTags: ['⚠️ Xung đột lịch phòng'],
+              isBlockbuster: getMovieRuleProfile(movie).isBlockbuster,
+              isFamily: getMovieRuleProfile(movie).isFamily,
+              isHorror: getMovieRuleProfile(movie).isHorror
+            });
+            break;
+          }
+
+          // Gán nhãn các Rule thông minh đã kích hoạt
+          const ruleTags: string[] = [];
+          const profile = getMovieRuleProfile(movie);
+
+          if (profile.isBlockbuster) ruleTags.push('🔥 Bom tấn');
+          if (isPeakEvening && profile.isBlockbuster) ruleTags.push('⭐ Giờ vàng tối');
+          if (profile.isFamily) ruleTags.push('👨‍👩‍👧 Gia đình');
+          if (profile.isHorror) ruleTags.push('👻 Suất tối kinh dị');
+          if (profile.isAdult) ruleTags.push('🔞 T18 (Kiểm tra tuổi)');
+          if (profile.isLong) ruleTags.push('⏱️ Phim dài >150p');
+          if (aud.screen_type === 'IMAX') ruleTags.push('IMAX Laser');
+          if (clusterStaggerOffset > 0) ruleTags.push('⏳ Lệch 15p chống dồn');
+          if (profile.isNiche) ruleTags.push('🎞️ Giờ thấp điểm');
+          if (profile.isEvent) ruleTags.push('🎤 Suất sự kiện');
 
           const chosenFormat = aud.screen_type === 'IMAX'
             ? (movie.formats?.includes('IMAX') ? 'IMAX' : '2D')
@@ -599,6 +793,7 @@ export default function ShowtimesView({
             movieId: movie.id,
             movieTitle: movie.title,
             movieDuration: duration,
+            trailerMinutes: trailer,
             movieFormat: chosenFormat,
             auditoriumId: aud.id,
             auditoriumName: aud.name,
@@ -608,11 +803,16 @@ export default function ShowtimesView({
             endTimeStr: endStr,
             startsAt: slotStartDate,
             endsAt: slotEndDate,
-            isConflict: hasConflict
+            isConflict: false,
+            ruleTags,
+            isBlockbuster: profile.isBlockbuster,
+            isFamily: profile.isFamily,
+            isHorror: profile.isHorror
           });
 
-          currentMin += duration + buffer;
-          movieRoundRobinIndex++;
+          dayMovieStarts.push({ movieId: movie.id, startMin: currentMin });
+          movieUsageCount[movie.id] = (movieUsageCount[movie.id] || 0) + 1;
+          currentMin += showDuration + buffer;
         }
       });
     }
@@ -628,6 +828,11 @@ export default function ShowtimesView({
     quickOperatingStart,
     quickOperatingEnd,
     quickCleaningBuffer,
+    quickTrailerMinutes,
+    allow2DInImax,
+    staggerRooms,
+    staggerSameMovie,
+    autoShiftConflicts,
     movies,
     auditoriums,
     showtimes
@@ -638,7 +843,7 @@ export default function ShowtimesView({
     return generatedQuickSlots.filter((s) => !s.isConflict);
   }, [generatedQuickSlots]);
 
-  // Thực thi tạo suất chiếu hàng loạt
+  // Thực thi tạo suất chiếu hàng loạt theo Rule
   const handleExecuteQuickBatch = async () => {
     if (validQuickSlots.length === 0) {
       showToast('Không có suất chiếu hợp lệ nào để tạo!');
@@ -666,13 +871,14 @@ export default function ShowtimesView({
             language_version: movieObj?.language || 'Phụ đề Tiếng Việt',
             starts_at: slot.startsAt.toISOString(),
             ends_at: slot.endsAt.toISOString(),
-            status: 'open'
+            status: publishStatus // 'open' hoặc 'draft' theo rule
           },
           defaultPrices
         );
       }
 
-      showToast(`Đã tự động tạo thành công ${validQuickSlots.length} suất chiếu!`);
+      const statusText = publishStatus === 'open' ? 'Mở bán ngay' : 'Bản nháp';
+      showToast(`Đã tự động tạo thành công ${validQuickSlots.length} suất chiếu theo Rule (${statusText})!`);
       setQuickBatchModalOpen(false);
     } catch (err: any) {
       showToast('Lỗi khi tạo suất hàng loạt: ' + (err.message || 'Thử lại'));
@@ -1079,6 +1285,10 @@ export default function ShowtimesView({
                   {movies.map((m) => {
                     const isChecked = selectedQuickMovieIds.includes(m.id);
                     const mFormats = m.formats && m.formats.length > 0 ? m.formats.join(' / ') : '2D';
+                    const isBlockbuster = Boolean(m.is_blockbuster || m.tier === 'BLOCKBUSTER' || (m.imdb_score && m.imdb_score >= 8.5));
+                    const isFamily = m.age_rating === 'P' || m.age_rating === 'K' || Boolean(m.genres && m.genres.some((g) => ['hoạt hình', 'gia đình', 'kids', 'family'].includes(g.name.toLowerCase())));
+                    const isHorror = Boolean(m.genres && m.genres.some((g) => g.name.toLowerCase().includes('kinh dị') || g.name.toLowerCase().includes('horror')));
+
                     return (
                       <div
                         key={m.id}
@@ -1100,9 +1310,34 @@ export default function ShowtimesView({
                             onChange={() => {}}
                             className="w-4 h-4 accent-[#E63845] rounded cursor-pointer pointer-events-none shrink-0"
                           />
-                          <span className="font-bold text-xs truncate text-white" title={m.title}>
-                            {m.title}
-                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs truncate text-white" title={m.title}>
+                                {m.title}
+                              </span>
+                              {isBlockbuster && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-gradient-to-r from-[#E63845] to-[#F59E0B] text-white flex items-center gap-0.5 shrink-0">
+                                  <Flame className="w-2.5 h-2.5 fill-current" />
+                                  <span>Bom tấn</span>
+                                </span>
+                              )}
+                              {isFamily && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/30 shrink-0">
+                                  Gia đình
+                                </span>
+                              )}
+                              {isHorror && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#8B5CF6]/20 text-[#C4B5FD] border border-[#8B5CF6]/30 shrink-0">
+                                  Kinh dị
+                                </span>
+                              )}
+                              {m.age_rating === 'T18' && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-[#EF4444]/20 text-[#F87171] border border-[#EF4444]/30 shrink-0">
+                                  T18
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 text-[11px]">
                           <span className="text-[#8E9AAF]">{m.duration_minutes} phút</span>
@@ -1190,6 +1425,20 @@ export default function ShowtimesView({
                     );
                   })}
                 </div>
+
+                {/* Tùy chọn tương thích nâng cao */}
+                <div className="pt-2 border-t border-[#1E2638]/70 flex items-center justify-between text-xs">
+                  <label className="flex items-center gap-2 text-[#CBD5E1] cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={allow2DInImax}
+                      onChange={(e) => setAllow2DInImax(e.target.checked)}
+                      className="w-3.5 h-3.5 accent-[#06B6D4] rounded cursor-pointer"
+                    />
+                    <span>Cho phép xếp phim 2D vào phòng IMAX (nếu phòng trống / phim hot)</span>
+                  </label>
+                  <span className="text-[11px] text-[#8E9AAF]">Rule tương thích phòng</span>
+                </div>
               </div>
 
               {/* 3. Thời gian tạo lịch */}
@@ -1204,7 +1453,7 @@ export default function ShowtimesView({
                   {[
                     { id: '1_DAY', label: '1 ngày' },
                     { id: '7_DAYS', label: '7 ngày' },
-                    { id: '1_MONTH', label: '1 tháng' }
+                    { id: '1_MONTH', label: '1 tháng (30 ngày)' }
                   ].map((opt) => (
                     <label key={opt.id} className="flex items-center gap-2 cursor-pointer text-white font-medium select-none">
                       <input
@@ -1280,59 +1529,146 @@ export default function ShowtimesView({
                 </div>
               </div>
 
-              {/* 4. Cấu hình suất */}
+              {/* 4. Cấu hình suất & Smart Rules */}
               <div className="space-y-3 bg-[#0E121B]/80 border border-[#1E2638] p-4 rounded-2xl">
-                <label className="font-bold text-white text-sm flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#E63845] text-white text-[11px] font-black flex items-center justify-center">4</span>
-                  <span>Cấu hình suất</span>
-                </label>
+                <div className="flex items-center justify-between pb-1.5 border-b border-[#1E2638]">
+                  <label className="font-bold text-white text-sm flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#E63845] text-white text-[11px] font-black flex items-center justify-center">4</span>
+                    <span>Cấu hình suất & Quy tắc xếp lịch thông minh</span>
+                  </label>
+                  <span className="text-[11px] text-[#06B6D4] font-medium">Rule Engine tự động</span>
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Hàng 1: Giờ hoạt động & Thời lượng buffer/trailer */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="text-[#8E9AAF] font-medium text-[11px]">Giờ hoạt động:</label>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <input
                         type="time"
                         value={quickOperatingStart}
                         onChange={(e) => setQuickOperatingStart(e.target.value)}
-                        className="flex-1 bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-2 text-white font-mono font-bold text-xs"
+                        className="flex-1 bg-[#141924] border border-[#222B3D] rounded-xl px-2 py-1.5 text-white font-mono font-bold text-xs"
                       />
-                      <span className="text-[#8E9AAF]">đến</span>
+                      <span className="text-[#8E9AAF] text-[11px]">đến</span>
                       <input
                         type="time"
                         value={quickOperatingEnd}
                         onChange={(e) => setQuickOperatingEnd(e.target.value)}
-                        className="flex-1 bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-2 text-white font-mono font-bold text-xs"
+                        className="flex-1 bg-[#141924] border border-[#222B3D] rounded-xl px-2 py-1.5 text-white font-mono font-bold text-xs"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[#8E9AAF] font-medium text-[11px]">Thời gian dọn phòng giữa 2 suất:</label>
+                    <label className="text-[#8E9AAF] font-medium text-[11px]">Trailer / Quảng cáo:</label>
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
-                        min={5}
-                        max={60}
+                        min={0}
+                        max={30}
+                        step={5}
+                        value={quickTrailerMinutes}
+                        onChange={(e) => setQuickTrailerMinutes(Number(e.target.value))}
+                        className="w-full bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-1.5 text-white font-mono font-bold text-xs text-center"
+                      />
+                      <span className="text-[#8E9AAF] text-xs">phút</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[#8E9AAF] font-medium text-[11px]">Thời gian dọn phòng:</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={10}
+                        max={30}
                         step={5}
                         value={quickCleaningBuffer}
                         onChange={(e) => setQuickCleaningBuffer(Number(e.target.value))}
-                        className="w-24 bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-2 text-white font-mono font-bold text-xs text-center"
+                        className="w-full bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-1.5 text-white font-mono font-bold text-xs text-center"
                       />
-                      <span className="text-[#8E9AAF]">phút</span>
+                      <span className="text-[#8E9AAF] text-xs">phút</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hàng 2: Các quy tắc chống dồn khách, né xung đột */}
+                <div className="p-3 rounded-xl bg-[#131926] border border-[#20293B] space-y-2">
+                  <div className="text-[11px] font-bold text-[#FABF2E] uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Quy tắc vận hành rạp chiếu tự động (Business Rules)</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <label className="flex items-center gap-2 text-white cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={staggerRooms}
+                        onChange={(e) => setStaggerRooms(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-[#06B6D4] rounded cursor-pointer"
+                      />
+                      <span>Tránh dồn khách sảnh (So le giờ bắt đầu 10-15p giữa các phòng)</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-white cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={staggerSameMovie}
+                        onChange={(e) => setStaggerSameMovie(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-[#06B6D4] rounded cursor-pointer"
+                      />
+                      <span>Giãn giờ cùng phim (Lệch 15-30p với phim hot, 30-60p phim thường)</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-white cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={autoShiftConflicts}
+                        onChange={(e) => setAutoShiftConflicts(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-[#22C55E] rounded cursor-pointer"
+                      />
+                      <span>Tự động né suất trùng / vé đã bán (Auto-shift sang slot trống gần nhất)</span>
+                    </label>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-[#8E9AAF] text-[11px]">Trạng thái xuất bản:</span>
+                      <label className="flex items-center gap-1.5 text-white cursor-pointer select-none text-xs">
+                        <input
+                          type="radio"
+                          name="publishStatusRadio"
+                          value="open"
+                          checked={publishStatus === 'open'}
+                          onChange={() => setPublishStatus('open')}
+                          className="w-3.5 h-3.5 accent-[#22C55E] cursor-pointer"
+                        />
+                        <span className="text-[#22C55E] font-bold">Mở bán ngay</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 text-white cursor-pointer select-none text-xs">
+                        <input
+                          type="radio"
+                          name="publishStatusRadio"
+                          value="draft"
+                          checked={publishStatus === 'draft'}
+                          onChange={() => setPublishStatus('draft')}
+                          className="w-3.5 h-3.5 accent-[#FABF2E] cursor-pointer"
+                        />
+                        <span className="text-[#FABF2E] font-bold">Bản nháp (Duyệt sau)</span>
+                      </label>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Ngăn kéo Xem trước chi tiết các suất chiếu dự kiến */}
+              {/* Ngăn kéo Xem trước chi tiết các suất chiếu dự kiến theo Rule */}
               {isPreviewDrawerOpen && (
-                <div className="p-4 rounded-2xl bg-[#090D15] border border-[#06B6D4]/30 space-y-3 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between border-b border-[#1E2638] pb-2">
-                    <h4 className="font-bold text-white text-xs flex items-center gap-2">
+                <div className="p-4 rounded-2xl bg-[#090D15] border border-[#06B6D4]/40 space-y-3.5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between border-b border-[#1E2638] pb-2.5">
+                    <div className="flex items-center gap-2">
                       <Eye className="w-4 h-4 text-[#06B6D4]" />
-                      <span>Chi tiết các suất chiếu dự kiến sinh tự động ({generatedQuickSlots.length} suất)</span>
-                    </h4>
+                      <h4 className="font-bold text-white text-xs">
+                        Xem trước danh sách suất chiếu sinh theo Rule ({generatedQuickSlots.length} suất)
+                      </h4>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setIsPreviewDrawerOpen(false)}
@@ -1342,40 +1678,96 @@ export default function ShowtimesView({
                     </button>
                   </div>
 
+                  {/* Thẻ thống kê KPI thông minh */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+                    <div className="p-2 rounded-xl bg-[#121824] border border-[#1E283C]">
+                      <div className="text-[10px] text-[#8E9AAF]">Tổng suất hợp lệ</div>
+                      <div className="text-base font-black text-[#22C55E]">{validQuickSlots.length}</div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-[#121824] border border-[#E63845]/30">
+                      <div className="text-[10px] text-[#E63845] font-semibold flex items-center justify-center gap-1">
+                        <Flame className="w-3 h-3 fill-current" />
+                        <span>Bom tấn (Giờ vàng)</span>
+                      </div>
+                      <div className="text-base font-black text-[#E63845]">
+                        {validQuickSlots.filter((s) => s.isBlockbuster).length}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-[#121824] border border-[#10B981]/30">
+                      <div className="text-[10px] text-[#34D399]">👨‍👩‍👧 Suất gia đình</div>
+                      <div className="text-base font-black text-[#34D399]">
+                        {validQuickSlots.filter((s) => s.isFamily).length}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-[#121824] border border-[#8B5CF6]/30">
+                      <div className="text-[10px] text-[#C4B5FD]">👻 Tối & Kinh dị</div>
+                      <div className="text-base font-black text-[#C4B5FD]">
+                        {validQuickSlots.filter((s) => s.isHorror).length}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-[#121824] border border-[#EF4444]/30">
+                      <div className="text-[10px] text-[#EF4444]">⚠️ Xung đột né/bỏ qua</div>
+                      <div className="text-base font-black text-[#EF4444]">
+                        {generatedQuickSlots.length - validQuickSlots.length}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Danh sách suất chiếu chi tiết */}
                   {generatedQuickSlots.length === 0 ? (
                     <div className="p-4 text-center text-xs text-[#5C677D]">
                       Chưa có suất chiếu nào được tạo. Vui lòng chọn ít nhất 1 phim và 1 phòng chiếu!
                     </div>
                   ) : (
-                    <div className="max-h-60 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                    <div className="max-h-64 overflow-y-auto space-y-2 custom-scrollbar pr-1">
                       {generatedQuickSlots.map((slot, idx) => (
                         <div
                           key={idx}
-                          className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${
+                          className={`p-2.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
                             slot.isConflict
                               ? 'bg-[#3B191C]/40 border-[#EF4444]/40 text-[#EF4444]'
-                              : 'bg-[#121824] border-[#1E283C] text-white'
+                              : 'bg-[#121824] border-[#1E283C] text-white hover:border-[#2C3B57]'
                           }`}
                         >
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0 flex-wrap">
                             <span className="font-mono text-[10px] text-[#06B6D4] font-bold">#{idx + 1}</span>
-                            <span className="font-bold text-white truncate max-w-[150px]" title={slot.movieTitle}>
+                            <span className="font-bold text-white truncate max-w-[160px]" title={slot.movieTitle}>
                               {slot.movieTitle}
                             </span>
                             <span className="text-[10px] text-[#8E9AAF]">({slot.auditoriumName})</span>
-                            <span className="text-[9px] px-1 py-0.2 rounded bg-[#E63845] text-white font-bold">{slot.movieFormat}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#E63845] text-white font-bold">{slot.movieFormat}</span>
+                            
+                            {/* Tags Rule áp dụng */}
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {slot.ruleTags.slice(0, 3).map((tag, tIdx) => (
+                                <span
+                                  key={tIdx}
+                                  className="text-[9px] px-1.5 py-0.2 rounded bg-[#1C2538] border border-[#2B3952] text-[#06B6D4] font-medium"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span className="font-mono text-[11px] text-[#FABF2E] font-bold">
-                              {slot.dateStr} | {slot.startTimeStr} - {slot.endTimeStr}
-                            </span>
+
+                          <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                            <div className="text-right">
+                              <span className="font-mono text-[11px] text-[#FABF2E] font-bold block">
+                                {slot.dateStr} | {slot.startTimeStr} - {slot.endTimeStr}
+                              </span>
+                              <span className="text-[9px] text-[#8E9AAF]">
+                                (Trailer: {slot.trailerMinutes}p + Phim: {slot.movieDuration}p)
+                              </span>
+                            </div>
                             {slot.isConflict ? (
-                              <span className="text-[10px] text-[#EF4444] font-bold flex items-center gap-1">
+                              <span className="text-[10px] text-[#EF4444] font-bold flex items-center gap-1 shrink-0">
                                 <AlertTriangle className="w-3 h-3" />
-                                <span>Trùng!</span>
+                                <span>{slot.conflictReason || 'Trùng!'}</span>
                               </span>
                             ) : (
-                              <span className="text-[10px] text-[#22C55E] font-bold">Hợp lệ</span>
+                              <span className="px-2 py-0.5 rounded text-[10px] text-[#22C55E] bg-[#22C55E]/15 border border-[#22C55E]/30 font-bold shrink-0">
+                                Hợp lệ
+                              </span>
                             )}
                           </div>
                         </div>
@@ -1397,7 +1789,7 @@ export default function ShowtimesView({
                 <span>Xem trước: {validQuickSlots.length} suất</span>
                 {generatedQuickSlots.length > validQuickSlots.length && (
                   <span className="text-[10px] text-[#EF4444]">
-                    (bỏ qua {generatedQuickSlots.length - validQuickSlots.length} suất trùng)
+                    (né {generatedQuickSlots.length - validQuickSlots.length} suất trùng)
                   </span>
                 )}
               </button>
@@ -1421,7 +1813,11 @@ export default function ShowtimesView({
                   ) : (
                     <>
                       <Zap className="w-4 h-4 fill-current" />
-                      <span>Tạo suất chiếu</span>
+                      <span>
+                        {publishStatus === 'open'
+                          ? `Tạo & Mở Bán ${validQuickSlots.length} Suất Chiếu`
+                          : `Lưu ${validQuickSlots.length} Suất Chiếu Bản Nháp`}
+                      </span>
                     </>
                   )}
                 </button>

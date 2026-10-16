@@ -6,7 +6,7 @@ export type MovieStatus = 'COMING_SOON' | 'NOW_SHOWING' | 'ENDED' | 'draft' | 'c
 export type ScreenType = '2D' | '3D' | 'IMAX' | '4DX';
 export type RoomStatus = 'ACTIVE' | 'MAINTENANCE' | 'active' | 'maintenance';
 export type LanguageType = 'SUBTITLED' | 'DUBBED' | 'ORIGINAL';
-export type ShowtimeStatus = 'OPEN' | 'CLOSED' | 'CANCELLED' | 'scheduled' | 'open' | 'closed' | 'cancelled' | 'finished';
+export type ShowtimeStatus = 'OPEN' | 'CLOSED' | 'CANCELLED' | 'scheduled' | 'open' | 'closed' | 'cancelled' | 'finished' | 'draft';
 export type DiscountType = 'PERCENT' | 'FIXED';
 export type BookingStatus = 'PENDING' | 'PAID' | 'CANCELLED' | 'EXPIRED' | 'pending' | 'paid' | 'cancelled' | 'expired' | 'refunded';
 export type TicketStatus = 'HELD' | 'SOLD' | 'CANCELLED' | 'USED' | 'issued' | 'used' | 'cancelled' | 'refunded';
@@ -45,6 +45,8 @@ export interface Genre {
   slug: string;
 }
 
+export type MovieTier = 'BLOCKBUSTER' | 'STANDARD' | 'NICHE' | 'EVENT';
+
 export interface Movie {
   id: number | string;
   title: string;
@@ -72,6 +74,8 @@ export interface Movie {
   meta_description?: string;
   formats?: string[];
   created_at?: string;
+  tier?: MovieTier;
+  is_blockbuster?: boolean;
 }
 
 export interface Cinema {
