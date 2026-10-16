@@ -67,7 +67,26 @@ function BookingContent() {
   // Dynamic Entities
   const selectedMovie = movies.find((m) => m.id.toString() === queryMovieId) || movies[0];
   const selectedCinema = cinemas.find((c) => c.id.toString() === queryCinemaId) || cinemas[0];
-  const selectedShowtime = showtimes.find((s) => s.id.toString() === queryShowtimeId) || showtimes[0];
+  const foundShowtime = showtimes.find(
+    (s) => s.id.toString() === queryShowtimeId || s.supabase_id === queryShowtimeId
+  );
+  const selectedShowtime: Showtime = foundShowtime || {
+    id: queryShowtimeId,
+    movie_id: selectedMovie.id,
+    room_id: 1,
+    start_time: `${queryDate}T${queryTime}:00`,
+    end_time: `${queryDate}T${queryTime}:00`,
+    status: 'OPEN',
+    available_seats: 80,
+    room: {
+      id: 1,
+      cinema_id: Number(selectedCinema.id) || 1,
+      name: 'Phòng 1 (2D Tiêu Chuẩn)',
+      screen_type: '2D',
+      total_seats: 80,
+      status: 'ACTIVE',
+    },
+  };
 
   // Seats State
   const [seats, setSeats] = useState<Seat[]>([]);
@@ -203,41 +222,30 @@ function BookingContent() {
       const localTickets = stored ? JSON.parse(stored) : [];
       const bookedSeatLabels = new Set<string>();
 
-      // Đọc từ soldSeatsByShowtime trong DataContext (đồng bộ trực tiếp từ Supabase và Staff POS)
-      const stKey = selectedShowtime?.id || queryShowtimeId;
-      const ctxSold = (soldSeatsByShowtime as Record<string | number, string[]>)?.[stKey];
-      if (Array.isArray(ctxSold)) {
-        ctxSold.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
+      // Đọc từ soldSeatsByShowtime trong DataContext chỉ khi đúng suất chiếu trong DB
+      if (foundShowtime) {
+        const ctxSold = (soldSeatsByShowtime as Record<string | number, string[]>)?.[foundShowtime.id];
+        if (Array.isArray(ctxSold)) {
+          ctxSold.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
+        }
       }
 
       localTickets.forEach((t: any) => {
-        const matchShowtimeId =
+        const matchExactShowtime =
           t.showtimeId &&
-          selectedShowtime?.id &&
-          t.showtimeId.toString() === selectedShowtime.id.toString();
+          t.showtimeId.toString() === queryShowtimeId.toString();
 
-        const matchCinema =
-          t.cinemaName === selectedCinema?.name ||
-          (t.cinemaId && t.cinemaId.toString() === queryCinemaId.toString());
+        const matchAttributes =
+          ((t.movieId && t.movieId.toString() === selectedMovie.id.toString()) || t.movieTitle === selectedMovie.title) &&
+          (t.cinemaId?.toString() === queryCinemaId.toString() || t.cinemaName === selectedCinema.name) &&
+          (t.showtimeDate === queryDate || t.date === queryDate || (t.showtime && t.showtime.includes(queryDate))) &&
+          (t.showtimeTime === queryTime || (t.showtime && t.showtime.includes(queryTime)));
 
-        const matchMovie =
-          (t.movieId && selectedMovie?.id && t.movieId.toString() === selectedMovie.id.toString()) ||
-          t.movieTitle === selectedMovie?.title;
-
-        const matchDate =
-          t.showtimeDate === queryDate ||
-          t.date === queryDate ||
-          (t.showtime && t.showtime.includes(queryDate));
-
-        const matchTime =
-          t.showtimeTime === queryTime ||
-          (t.showtime && t.showtime.includes(queryTime));
-
-        if (matchShowtimeId || (matchCinema && matchMovie && matchDate && matchTime)) {
+        if (matchExactShowtime || matchAttributes) {
           if (Array.isArray(t.seats)) {
-            t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
+            t.seats.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
           } else if (typeof t.seats === 'string') {
-            t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(s.trim()));
+            t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
           }
         }
       });
@@ -247,7 +255,7 @@ function BookingContent() {
         const posSeatsRaw = localStorage.getItem('cinemax_booked_seats_v2');
         if (posSeatsRaw) {
           const posSeatsMap = JSON.parse(posSeatsRaw);
-          const stSeats = posSeatsMap?.[selectedShowtime?.id || queryShowtimeId];
+          const stSeats = posSeatsMap?.[queryShowtimeId];
           if (Array.isArray(stSeats)) {
             stSeats.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
           }
@@ -278,8 +286,7 @@ function BookingContent() {
       }
 
       // 2. Đọc danh sách ghế đang bị giữ tạm (HELD) bởi phiên khác còn hạn
-      const currentShowtimeKey = selectedShowtime?.id || queryShowtimeId;
-      const heldMap = BookingService.getLocalHeldSeats(currentShowtimeKey);
+      const heldMap = BookingService.getLocalHeldSeats(queryShowtimeId);
       const heldSeatLabels = new Set<string>();
       heldMap.forEach((info, label) => {
         if (info.sessionId !== sessionId) {
@@ -287,16 +294,14 @@ function BookingContent() {
         }
       });
 
-      // 3. Nếu là suất chiếu thật của rạp Hà Nội Centre trong DB Supabase
-      const stId = selectedShowtime?.id?.toString();
+      // 3. Nếu là suất chiếu thật của phim Dune trong DB Supabase
       const isRealDbShowtime =
-        stId &&
-        stId === '85608755-35ca-4157-87bd-96b50577e0e5' &&
-        (selectedCinema?.id === 1 || selectedCinema?.name?.includes('Hà Nội'));
+        queryShowtimeId === '85608755-35ca-4157-87bd-96b50577e0e5' &&
+        selectedMovie.title?.toLowerCase().includes('dune');
 
       if (isRealDbShowtime) {
         try {
-          const dbSeats = await BookingService.getShowtimeSeats(stId);
+          const dbSeats = await BookingService.getShowtimeSeats(queryShowtimeId);
           if (dbSeats && dbSeats.length > 0) {
             const mapped: Seat[] = dbSeats.map((s) => {
               const seatLabel = `${s.row_label}${s.seat_number}`;
@@ -332,11 +337,11 @@ function BookingContent() {
         }
       }
 
-      // 4. Với các rạp khác (Landmark 81, Cầu Giấy...) hoặc các suất chiếu khác:
+      // 4. Với tất cả các phim và suất chiếu khác: Sinh sơ đồ ghế độc lập
       const dynamicSeats = getDynamicShowtimeSeats(
         Number(selectedShowtime?.room_id) || 1,
         selectedCinema?.id || queryCinemaId,
-        selectedShowtime?.id || queryShowtimeId,
+        queryShowtimeId,
         queryDate,
         queryTime,
         bookedSeatLabels,
