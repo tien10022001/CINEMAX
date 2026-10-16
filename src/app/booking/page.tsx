@@ -294,14 +294,14 @@ function BookingContent() {
         }
       });
 
-      // 3. Nếu là suất chiếu thật của phim Dune trong DB Supabase
-      const isRealDbShowtime =
-        queryShowtimeId === '85608755-35ca-4157-87bd-96b50577e0e5' &&
-        selectedMovie.title?.toLowerCase().includes('dune');
+      // 3. Nếu suất chiếu có ID UUID hợp lệ trong DB Supabase, tải trực tiếp sơ đồ ghế từ DB
+      const targetShowtimeUuid =
+        selectedShowtime?.supabase_id ||
+        (typeof queryShowtimeId === 'string' && queryShowtimeId.length === 36 ? queryShowtimeId : null);
 
-      if (isRealDbShowtime) {
+      if (targetShowtimeUuid) {
         try {
-          const dbSeats = await BookingService.getShowtimeSeats(queryShowtimeId);
+          const dbSeats = await BookingService.getShowtimeSeats(targetShowtimeUuid);
           if (dbSeats && dbSeats.length > 0) {
             const mapped: Seat[] = dbSeats.map((s) => {
               const seatLabel = `${s.row_label}${s.seat_number}`;
@@ -497,8 +497,13 @@ function BookingContent() {
   };
 
   const getSeatPrice = (seat: Seat) => {
-    if (seat.seat_type?.code === 'COUPLE') return 210000;
-    if (seat.seat_type?.code === 'VIP') return 110000;
+    const code =
+      seat.seat_type?.code ||
+      (seat.row_label === 'H' ? 'COUPLE' : ['F', 'G'].includes(seat.row_label) ? 'VIP' : 'STANDARD');
+    const dynamicPrice = selectedShowtime?.prices?.find((p) => p.seat_type?.code === code)?.price;
+    if (dynamicPrice && dynamicPrice > 0) return dynamicPrice;
+    if (code === 'COUPLE') return 210000;
+    if (code === 'VIP') return 110000;
     return 90000;
   };
 
@@ -574,14 +579,14 @@ function BookingContent() {
     setTimeLeft(10 * 60);
 
     // 5. Tải lại sơ đồ ghế của suất chiếu mới
-    const isRealDb =
-      slot.id === '85608755-35ca-4157-87bd-96b50577e0e5' &&
-      (newCinemaId === 1 || newCinemaId === '1');
+    const targetSlotUuid =
+      slot.supabase_id ||
+      (slot.id && String(slot.id).length === 36 ? String(slot.id) : null);
 
-    if (isRealDb) {
+    if (targetSlotUuid) {
       try {
         const { BookingService } = await import('@/services/booking.service');
-        const dbSeats = await BookingService.getShowtimeSeats(slot.id);
+        const dbSeats = await BookingService.getShowtimeSeats(targetSlotUuid);
         if (dbSeats && dbSeats.length > 0) {
           setSeats(
             dbSeats.map((s) => ({
@@ -649,51 +654,58 @@ function BookingContent() {
       const { PaymentService } = await import('@/services/payment.service');
 
       const seatIds = selectedSeats.map((s) => s.id.toString());
-      const showtimeId = selectedShowtime?.id?.toString() || '85608755-35ca-4157-87bd-96b50577e0e5';
-      const validShowtimeId = showtimeId.length === 36 ? showtimeId : '85608755-35ca-4157-87bd-96b50577e0e5';
+      const targetShowtimeUuid =
+        selectedShowtime?.supabase_id ||
+        (queryShowtimeId && queryShowtimeId.length === 36 ? queryShowtimeId : null);
 
-      // P0.3: Kiểm tra xung đột ghế thời gian thực (Atomic seat availability verification)
-      const freshSeats = await BookingService.getShowtimeSeats(validShowtimeId);
-      if (freshSeats && freshSeats.length > 0) {
-        const conflictedSeat = freshSeats.find((fs) => {
-          const isSelected = seatIds.includes(fs.id.toString());
-          if (!isSelected) return false;
-          // Nếu ghế đã bị bán hoặc đang giữ bởi người khác còn hạn
-          const isSold = (fs.status as string) === 'booked' || fs.status === 'sold';
-          const isHeldValid = fs.status === 'held' && fs.held_until && new Date(fs.held_until) > new Date();
-          return isSold || isHeldValid;
-        });
+      // P0.3: Kiểm tra xung đột ghế thời gian thực nếu suất chiếu đã được lưu trong DB Supabase
+      if (targetShowtimeUuid) {
+        const freshSeats = await BookingService.getShowtimeSeats(targetShowtimeUuid);
+        if (freshSeats && freshSeats.length > 0) {
+          const conflictedSeat = freshSeats.find((fs) => {
+            const isSelected = seatIds.includes(fs.id.toString());
+            if (!isSelected) return false;
+            // Nếu ghế đã bị bán hoặc đang giữ bởi người khác còn hạn
+            const isSold = (fs.status as string) === 'booked' || fs.status === 'sold';
+            const isHeldValid = fs.status === 'held' && fs.held_until && new Date(fs.held_until) > new Date();
+            return isSold || isHeldValid;
+          });
 
-        if (conflictedSeat) {
-          setIsProcessingPayment(false);
-          const label = `${conflictedSeat.row_label}${conflictedSeat.seat_number}`;
-          alert(`Ghế ${label} vừa được khách hàng khác giữ hoặc mua. Vui lòng chọn ghế khác!`);
-          // Làm mới lại sơ đồ ghế
-          setSeats((prev) =>
-            prev.map((s) => (s.id.toString() === conflictedSeat.id.toString() ? { ...s, status: 'sold' as any } : s))
-          );
-          setSelectedSeats((prev) => prev.filter((s) => s.id.toString() !== conflictedSeat.id.toString()));
-          return;
+          if (conflictedSeat) {
+            setIsProcessingPayment(false);
+            const label = `${conflictedSeat.row_label}${conflictedSeat.seat_number}`;
+            alert(`Ghế ${label} vừa được khách hàng khác giữ hoặc mua. Vui lòng chọn ghế khác!`);
+            // Làm mới lại sơ đồ ghế
+            setSeats((prev) =>
+              prev.map((s) => (s.id.toString() === conflictedSeat.id.toString() ? { ...s, status: 'sold' as any } : s))
+            );
+            setSelectedSeats((prev) => prev.filter((s) => s.id.toString() !== conflictedSeat.id.toString()));
+            return;
+          }
         }
       }
 
       // 1. Tạo đơn hàng và giữ ghế trên Supabase (RPC hold_seats)
-      let orderRes;
-      try {
-        orderRes = await BookingService.holdSeats({
-          showtimeId: showtimeId,
-          seatIds: seatIds,
-          userId: currentUser?.id || null,
-          channel: 'online',
-          contactName: payerName,
-          contactEmail: payerEmail,
-          contactPhone: payerPhone,
-        });
-      } catch (err: any) {
-        console.warn('hold_seats RPC fallback to direct flow:', err);
-        // Nếu mock showtime ID không tồn tại trong DB, tạo mock order_id an toàn
+      let orderRes: any = null;
+      if (targetShowtimeUuid) {
+        try {
+          orderRes = await BookingService.holdSeats({
+            showtimeId: targetShowtimeUuid,
+            seatIds: seatIds,
+            userId: currentUser?.id || null,
+            channel: 'online',
+            contactName: payerName,
+            contactEmail: payerEmail,
+            contactPhone: payerPhone,
+          });
+        } catch (err: any) {
+          console.warn('hold_seats RPC fallback to direct flow:', err);
+        }
+      }
+
+      if (!orderRes || !orderRes.order_id) {
         orderRes = {
-          order_id: 'mock-' + Date.now(),
+          order_id: 'ord-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
           order_code: 'CNM' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
         };
       }
@@ -719,7 +731,7 @@ function BookingContent() {
       }
 
       // 2. Xác nhận thanh toán qua Supabase (RPC confirm_order_payment)
-      if (!orderId.startsWith('mock-')) {
+      if (orderId && orderId.length === 36) {
         try {
           await PaymentService.confirmPayment(orderId, paymentMethod as any);
         } catch (payErr) {
@@ -888,7 +900,7 @@ function BookingContent() {
     const bankTxnId = txDetails?.transactionId || `FT-${Date.now()}`;
     const senderBank = txDetails?.senderBank || 'TPBank';
 
-    if (!pendingVietQROrder.orderId.startsWith('mock-')) {
+    if (pendingVietQROrder.orderId && pendingVietQROrder.orderId.length === 36) {
       try {
         await PaymentService.confirmPayment(pendingVietQROrder.orderId, 'CARD', bankTxnId);
       } catch (payErr) {

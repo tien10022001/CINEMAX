@@ -436,64 +436,35 @@ export async function syncOrderToSupabase(params: {
   const supabase = createClient();
 
   try {
-    let showtimeUuid = params.showtimeUuid || '85608755-35ca-4157-87bd-96b50577e0e5';
-    const audUuid = params.auditoriumUuid || 'd8eae7e2-cf8d-40c6-96d2-bc690626e180';
-    let seatIds = params.seatCodes
-      .map((code) => params.seatUuidLookup[`${audUuid}:${code}`])
-      .filter((id): id is string => Boolean(id));
+    let showtimeUuid = params.showtimeUuid;
+    const audUuid = params.auditoriumUuid;
+    let seatIds: string[] = [];
 
-    // If seats are not yet mapped in DB or this auditorium has no seat rows, pick valid available seats from showtime_seats
-    if (seatIds.length === 0) {
-      const { data: availSeats } = await supabase
-        .from('showtime_seats')
-        .select('showtime_id, seat_id')
-        .eq('status', 'available')
-        .limit(Math.max(1, params.seatCodes.length));
-
-      if (availSeats && availSeats.length > 0) {
-        showtimeUuid = availSeats[0].showtime_id;
-        seatIds = availSeats.map((s) => s.seat_id);
-      }
+    if (audUuid) {
+      seatIds = params.seatCodes
+        .map((code) => params.seatUuidLookup[`${audUuid}:${code}`])
+        .filter((id): id is string => Boolean(id));
     }
 
-    // 1. Primary path: Use the team's SECURITY DEFINER atomic RPCs (hold_seats -> confirm_order_payment)
+    // 1. Primary path: Use SECURITY DEFINER atomic RPCs if showtimeUuid & seatIds match exactly
     let holdRes: any = null;
     let holdErr: any = null;
 
-    if (seatIds.length > 0) {
-      const res = await supabase.rpc('hold_seats', {
-        p_showtime_id: showtimeUuid,
-        p_seat_ids: seatIds,
-        p_user_id: null,
-        p_channel: params.channel,
-        p_contact_name: params.contactName || 'Khách hàng CINEMAX',
-        p_contact_email: params.contactEmail || 'guest@cinemax.vn',
-        p_contact_phone: params.contactPhone || '0900000000',
-      });
-      holdRes = res.data;
-      holdErr = res.error;
-    }
-
-    // If hold_seats failed (e.g. seats recently occupied), retry with ANY available seat to guarantee order creation
-    if (!holdRes?.order_id) {
-      const { data: fallbackSeats } = await supabase
-        .from('showtime_seats')
-        .select('showtime_id, seat_id')
-        .eq('status', 'available')
-        .limit(1);
-
-      if (fallbackSeats && fallbackSeats.length > 0) {
-        const retryRes = await supabase.rpc('hold_seats', {
-          p_showtime_id: fallbackSeats[0].showtime_id,
-          p_seat_ids: [fallbackSeats[0].seat_id],
+    if (showtimeUuid && seatIds.length === params.seatCodes.length && seatIds.length > 0) {
+      try {
+        const res = await supabase.rpc('hold_seats', {
+          p_showtime_id: showtimeUuid,
+          p_seat_ids: seatIds,
           p_user_id: null,
           p_channel: params.channel,
           p_contact_name: params.contactName || 'Khách hàng CINEMAX',
           p_contact_email: params.contactEmail || 'guest@cinemax.vn',
           p_contact_phone: params.contactPhone || '0900000000',
         });
-        holdRes = retryRes.data;
-        holdErr = retryRes.error;
+        holdRes = res.data;
+        holdErr = res.error;
+      } catch (e) {
+        holdErr = e;
       }
     }
 
