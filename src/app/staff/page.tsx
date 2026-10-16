@@ -3299,7 +3299,7 @@ export default function StaffWorkspacePage() {
             <div className="space-y-1.5 text-xs border-b border-dashed border-slate-400 pb-3">
               <div className="flex justify-between">
                 <span>Mã đơn:</span>
-                <span className="font-bold">#{printingOrder.id.slice(0, 10)}</span>
+                <span className="font-bold">#{printingOrder.id}</span>
               </div>
               <div className="flex justify-between">
                 <span>Phim:</span>
