@@ -99,8 +99,7 @@ export default function ShowtimesView({
   const [quickBatchModalOpen, setQuickBatchModalOpen] = useState(false);
   const [selectedQuickMovieIds, setSelectedQuickMovieIds] = useState<string[]>([]);
   const [selectedQuickAuditoriumIds, setSelectedQuickAuditoriumIds] = useState<string[]>([]);
-  const [onlyCompatibleRooms, setOnlyCompatibleRooms] = useState(true);
-  const [allow2DInImax, setAllow2DInImax] = useState(false);
+  const [overwriteExisting, setOverwriteExisting] = useState(true);
   const [scheduleDuration, setScheduleDuration] = useState<'1_DAY' | '7_DAYS' | '1_MONTH'>('1_DAY');
   const [quickStartDate, setQuickStartDate] = useState(selectedDate);
   const [applyAllWeekdays, setApplyAllWeekdays] = useState(true);
@@ -296,25 +295,35 @@ export default function ShowtimesView({
   // State lọc phim theo định dạng rạp (mặc định = true: phòng 2D chỉ hiện phim 2D, phòng IMAX chỉ hiện phim IMAX)
   const [filterMoviesByRoomType, setFilterMoviesByRoomType] = useState(true);
 
-  // Hàm kiểm tra định dạng phim có tương thích với loại rạp không theo Rule
-  const isMovieCompatibleWithAuditorium = (movie: Movie, aud?: Auditorium | null, allowImax2D?: boolean) => {
+  // Hàm kiểm tra định dạng phim có đúng với phòng ban đầu đã đánh nhãn không
+  const isMovieCompatibleWithAuditorium = (movie: Movie, aud?: Auditorium | null) => {
     if (!aud) return true;
-    const roomType = (aud.screen_type || '2D').toUpperCase();
-    const movieFormats = (movie.formats && movie.formats.length > 0) ? movie.formats : ['2D'];
+    const roomType = (aud.screen_type || '2D').toUpperCase().trim();
+    const movieFormats = (movie.formats && movie.formats.length > 0)
+      ? movie.formats.map((f) => f.toUpperCase().trim())
+      : ['2D'];
 
-    // Rule: 2D: Chỉ xếp vào phòng 2D; có thể vào IMAX nếu quản lý bật cho phép
-    if (roomType === 'IMAX' && (allowImax2D ?? allow2DInImax)) {
-      if (movieFormats.some((fmt) => fmt.toUpperCase().includes('2D'))) return true;
+    // Phòng IMAX: CHỈ nhận phim có nhãn IMAX
+    if (roomType === 'IMAX') {
+      return movieFormats.some((fmt) => fmt.includes('IMAX'));
     }
 
-    return movieFormats.some((fmt) => {
-      const upper = fmt.toUpperCase();
-      if (roomType === '2D') return upper.includes('2D');
-      if (roomType === 'IMAX') return upper.includes('IMAX');
-      if (roomType === '3D') return upper.includes('3D');
-      if (roomType === '4DX') return upper.includes('4DX');
-      return upper.includes(roomType) || roomType.includes(upper);
-    });
+    // Phòng 2D: CHỈ nhận phim có nhãn 2D (phim chỉ có nhãn IMAX sẽ KHÔNG vào phòng 2D)
+    if (roomType === '2D') {
+      return movieFormats.some((fmt) => fmt.includes('2D') || fmt === 'STANDARD');
+    }
+
+    // Phòng 3D: CHỈ nhận phim có nhãn 3D
+    if (roomType === '3D') {
+      return movieFormats.some((fmt) => fmt.includes('3D'));
+    }
+
+    // Phòng 4DX: CHỈ nhận phim có nhãn 4DX
+    if (roomType === '4DX') {
+      return movieFormats.some((fmt) => fmt.includes('4DX'));
+    }
+
+    return movieFormats.some((fmt) => fmt.includes(roomType));
   };
 
   // Preview Movie & Auditorium for Modal
@@ -662,8 +671,7 @@ export default function ShowtimesView({
     setSelectedQuickMovieIds(movies.map((m) => m.id));
     // Mặc định chọn tất cả phòng
     setSelectedQuickAuditoriumIds(auditoriums.map((a) => a.id));
-    setOnlyCompatibleRooms(true);
-    setAllow2DInImax(false);
+    setOverwriteExisting(true);
     setScheduleDuration('1_DAY');
     setQuickStartDate(selectedDate);
     setApplyAllWeekdays(true);
@@ -679,17 +687,6 @@ export default function ShowtimesView({
     setIsPreviewDrawerOpen(false);
     setQuickBatchModalOpen(true);
   };
-
-  // Danh sách phòng chiếu sau khi áp dụng bộ lọc tương thích
-  const filteredAuditoriumsForBatch = React.useMemo(() => {
-    if (!onlyCompatibleRooms || selectedQuickMovieIds.length === 0) {
-      return auditoriums;
-    }
-    const chosenMovies = movies.filter((m) => selectedQuickMovieIds.includes(m.id));
-    return auditoriums.filter((aud) => {
-      return chosenMovies.some((m) => isMovieCompatibleWithAuditorium(m, aud, allow2DInImax));
-    });
-  }, [auditoriums, movies, selectedQuickMovieIds, onlyCompatibleRooms, allow2DInImax]);
 
   // Thuật toán sinh danh sách suất chiếu dự kiến theo hệ thống Business Rules (generatedQuickSlots)
   const generatedQuickSlots = React.useMemo(() => {
@@ -769,7 +766,7 @@ export default function ShowtimesView({
       const dayMovieStarts: Array<{ movieId: string; startMin: number }> = [];
 
       sortedAuds.forEach((aud, audIndex) => {
-        const compatibleMovies = selectedMovies.filter((m) => isMovieCompatibleWithAuditorium(m, aud, allow2DInImax));
+        const compatibleMovies = selectedMovies.filter((m) => isMovieCompatibleWithAuditorium(m, aud));
         if (compatibleMovies.length === 0) return;
 
         const existingRoomShowtimes = showtimes.filter((st) => {
@@ -1001,7 +998,6 @@ export default function ShowtimesView({
     quickOperatingEnd,
     quickCleaningBuffer,
     quickTrailerMinutes,
-    allow2DInImax,
     staggerRooms,
     staggerSameMovie,
     autoShiftConflicts,
@@ -1032,6 +1028,25 @@ export default function ShowtimesView({
         { seat_type: 'VIP', audience_type: 'STUDENT_U22', price: 85000, currency: 'VND' },
         { seat_type: 'COUPLE', audience_type: 'ADULT', price: 210000, currency: 'VND' }
       ];
+
+      // Nếu bật làm mới phòng: Xóa sạch các suất cũ chưa bán vé trong các phòng và ngày được lên lịch để chống đè ô
+      if (overwriteExisting) {
+        const datesSet = new Set(validQuickSlots.map((s) => s.dateStr));
+        const audIdsSet = new Set(validQuickSlots.map((s) => s.auditoriumId));
+        const oldToRemove = showtimes.filter((st) => {
+          if (!audIdsSet.has(st.auditorium_id)) return false;
+          return Array.from(datesSet).some((d) => isShowtimeInBusinessDay(st, d));
+        });
+        if (oldToRemove.length > 0) {
+          if (onBulkDeleteShowtimes) {
+            await onBulkDeleteShowtimes(oldToRemove.map((s) => s.id));
+          } else {
+            for (const st of oldToRemove) {
+              await onDeleteShowtime(st.id);
+            }
+          }
+        }
+      }
 
       for (const slot of validQuickSlots) {
         const movieObj = movies.find((m) => m.id === slot.movieId);
@@ -1284,10 +1299,42 @@ export default function ShowtimesView({
                   return st.auditorium_id === aud.id && isShowtimeInBusinessDay(st, selectedDate);
                 });
 
+                // Thuật toán chia sub-lanes (tracks) chống đè ô: nếu có các suất bị trùng giờ trong cùng phòng thì xếp lane riêng
+                const sortedRoomShowtimes = [...roomShowtimes].sort(
+                  (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+                );
+                const tracks: Showtime[][] = [];
+                const showtimeTrackMap = new Map<string, number>();
+
+                sortedRoomShowtimes.forEach((st) => {
+                  const stStartMs = new Date(st.starts_at).getTime();
+                  let placed = false;
+                  for (let t = 0; t < tracks.length; t++) {
+                    const lastSt = tracks[t][tracks[t].length - 1];
+                    const lastEndMs = new Date(lastSt.ends_at).getTime();
+                    if (stStartMs >= lastEndMs) {
+                      tracks[t].push(st);
+                      showtimeTrackMap.set(st.id, t);
+                      placed = true;
+                      break;
+                    }
+                  }
+                  if (!placed) {
+                    showtimeTrackMap.set(st.id, tracks.length);
+                    tracks.push([st]);
+                  }
+                });
+
+                const trackCount = Math.max(1, tracks.length);
+                const rowHeightPx = trackCount === 1 ? 44 : trackCount * 38 + 8;
+
                 return (
                   <div key={aud.id} className="flex relative hover:bg-[#151B27]/40 transition-colors group w-full">
                     {/* Left Room Label */}
-                    <div className="w-32 md:w-36 shrink-0 px-2 py-1.5 border-r border-[#222B3D] bg-[#121622] sticky left-0 z-20 flex flex-col justify-center shadow-sm">
+                    <div
+                      style={{ minHeight: `${rowHeightPx}px` }}
+                      className="w-32 md:w-36 shrink-0 px-2 py-1.5 border-r border-[#222B3D] bg-[#121622] sticky left-0 z-20 flex flex-col justify-center shadow-sm"
+                    >
                       <div className="font-bold text-white text-xs flex items-center gap-1.5 truncate">
                         <Armchair className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
                         <span className="truncate">{aud.name}</span>
@@ -1301,11 +1348,19 @@ export default function ShowtimesView({
                           {aud.screen_type}
                         </span>
                         <span>• {aud.total_seats} ghế</span>
+                        {trackCount > 1 && (
+                          <span className="px-1 py-0.2 rounded text-[8px] font-black bg-[#EF4444]/20 text-[#EF4444]">
+                            {trackCount} tầng
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {/* Right Timeline Canvas 100% Fluid Width */}
-                    <div className="flex-1 relative h-11 flex items-center w-full overflow-hidden">
+                    <div
+                      style={{ minHeight: `${rowHeightPx}px`, height: `${rowHeightPx}px` }}
+                      className="flex-1 relative flex items-center w-full overflow-hidden"
+                    >
                       {/* Background Grid: 19 cột giờ cho click nhanh */}
                       <div className="absolute inset-0 flex pointer-events-auto">
                         {timelineHours.map((hour) => {
@@ -1359,13 +1414,17 @@ export default function ShowtimesView({
                         });
 
                         const isSelected = selectedShowtimeIds.includes(st.id);
+                        const trackIndex = showtimeTrackMap.get(st.id) || 0;
+                        const cardTopPx = trackCount === 1 ? 5 : trackIndex * 38 + 4;
 
                         return (
                           <div
                             key={st.id}
                             style={{
                               left: `${leftPercent}%`,
-                              width: `${widthPercent}%`
+                              width: `${widthPercent}%`,
+                              top: `${cardTopPx}px`,
+                              height: '34px'
                             }}
                             onClick={() => {
                               if (isBulkMode || selectedShowtimeIds.length > 0) {
@@ -1635,23 +1694,13 @@ export default function ShowtimesView({
                     <span className="w-5 h-5 rounded-full bg-[#E63845] text-white text-[11px] font-black flex items-center justify-center">2</span>
                     <span>Chọn phòng chiếu</span>
                     <span className="text-xs text-[#8E9AAF] font-normal">
-                      (Đã chọn {selectedQuickAuditoriumIds.length}/{filteredAuditoriumsForBatch.length})
+                      (Đã chọn {selectedQuickAuditoriumIds.length}/{auditoriums.length})
                     </span>
                   </label>
                   <div className="flex items-center gap-3 text-xs">
-                    <label className="flex items-center gap-1.5 text-[#FABF2E] cursor-pointer font-medium select-none">
-                      <input
-                        type="checkbox"
-                        checked={onlyCompatibleRooms}
-                        onChange={(e) => setOnlyCompatibleRooms(e.target.checked)}
-                        className="w-3.5 h-3.5 accent-[#FABF2E] rounded cursor-pointer"
-                      />
-                      <span>Chỉ hiện phòng tương thích với phim đã chọn</span>
-                    </label>
-                    <span className="text-[#3A4760]">|</span>
                     <button
                       type="button"
-                      onClick={() => setSelectedQuickAuditoriumIds(filteredAuditoriumsForBatch.map((a) => a.id))}
+                      onClick={() => setSelectedQuickAuditoriumIds(auditoriums.map((a) => a.id))}
                       className="text-[#06B6D4] hover:underline cursor-pointer font-semibold"
                     >
                       [Chọn tất cả]
@@ -1667,7 +1716,7 @@ export default function ShowtimesView({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto custom-scrollbar pr-1">
-                  {filteredAuditoriumsForBatch.map((aud) => {
+                  {auditoriums.map((aud) => {
                     const isChecked = selectedQuickAuditoriumIds.includes(aud.id);
                     return (
                       <div
@@ -1691,10 +1740,19 @@ export default function ShowtimesView({
                             className="w-4 h-4 accent-[#E63845] rounded cursor-pointer pointer-events-none shrink-0"
                           />
                           <div className="font-bold text-xs truncate text-white">
-                            {aud.name} – {aud.screen_type === 'IMAX' ? 'IMAX Laser' : '2D Tiêu chuẩn'}
+                            {aud.name}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 text-[10px] shrink-0 text-[#8E9AAF]">
+                          <span
+                            className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
+                              aud.screen_type === 'IMAX'
+                                ? 'bg-[#FABF2E]/20 text-[#FABF2E] border border-[#FABF2E]/40'
+                                : 'bg-[#1C2536] text-[#06B6D4] border border-[#28354A]'
+                            }`}
+                          >
+                            {aud.screen_type}
+                          </span>
                           <span>• {aud.total_seats} ghế</span>
                         </div>
                       </div>
@@ -1702,18 +1760,12 @@ export default function ShowtimesView({
                   })}
                 </div>
 
-                {/* Tùy chọn tương thích nâng cao */}
-                <div className="pt-2 border-t border-[#1E2638]/70 flex items-center justify-between text-xs">
-                  <label className="flex items-center gap-2 text-[#CBD5E1] cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={allow2DInImax}
-                      onChange={(e) => setAllow2DInImax(e.target.checked)}
-                      className="w-3.5 h-3.5 accent-[#06B6D4] rounded cursor-pointer"
-                    />
-                    <span>Cho phép xếp phim 2D vào phòng IMAX (nếu phòng trống / phim hot)</span>
-                  </label>
-                  <span className="text-[11px] text-[#8E9AAF]">Rule tương thích phòng</span>
+                {/* Thông báo tự động xếp đúng nhãn */}
+                <div className="pt-2 border-t border-[#1E2638]/70 flex items-center justify-between text-xs text-[#06B6D4]">
+                  <span className="flex items-center gap-1.5 text-[11px]">
+                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                    <span>Phim tự động xếp đúng vào phòng theo nhãn định dạng ban đầu (Phim IMAX vào phòng IMAX, Phim 2D vào phòng 2D).</span>
+                  </span>
                 </div>
               </div>
 
@@ -1904,6 +1956,16 @@ export default function ShowtimesView({
                         className="w-3.5 h-3.5 accent-[#22C55E] rounded cursor-pointer"
                       />
                       <span>Tự động né suất trùng / vé đã bán (Auto-shift sang slot trống gần nhất)</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-white cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={overwriteExisting}
+                        onChange={(e) => setOverwriteExisting(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-[#FABF2E] rounded cursor-pointer"
+                      />
+                      <span className="text-[#FABF2E] font-medium">Làm mới phòng chiếu (Xóa các suất cũ chưa bán vé trong ngày để chống đè ô)</span>
                     </label>
 
                     <div className="flex items-center gap-3">

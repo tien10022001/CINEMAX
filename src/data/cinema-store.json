@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-10-16T08:42:36.225Z",
+  "last_updated": "2026-10-16T09:00:05.225Z",
   "movies": [
     {
       "id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
@@ -453,6 +453,1570 @@
   ],
   "showtimes": [
     {
+      "id": "28258545-b5cc-49b6-8a98-c6183d607938",
+      "movie_id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
+      "auditorium_id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T13:20:00.000Z",
+      "ends_at": "2026-10-16T15:30:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
+        "title": "77",
+        "original_title": "77",
+        "slug": "77",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "7 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": "",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+        "name": "Phòng 4 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:22.391Z"
+      }
+    },
+    {
+      "id": "e02ed39b-c13b-4273-a38c-4618789ab3b0",
+      "movie_id": "35d030ec-2ecc-4e4d-b6a9-8ac1bcee29f1",
+      "auditorium_id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T10:55:00.000Z",
+      "ends_at": "2026-10-16T13:05:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "35d030ec-2ecc-4e4d-b6a9-8ac1bcee29f1",
+        "title": "36",
+        "original_title": "36",
+        "slug": "36",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "ended",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "3 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+        "name": "Phòng 4 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:22.391Z"
+      }
+    },
+    {
+      "id": "63489964-c165-463f-ac0c-69e5ebacc4ec",
+      "movie_id": "213f309d-90f7-4f16-846a-812b1b8f7e08",
+      "auditorium_id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T08:30:00.000Z",
+      "ends_at": "2026-10-16T10:40:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "213f309d-90f7-4f16-846a-812b1b8f7e08",
+        "title": "22",
+        "original_title": "22",
+        "slug": "22",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "draft",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "2 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+        "name": "Phòng 4 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:22.391Z"
+      }
+    },
+    {
+      "id": "15ce8a9e-aff0-437a-9eb9-8a78155c7e4c",
+      "movie_id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
+      "auditorium_id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T06:05:00.000Z",
+      "ends_at": "2026-10-16T08:15:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
+        "title": "77",
+        "original_title": "77",
+        "slug": "77",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "7 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": "",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+        "name": "Phòng 4 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:22.391Z"
+      }
+    },
+    {
+      "id": "bcc8bac7-2dcc-489c-9652-dcf4f3b340ff",
+      "movie_id": "6d8db7d3-3d69-41ae-b408-88e1f6e7a105",
+      "auditorium_id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T03:40:00.000Z",
+      "ends_at": "2026-10-16T05:50:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "6d8db7d3-3d69-41ae-b408-88e1f6e7a105",
+        "title": "44",
+        "original_title": "44",
+        "slug": "44",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "4 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": "",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+        "name": "Phòng 4 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:22.391Z"
+      }
+    },
+    {
+      "id": "9342f374-7d89-4b79-a484-77a07dd5a849",
+      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
+      "auditorium_id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T01:15:00.000Z",
+      "ends_at": "2026-10-16T03:25:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
+        "title": "55",
+        "original_title": "55",
+        "slug": "55",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "coming_soon",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "9dbde8e6-1359-49b9-90b9-6e6cb4da7bc3",
+        "name": "Phòng 4 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:22.391Z"
+      }
+    },
+    {
+      "id": "ad5c5e8f-6936-4d2f-b681-184e29acd1dc",
+      "movie_id": "019fd72a-00b3-4af1-b489-b1aa775c245c",
+      "auditorium_id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+      "format": "2D",
+      "language_version": "Tiếng Việt - Phụ đề",
+      "starts_at": "2026-10-16T13:35:00.000Z",
+      "ends_at": "2026-10-16T15:45:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "019fd72a-00b3-4af1-b489-b1aa775c245c",
+        "title": "NX",
+        "slug": "xxx",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "director": null,
+        "cast_list": null,
+        "language": "Tiếng Việt - Phụ đề",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "trailer_url": null,
+        "synopsis": null,
+        "banner_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "original_title": "NX",
+        "genres": [
+          {
+            "id": "1216d56b-4bce-40d8-b48e-7448ef22e3a6",
+            "name": "Khoa Học Viễn Tưởng",
+            "slug": "khoa-hoc-vien-tuong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D"
+        ],
+        "country": "Việt Nam",
+        "studio": null,
+        "meta_title": "NX",
+        "meta_description": null,
+        "imdb_score": 8
+      },
+      "auditorium": {
+        "id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+        "name": "Phòng 2 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:10.759Z"
+      }
+    },
+    {
+      "id": "70c03ebd-2e6d-4cb1-86d4-9ccc210e5de2",
+      "movie_id": "dd63e39e-4d62-45c3-ae1a-369c469723e8",
+      "auditorium_id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T11:10:00.000Z",
+      "ends_at": "2026-10-16T13:20:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "dd63e39e-4d62-45c3-ae1a-369c469723e8",
+        "title": "x man",
+        "original_title": "x man",
+        "slug": "x-man",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "x man | Đặt Vé Rạp CINEMAX Chiếu 2D/IMAX",
+        "meta_description": "Siêu phẩm x man (Hành Động) chính thức đổ bộ cụm rạp CINEMAX với chuẩn 2D/IMAX bùng nổ mọi giác quan. Xem lịch chiếu, chọn ghế đẹp và săn vé online ngay!",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+        "name": "Phòng 2 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:10.759Z"
+      }
+    },
+    {
+      "id": "f9fb2ecf-d119-4483-83a9-9a7b7e9e41c3",
+      "movie_id": "35d030ec-2ecc-4e4d-b6a9-8ac1bcee29f1",
+      "auditorium_id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T08:45:00.000Z",
+      "ends_at": "2026-10-16T10:55:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "35d030ec-2ecc-4e4d-b6a9-8ac1bcee29f1",
+        "title": "36",
+        "original_title": "36",
+        "slug": "36",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "ended",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "3 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+        "name": "Phòng 2 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:10.759Z"
+      }
+    },
+    {
+      "id": "b47786b1-1ddc-4883-b806-26339caf0a01",
+      "movie_id": "6d8db7d3-3d69-41ae-b408-88e1f6e7a105",
+      "auditorium_id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T06:20:00.000Z",
+      "ends_at": "2026-10-16T08:30:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "6d8db7d3-3d69-41ae-b408-88e1f6e7a105",
+        "title": "44",
+        "original_title": "44",
+        "slug": "44",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "4 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": "",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+        "name": "Phòng 2 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:10.759Z"
+      }
+    },
+    {
+      "id": "1ffbf9af-b4fc-45b1-9a7e-42eab1fd0d1b",
+      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
+      "auditorium_id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T03:55:00.000Z",
+      "ends_at": "2026-10-16T06:05:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
+        "title": "55",
+        "original_title": "55",
+        "slug": "55",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "coming_soon",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+        "name": "Phòng 2 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:10.759Z"
+      }
+    },
+    {
+      "id": "f6577e47-07d2-45d9-84f4-44859c1f1a65",
+      "movie_id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
+      "auditorium_id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T01:30:00.000Z",
+      "ends_at": "2026-10-16T03:40:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
+        "title": "77",
+        "original_title": "77",
+        "slug": "77",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "7 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": "",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "3e38bbf0-4e9b-41f3-86e4-2d9437472d67",
+        "name": "Phòng 2 (2D Digital)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:10.759Z"
+      }
+    },
+    {
+      "id": "d8921f17-2d6e-483d-ab8d-0a5f8df059fe",
+      "movie_id": "dd63e39e-4d62-45c3-ae1a-369c469723e8",
+      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T13:20:00.000Z",
+      "ends_at": "2026-10-16T15:30:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "dd63e39e-4d62-45c3-ae1a-369c469723e8",
+        "title": "x man",
+        "original_title": "x man",
+        "slug": "x-man",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "x man | Đặt Vé Rạp CINEMAX Chiếu 2D/IMAX",
+        "meta_description": "Siêu phẩm x man (Hành Động) chính thức đổ bộ cụm rạp CINEMAX với chuẩn 2D/IMAX bùng nổ mọi giác quan. Xem lịch chiếu, chọn ghế đẹp và săn vé online ngay!",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+        "name": "Phòng 1 (2D Tiêu Chuẩn)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-13T14:33:48.971286+00:00",
+        "updated_at": "2026-10-13T14:33:48.971286+00:00"
+      }
+    },
+    {
+      "id": "a174dcba-e87b-4ce2-999a-34be0037261d",
+      "movie_id": "213f309d-90f7-4f16-846a-812b1b8f7e08",
+      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T10:55:00.000Z",
+      "ends_at": "2026-10-16T13:05:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "213f309d-90f7-4f16-846a-812b1b8f7e08",
+        "title": "22",
+        "original_title": "22",
+        "slug": "22",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "draft",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "2 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+        "name": "Phòng 1 (2D Tiêu Chuẩn)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-13T14:33:48.971286+00:00",
+        "updated_at": "2026-10-13T14:33:48.971286+00:00"
+      }
+    },
+    {
+      "id": "3f16cfb7-7691-4c12-ac65-bc8b0f7a1157",
+      "movie_id": "6d8db7d3-3d69-41ae-b408-88e1f6e7a105",
+      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T08:30:00.000Z",
+      "ends_at": "2026-10-16T10:40:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "6d8db7d3-3d69-41ae-b408-88e1f6e7a105",
+        "title": "44",
+        "original_title": "44",
+        "slug": "44",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "4 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": "",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+        "name": "Phòng 1 (2D Tiêu Chuẩn)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-13T14:33:48.971286+00:00",
+        "updated_at": "2026-10-13T14:33:48.971286+00:00"
+      }
+    },
+    {
+      "id": "0a7421b6-9724-45f5-9ffd-85cb98ac36fd",
+      "movie_id": "35d030ec-2ecc-4e4d-b6a9-8ac1bcee29f1",
+      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T06:05:00.000Z",
+      "ends_at": "2026-10-16T08:15:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "35d030ec-2ecc-4e4d-b6a9-8ac1bcee29f1",
+        "title": "36",
+        "original_title": "36",
+        "slug": "36",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "ended",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "3 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+        "name": "Phòng 1 (2D Tiêu Chuẩn)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-13T14:33:48.971286+00:00",
+        "updated_at": "2026-10-13T14:33:48.971286+00:00"
+      }
+    },
+    {
+      "id": "2fa89499-2a2a-4456-8f79-4ae91094ae8c",
+      "movie_id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
+      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T03:40:00.000Z",
+      "ends_at": "2026-10-16T05:50:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
+        "title": "77",
+        "original_title": "77",
+        "slug": "77",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "7 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": "",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+        "name": "Phòng 1 (2D Tiêu Chuẩn)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-13T14:33:48.971286+00:00",
+        "updated_at": "2026-10-13T14:33:48.971286+00:00"
+      }
+    },
+    {
+      "id": "4418d875-b5df-48ed-9dc9-fb05bb4ba79f",
+      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
+      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+      "format": "2D",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T01:15:00.000Z",
+      "ends_at": "2026-10-16T03:25:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
+        "title": "55",
+        "original_title": "55",
+        "slug": "55",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "coming_soon",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+        "name": "Phòng 1 (2D Tiêu Chuẩn)",
+        "screen_type": "2D",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-13T14:33:48.971286+00:00",
+        "updated_at": "2026-10-13T14:33:48.971286+00:00"
+      }
+    },
+    {
+      "id": "ac9ca7ed-d3ac-492b-91e5-0a971afff4a1",
+      "movie_id": "213f309d-90f7-4f16-846a-812b1b8f7e08",
+      "auditorium_id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+      "format": "IMAX",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T13:05:00.000Z",
+      "ends_at": "2026-10-16T15:15:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "213f309d-90f7-4f16-846a-812b1b8f7e08",
+        "title": "22",
+        "original_title": "22",
+        "slug": "22",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "draft",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "2 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+        "name": "Phòng 6 (2D Digital)",
+        "screen_type": "IMAX",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:33.275Z"
+      }
+    },
+    {
+      "id": "18cffbb3-5d7b-4590-b4e1-5f954cef6b4e",
+      "movie_id": "e19b8523-6f8d-4d0d-aa6c-28cca783fcdd",
+      "auditorium_id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+      "format": "IMAX",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T10:40:00.000Z",
+      "ends_at": "2026-10-16T12:50:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "e19b8523-6f8d-4d0d-aa6c-28cca783fcdd",
+        "title": "35",
+        "original_title": "35",
+        "slug": "35",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "3 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+        "name": "Phòng 6 (2D Digital)",
+        "screen_type": "IMAX",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:33.275Z"
+      }
+    },
+    {
+      "id": "d71b90f7-1c72-449e-92e2-4fe384fd1fe9",
+      "movie_id": "35d030ec-2ecc-4e4d-b6a9-8ac1bcee29f1",
+      "auditorium_id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+      "format": "IMAX",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T08:15:00.000Z",
+      "ends_at": "2026-10-16T10:25:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "35d030ec-2ecc-4e4d-b6a9-8ac1bcee29f1",
+        "title": "36",
+        "original_title": "36",
+        "slug": "36",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "ended",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "3 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+        "name": "Phòng 6 (2D Digital)",
+        "screen_type": "IMAX",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:33.275Z"
+      }
+    },
+    {
+      "id": "0d60f77a-8542-41bf-ad71-b78694c006b2",
+      "movie_id": "6d8db7d3-3d69-41ae-b408-88e1f6e7a105",
+      "auditorium_id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+      "format": "IMAX",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T05:50:00.000Z",
+      "ends_at": "2026-10-16T08:00:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "6d8db7d3-3d69-41ae-b408-88e1f6e7a105",
+        "title": "44",
+        "original_title": "44",
+        "slug": "44",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "4 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": "",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+        "name": "Phòng 6 (2D Digital)",
+        "screen_type": "IMAX",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:33.275Z"
+      }
+    },
+    {
+      "id": "fdcc29c0-dda6-44e4-85e9-736ab8e166d9",
+      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
+      "auditorium_id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+      "format": "IMAX",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T03:25:00.000Z",
+      "ends_at": "2026-10-16T05:35:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
+        "title": "55",
+        "original_title": "55",
+        "slug": "55",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "coming_soon",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": null,
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+        "name": "Phòng 6 (2D Digital)",
+        "screen_type": "IMAX",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:33.275Z"
+      }
+    },
+    {
+      "id": "6dd97207-c878-473a-9b42-e7c57d00a68b",
+      "movie_id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
+      "auditorium_id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+      "format": "IMAX",
+      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
+      "starts_at": "2026-10-16T01:00:00.000Z",
+      "ends_at": "2026-10-16T03:10:00.000Z",
+      "status": "open",
+      "movie": {
+        "id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
+        "title": "77",
+        "original_title": "77",
+        "slug": "77",
+        "duration_minutes": 120,
+        "age_rating": "T13",
+        "status": "now_showing",
+        "release_date": "2026-10-16",
+        "end_date": null,
+        "synopsis": null,
+        "genres": [
+          {
+            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+            "name": "Hành Động",
+            "slug": "hanh-dong",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          },
+          {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        ],
+        "formats": [
+          "2D",
+          "IMAX"
+        ],
+        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
+        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
+        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
+        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
+        "director": null,
+        "cast_list": null,
+        "country": "Mỹ (Hollywood)",
+        "studio": "Warner Bros. Pictures",
+        "meta_title": "7 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
+        "meta_description": "",
+        "imdb_score": 8.5
+      },
+      "auditorium": {
+        "id": "ec9df661-8b63-405b-9b93-7c1162d6f038",
+        "name": "Phòng 6 (2D Digital)",
+        "screen_type": "IMAX",
+        "sound_system": "Dolby 7.1",
+        "total_seats": 80,
+        "cleaning_buffer_minutes": 15,
+        "status": "active",
+        "seat_map_version": 1,
+        "created_at": "2026-10-16T08:39:33.275Z"
+      }
+    },
+    {
       "id": "c48ca49a-9422-46e6-a673-b7c050dc76d5",
       "movie_id": "57f7412a-fc39-490b-affb-b0c0d39be6c4",
       "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
@@ -513,475 +2077,6 @@
         "sound_system": "Dolby Atmos",
         "total_seats": 120,
         "cleaning_buffer_minutes": 20,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
-      "id": "34f611bc-0aaf-41aa-a473-cdc2f3be7e6c",
-      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
-      "starts_at": "2026-10-17T15:00:00.000Z",
-      "ends_at": "2026-10-17T17:00:00.000Z",
-      "status": "open",
-      "movie": {
-        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-        "title": "55",
-        "original_title": "55",
-        "slug": "55",
-        "duration_minutes": 120,
-        "age_rating": "T13",
-        "status": "coming_soon",
-        "release_date": "2026-10-16",
-        "end_date": null,
-        "synopsis": null,
-        "genres": [
-          {
-            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
-            "name": "Hành Động",
-            "slug": "hanh-dong",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          },
-          {
-            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
-            "name": "Hoạt Hình",
-            "slug": "hoat-hinh",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          }
-        ],
-        "formats": [
-          "2D",
-          "IMAX"
-        ],
-        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
-        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
-        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
-        "director": null,
-        "cast_list": null,
-        "country": "Mỹ (Hollywood)",
-        "studio": "Warner Bros. Pictures",
-        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
-        "meta_description": null,
-        "imdb_score": 8.5
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
-      "id": "50e06af1-6ce6-4f8e-ace5-1ca305850f0a",
-      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
-      "starts_at": "2026-10-17T12:45:00.000Z",
-      "ends_at": "2026-10-17T14:45:00.000Z",
-      "status": "open",
-      "movie": {
-        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-        "title": "55",
-        "original_title": "55",
-        "slug": "55",
-        "duration_minutes": 120,
-        "age_rating": "T13",
-        "status": "coming_soon",
-        "release_date": "2026-10-16",
-        "end_date": null,
-        "synopsis": null,
-        "genres": [
-          {
-            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
-            "name": "Hành Động",
-            "slug": "hanh-dong",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          },
-          {
-            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
-            "name": "Hoạt Hình",
-            "slug": "hoat-hinh",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          }
-        ],
-        "formats": [
-          "2D",
-          "IMAX"
-        ],
-        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
-        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
-        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
-        "director": null,
-        "cast_list": null,
-        "country": "Mỹ (Hollywood)",
-        "studio": "Warner Bros. Pictures",
-        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
-        "meta_description": null,
-        "imdb_score": 8.5
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
-      "id": "0ccd3a6a-8839-4fbb-b9da-e8c70b5ef61a",
-      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
-      "starts_at": "2026-10-17T10:30:00.000Z",
-      "ends_at": "2026-10-17T12:30:00.000Z",
-      "status": "open",
-      "movie": {
-        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-        "title": "55",
-        "original_title": "55",
-        "slug": "55",
-        "duration_minutes": 120,
-        "age_rating": "T13",
-        "status": "coming_soon",
-        "release_date": "2026-10-16",
-        "end_date": null,
-        "synopsis": null,
-        "genres": [
-          {
-            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
-            "name": "Hành Động",
-            "slug": "hanh-dong",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          },
-          {
-            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
-            "name": "Hoạt Hình",
-            "slug": "hoat-hinh",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          }
-        ],
-        "formats": [
-          "2D",
-          "IMAX"
-        ],
-        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
-        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
-        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
-        "director": null,
-        "cast_list": null,
-        "country": "Mỹ (Hollywood)",
-        "studio": "Warner Bros. Pictures",
-        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
-        "meta_description": null,
-        "imdb_score": 8.5
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
-      "id": "e860581a-de31-4fcc-a491-520a5db4a685",
-      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
-      "starts_at": "2026-10-17T08:15:00.000Z",
-      "ends_at": "2026-10-17T10:15:00.000Z",
-      "status": "open",
-      "movie": {
-        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-        "title": "55",
-        "original_title": "55",
-        "slug": "55",
-        "duration_minutes": 120,
-        "age_rating": "T13",
-        "status": "coming_soon",
-        "release_date": "2026-10-16",
-        "end_date": null,
-        "synopsis": null,
-        "genres": [
-          {
-            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
-            "name": "Hành Động",
-            "slug": "hanh-dong",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          },
-          {
-            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
-            "name": "Hoạt Hình",
-            "slug": "hoat-hinh",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          }
-        ],
-        "formats": [
-          "2D",
-          "IMAX"
-        ],
-        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
-        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
-        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
-        "director": null,
-        "cast_list": null,
-        "country": "Mỹ (Hollywood)",
-        "studio": "Warner Bros. Pictures",
-        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
-        "meta_description": null,
-        "imdb_score": 8.5
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
-      "id": "0f56a9f2-4784-45a8-bc54-46221693ff08",
-      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
-      "starts_at": "2026-10-17T06:00:00.000Z",
-      "ends_at": "2026-10-17T08:00:00.000Z",
-      "status": "open",
-      "movie": {
-        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-        "title": "55",
-        "original_title": "55",
-        "slug": "55",
-        "duration_minutes": 120,
-        "age_rating": "T13",
-        "status": "coming_soon",
-        "release_date": "2026-10-16",
-        "end_date": null,
-        "synopsis": null,
-        "genres": [
-          {
-            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
-            "name": "Hành Động",
-            "slug": "hanh-dong",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          },
-          {
-            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
-            "name": "Hoạt Hình",
-            "slug": "hoat-hinh",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          }
-        ],
-        "formats": [
-          "2D",
-          "IMAX"
-        ],
-        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
-        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
-        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
-        "director": null,
-        "cast_list": null,
-        "country": "Mỹ (Hollywood)",
-        "studio": "Warner Bros. Pictures",
-        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
-        "meta_description": null,
-        "imdb_score": 8.5
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
-      "id": "c6782217-658d-4392-91ea-fb4d4e18baca",
-      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
-      "starts_at": "2026-10-17T03:45:00.000Z",
-      "ends_at": "2026-10-17T05:45:00.000Z",
-      "status": "open",
-      "movie": {
-        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-        "title": "55",
-        "original_title": "55",
-        "slug": "55",
-        "duration_minutes": 120,
-        "age_rating": "T13",
-        "status": "coming_soon",
-        "release_date": "2026-10-16",
-        "end_date": null,
-        "synopsis": null,
-        "genres": [
-          {
-            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
-            "name": "Hành Động",
-            "slug": "hanh-dong",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          },
-          {
-            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
-            "name": "Hoạt Hình",
-            "slug": "hoat-hinh",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          }
-        ],
-        "formats": [
-          "2D",
-          "IMAX"
-        ],
-        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
-        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
-        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
-        "director": null,
-        "cast_list": null,
-        "country": "Mỹ (Hollywood)",
-        "studio": "Warner Bros. Pictures",
-        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
-        "meta_description": null,
-        "imdb_score": 8.5
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
-      "id": "4705c251-35b7-42d1-ab88-a6dbe9e807f1",
-      "movie_id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Anh - Phụ đề Tiếng Việt",
-      "starts_at": "2026-10-17T01:30:00.000Z",
-      "ends_at": "2026-10-17T03:30:00.000Z",
-      "status": "open",
-      "movie": {
-        "id": "51a3fbde-9f32-41cc-80aa-3acfc47b690e",
-        "title": "55",
-        "original_title": "55",
-        "slug": "55",
-        "duration_minutes": 120,
-        "age_rating": "T13",
-        "status": "coming_soon",
-        "release_date": "2026-10-16",
-        "end_date": null,
-        "synopsis": null,
-        "genres": [
-          {
-            "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
-            "name": "Hành Động",
-            "slug": "hanh-dong",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          },
-          {
-            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
-            "name": "Hoạt Hình",
-            "slug": "hoat-hinh",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          }
-        ],
-        "formats": [
-          "2D",
-          "IMAX"
-        ],
-        "language": "Tiếng Anh - Phụ đề Tiếng Việt",
-        "poster_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600",
-        "trailer_url": "https://www.youtube.com/watch?v=Way9Dexny3w",
-        "director": null,
-        "cast_list": null,
-        "country": "Mỹ (Hollywood)",
-        "studio": "Warner Bros. Pictures",
-        "meta_title": "5 | Lịch Chiếu & Đặt Vé Rạp CINEMAX",
-        "meta_description": null,
-        "imdb_score": 8.5
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
         "status": "active",
         "seat_map_version": 1,
         "created_at": "2026-10-13T14:33:48.971286+00:00",
@@ -1261,7 +2356,14 @@
     "ca2f24b8-a86f-40d8-9a2a-9c2e2cd3a2b7",
     "d1a830ef-54cb-49fe-a260-6a320507d1ba",
     "694ccbc2-ef61-480c-be38-19769ec15680",
-    "71538776-55d5-4c1d-853e-af759a11c541"
+    "71538776-55d5-4c1d-853e-af759a11c541",
+    "34f611bc-0aaf-41aa-a473-cdc2f3be7e6c",
+    "50e06af1-6ce6-4f8e-ace5-1ca305850f0a",
+    "0ccd3a6a-8839-4fbb-b9da-e8c70b5ef61a",
+    "e860581a-de31-4fcc-a491-520a5db4a685",
+    "0f56a9f2-4784-45a8-bc54-46221693ff08",
+    "c6782217-658d-4392-91ea-fb4d4e18baca",
+    "4705c251-35b7-42d1-ab88-a6dbe9e807f1"
   ],
   "foods": [
     {
