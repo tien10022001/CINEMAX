@@ -421,7 +421,7 @@ export async function syncOrderToSupabase(params: {
     unitPrice: number;
     modifierName?: string;
   }>;
-}): Promise<{ synced: boolean; orderUuid?: string; error?: string }> {
+}): Promise<{ synced: boolean; orderUuid?: string; orderCode?: string; error?: string }> {
   const supabase = createClient();
 
   try {
@@ -570,7 +570,8 @@ export async function syncOrderToSupabase(params: {
           },
         });
 
-        return { synced: true, orderUuid };
+        const finalOrderCode = String(holdRes?.order_code || params.orderCode);
+        return { synced: true, orderUuid, orderCode: finalOrderCode };
       }
 
     // 2. Fallback direct insert if custom policies are enabled
@@ -703,7 +704,7 @@ export async function syncOrderToSupabase(params: {
       },
     });
 
-    return { synced: true, orderUuid };
+    return { synced: true, orderUuid, orderCode: params.orderCode };
   } catch (err) {
     return { synced: false, error: err instanceof Error ? err.message : 'Unknown error' };
   }

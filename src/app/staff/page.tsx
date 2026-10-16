@@ -1423,7 +1423,7 @@ export default function StaffWorkspacePage() {
         localStorage.setItem('cinemax_booked_seats_v2', JSON.stringify(nextBooked));
       }
 
-      await syncOrderToSupabase({
+      const syncResult = await syncOrderToSupabase({
         orderCode: generatedHexId,
         channel: 'pos',
         contactName: 'Khách vãng lai (POS)',
@@ -1462,11 +1462,17 @@ export default function StaffWorkspacePage() {
         })),
       });
 
+      if (syncResult.synced && syncResult.orderCode && syncResult.orderCode !== generatedHexId) {
+        newOrder.id = syncResult.orderCode;
+        const currentStored = orders.filter((o) => o.id !== generatedHexId);
+        saveOrders([newOrder, ...currentStored]);
+      }
+
       await refreshFromSupabase();
       setPosSelectedSeats([]);
       setPosFoodQuantities({});
       setPrintingOrder(newOrder);
-      showToast(`Đã tạo vé POS #${generatedHexId.slice(0, 8)} thành công!`);
+      showToast(`Đã tạo vé POS #${newOrder.id} thành công (Đã lưu Supabase)!`);
     } finally {
       setPosSubmitting(false);
     }
