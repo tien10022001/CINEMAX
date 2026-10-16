@@ -9,7 +9,7 @@ import QuickBookingBar from '@/components/home/QuickBookingBar';
 import MovieCard from '@/components/home/MovieCard';
 import { useData } from '@/lib/data-context';
 import Link from 'next/link';
-import { MapPin, Sparkles, Newspaper, ArrowRight, Film, Flame } from 'lucide-react';
+import { MapPin, Ticket, Newspaper, ArrowRight, Film, Flame } from 'lucide-react';
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -29,10 +29,14 @@ function HomeContent() {
     }
   }, [searchParams]);
 
-  const nowShowingMovies = movies.filter((m) => m.status === 'NOW_SHOWING');
-  const upcomingMovies = movies.filter((m) => m.status === 'COMING_SOON');
+  const nowShowingMovies = movies.filter(
+    (m) => m.status?.toUpperCase() === 'NOW_SHOWING' || m.status === 'now_showing'
+  );
+  const upcomingMovies = movies.filter(
+    (m) => m.status?.toUpperCase() === 'COMING_SOON' || m.status === 'coming_soon'
+  );
   // Suất chiếu đặc biệt (Sneak Show / Suất chiếu sớm)
-  const specialMovies = movies.filter((m) => m.id === 1 || m.id === 4 || m.id === 2);
+  const specialMovies = movies.slice(0, 3);
 
   return (
     <div className="min-h-screen bg-[#0F1217] flex flex-col">
@@ -69,8 +73,8 @@ function HomeContent() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
-                {nowShowingMovies.map((movie) => (
-                  <MovieCard key={movie.id} movie={movie} />
+                {nowShowingMovies.map((movie, idx) => (
+                  <MovieCard key={movie.id ? String(movie.id) : `now-${idx}`} movie={movie} />
                 ))}
               </div>
             </section>
@@ -94,8 +98,8 @@ function HomeContent() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
-                {upcomingMovies.map((movie) => (
-                  <MovieCard key={movie.id} movie={movie} isUpcoming={true} />
+                {upcomingMovies.map((movie, idx) => (
+                  <MovieCard key={movie.id ? String(movie.id) : `up-${idx}`} movie={movie} isUpcoming={true} />
                 ))}
               </div>
             </section>
@@ -180,8 +184,8 @@ function HomeContent() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
-                  {specialMovies.map((movie) => (
-                    <MovieCard key={movie.id} movie={movie} />
+                  {specialMovies.map((movie, idx) => (
+                    <MovieCard key={movie.id ? String(movie.id) : `spec-${idx}`} movie={movie} />
                   ))}
                 </div>
               </section>
@@ -198,8 +202,8 @@ function HomeContent() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
-                  {nowShowingMovies.map((movie) => (
-                    <MovieCard key={movie.id} movie={movie} />
+                  {nowShowingMovies.map((movie, idx) => (
+                    <MovieCard key={movie.id ? String(movie.id) : `tab-now-${idx}`} movie={movie} />
                   ))}
                 </div>
               </section>
@@ -216,8 +220,8 @@ function HomeContent() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
-                  {upcomingMovies.map((movie) => (
-                    <MovieCard key={movie.id} movie={movie} isUpcoming={true} />
+                  {upcomingMovies.map((movie, idx) => (
+                    <MovieCard key={movie.id ? String(movie.id) : `tab-up-${idx}`} movie={movie} isUpcoming={true} />
                   ))}
                 </div>
               </section>
@@ -311,7 +315,7 @@ function HomeContent() {
             <div className="border-b border-[#303645] pb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#FABF2E]/10 border border-[#FABF2E]/30 flex items-center justify-center text-[#FABF2E]">
-                  <Sparkles className="w-5 h-5" />
+                  <Ticket className="w-5 h-5" />
                 </div>
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-black text-white">

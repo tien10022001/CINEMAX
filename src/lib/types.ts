@@ -42,7 +42,7 @@ export interface Genre {
 }
 
 export interface Movie {
-  id: number;
+  id: number | string;
   title: string;
   original_title?: string;
   slug: string;
@@ -58,9 +58,13 @@ export interface Movie {
   banner_url?: string;
   trailer_url?: string;
   imdb_score?: number;
-  status: MovieStatus;
+  status: MovieStatus | 'now_showing' | 'coming_soon' | 'ended' | 'draft';
   is_deleted: boolean;
   genres?: Genre[];
+  studio?: string;
+  meta_title?: string;
+  meta_description?: string;
+  formats?: string[];
   created_at?: string;
 }
 
@@ -110,9 +114,9 @@ export interface Seat {
 }
 
 export interface Showtime {
-  id: number;
-  movie_id: number;
-  room_id: number;
+  id: number | string;
+  movie_id: number | string;
+  room_id: number | string;
   start_time: string;
   end_time: string;
   language_type: LanguageType;

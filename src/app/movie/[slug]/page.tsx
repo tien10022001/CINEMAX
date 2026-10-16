@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import TrailerModal from '@/components/common/TrailerModal';
+import { useData } from '@/lib/data-context';
 import { MOCK_MOVIES, MOCK_CINEMAS, MOCK_SHOWTIMES } from '@/lib/mock-data';
 import { Star, MapPin, Play, Ticket } from 'lucide-react';
 
@@ -12,8 +13,13 @@ export default function MovieDetailPage() {
   const params = useParams();
   const router = useRouter();
   const slug = params?.slug as string;
+  const { movies } = useData();
 
-  const movie = MOCK_MOVIES.find((m) => m.slug === slug) || MOCK_MOVIES[0];
+  const movie =
+    movies.find((m) => m.slug === slug) ||
+    MOCK_MOVIES.find((m) => m.slug === slug) ||
+    movies[0] ||
+    MOCK_MOVIES[0];
   const [selectedDate, setSelectedDate] = useState<string>('2026-09-29');
   const [isTrailerOpen, setIsTrailerOpen] = useState<boolean>(false);
 
