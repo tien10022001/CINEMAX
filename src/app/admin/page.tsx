@@ -812,6 +812,44 @@ export default function AdminPage() {
     showToast('Đã xóa suất chiếu khỏi hệ thống!');
   };
 
+  const handleBulkDeleteShowtimes = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const idSet = new Set(ids);
+    let nextList: Showtime[] = [];
+    setShowtimes((prev) => {
+      nextList = prev.filter((s) => !idSet.has(s.id));
+      return nextList;
+    });
+    try {
+      await Promise.allSettled(ids.map((id) => AdminDataService.deleteShowtime(id)));
+      await AdminDataService.saveEntity('showtimes', nextList);
+      await syncShowtimesToCustomer(nextList);
+    } catch {
+      // Local fallback
+    }
+    addNotification('Xóa suất chiếu hàng loạt', `Đã xóa ${ids.length} suất chiếu khỏi hệ thống.`, 'DANGER', 'MOVIES', 'SHOWTIMES');
+    showToast(`Đã xóa thành công ${ids.length} suất chiếu!`);
+  };
+
+  const handleBulkUpdateShowtimes = async (updatedList: Showtime[]) => {
+    if (!updatedList || updatedList.length === 0) return;
+    const map = new Map(updatedList.map((s) => [s.id, s]));
+    let nextList: Showtime[] = [];
+    setShowtimes((prev) => {
+      nextList = prev.map((s) => (map.has(s.id) ? map.get(s.id)! : s));
+      return nextList;
+    });
+    try {
+      await Promise.allSettled(updatedList.map((st) => AdminDataService.upsertShowtime(st)));
+      await AdminDataService.saveEntity('showtimes', nextList);
+      await syncShowtimesToCustomer(nextList);
+    } catch {
+      // Local fallback
+    }
+    addNotification('Cập nhật suất chiếu hàng loạt', `Đã cập nhật ${updatedList.length} suất chiếu.`, 'SUCCESS', 'MOVIES', 'SHOWTIMES');
+    showToast(`Đã cập nhật thành công ${updatedList.length} suất chiếu!`);
+  };
+
   const handleUpdateSeatStatus = async (
     seatId: string,
     status: SeatStatus,
@@ -1705,6 +1743,8 @@ export default function AdminPage() {
                   prices={prices}
                   onSaveShowtime={handleSaveShowtime}
                   onDeleteShowtime={handleDeleteShowtime}
+                  onBulkDeleteShowtimes={handleBulkDeleteShowtimes}
+                  onBulkUpdateShowtimes={handleBulkUpdateShowtimes}
                   showToast={showToast}
                 />
               )}

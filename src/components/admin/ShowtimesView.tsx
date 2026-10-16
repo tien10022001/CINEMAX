@@ -29,7 +29,9 @@ import {
   Eye,
   Flame,
   ShieldAlert,
-  Users
+  Users,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import {
   Showtime,
@@ -47,6 +49,8 @@ interface ShowtimesViewProps {
   prices: ShowtimePrice[];
   onSaveShowtime: (showtime: Partial<Showtime>, prices?: Partial<ShowtimePrice>[]) => Promise<void>;
   onDeleteShowtime: (id: string) => Promise<void>;
+  onBulkDeleteShowtimes?: (ids: string[]) => Promise<void>;
+  onBulkUpdateShowtimes?: (updatedShowtimes: Showtime[]) => Promise<void>;
   showToast: (msg: string) => void;
 }
 
@@ -57,6 +61,8 @@ export default function ShowtimesView({
   prices,
   onSaveShowtime,
   onDeleteShowtime,
+  onBulkDeleteShowtimes,
+  onBulkUpdateShowtimes,
   showToast
 }: ShowtimesViewProps) {
   const [selectedAuditoriumId, setSelectedAuditoriumId] = useState<string>('all');
@@ -67,6 +73,27 @@ export default function ShowtimesView({
   const [pricingModalShowtime, setPricingModalShowtime] = useState<Showtime | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmShowtime, setDeleteConfirmShowtime] = useState<{ id: string; title: string; time: string; room: string } | null>(null);
+
+  // Multi-Select & Bulk Actions State (Chọn nhiều, Sửa nhiều, Xóa nhiều)
+  const [isBulkMode, setIsBulkMode] = useState(false);
+  const [selectedShowtimeIds, setSelectedShowtimeIds] = useState<string[]>([]);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
+
+  // Bulk Edit Config State
+  const [bulkEditConfig, setBulkEditConfig] = useState({
+    changeMovie: false,
+    movieId: movies[0]?.id || '',
+    changeAuditorium: false,
+    auditoriumId: auditoriums[0]?.id || '',
+    timeShiftMinutes: 0,
+    changeFormat: false,
+    format: '2D',
+    changeLanguage: false,
+    language: 'Phụ đề Tiếng Việt',
+    changeStatus: false,
+    status: 'open' as 'open' | 'draft' | 'closed' | 'cancelled'
+  });
 
   // Quick Batch Schedule Modal State (Tạo Suất Chiếu Nhanh bằng cách tích ô theo Rule)
   const [quickBatchModalOpen, setQuickBatchModalOpen] = useState(false);
@@ -483,6 +510,151 @@ export default function ShowtimesView({
   }, [form.date, form.start_time, calculatedEndTime, form.auditorium_id, form.id, showtimes]);
 
   const conflictCount = showtimes.filter(checkOverlap).length;
+
+  // Selected showtimes objects & date memo
+  const todayShowtimes = React.useMemo(() => {
+    return showtimes.filter((st) => isShowtimeInBusinessDay(st, selectedDate));
+  }, [showtimes, selectedDate]);
+
+  const systemConflictShowtimes = React.useMemo(() => {
+    return showtimes.filter(checkOverlap);
+  }, [showtimes, checkOverlap]);
+
+  const todayConflictShowtimes = React.useMemo(() => {
+    return todayShowtimes.filter(checkOverlap);
+  }, [todayShowtimes, checkOverlap]);
+
+  const selectedShowtimes = React.useMemo(() => {
+    const idSet = new Set(selectedShowtimeIds);
+    return showtimes.filter((st) => idSet.has(st.id));
+  }, [showtimes, selectedShowtimeIds]);
+
+  const toggleSelectShowtime = (id: string) => {
+    setSelectedShowtimeIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id];
+      if (next.length > 0 && !isBulkMode) setIsBulkMode(true);
+      return next;
+    });
+  };
+
+  const handleSelectAllToday = () => {
+    const ids = todayShowtimes.map((st) => st.id);
+    setSelectedShowtimeIds(ids);
+    setIsBulkMode(true);
+    showToast(`Đã chọn toàn bộ ${ids.length} suất chiếu ngày này!`);
+  };
+
+  const handleSelectAllConflicts = () => {
+    const target = todayConflictShowtimes.length > 0 ? todayConflictShowtimes : systemConflictShowtimes;
+    const ids = target.map((st) => st.id);
+    setSelectedShowtimeIds(ids);
+    setIsBulkMode(true);
+    showToast(`Đã chọn ${ids.length} suất chiếu bị xung đột!`);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedShowtimeIds([]);
+  };
+
+  const handleExitBulkMode = () => {
+    setSelectedShowtimeIds([]);
+    setIsBulkMode(false);
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedShowtimeIds.length === 0) return;
+    try {
+      setIsSubmitting(true);
+      if (onBulkDeleteShowtimes) {
+        await onBulkDeleteShowtimes(selectedShowtimeIds);
+      } else {
+        for (const id of selectedShowtimeIds) {
+          await onDeleteShowtime(id);
+        }
+        showToast(`Đã xóa thành công ${selectedShowtimeIds.length} suất chiếu!`);
+      }
+      setSelectedShowtimeIds([]);
+      setBulkDeleteModalOpen(false);
+      setIsBulkMode(false);
+    } catch (err: any) {
+      showToast('Lỗi khi xóa hàng loạt: ' + (err.message || 'Thử lại'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmBulkEdit = async () => {
+    if (selectedShowtimeIds.length === 0) return;
+    try {
+      setIsSubmitting(true);
+      const selectedSet = new Set(selectedShowtimeIds);
+      const targetShowtimes = showtimes.filter((st) => selectedSet.has(st.id));
+
+      const updatedList: Showtime[] = targetShowtimes.map((st) => {
+        let startsAt = new Date(st.starts_at);
+        let endsAt = new Date(st.ends_at);
+
+        if (bulkEditConfig.timeShiftMinutes !== 0) {
+          startsAt = new Date(startsAt.getTime() + bulkEditConfig.timeShiftMinutes * 60000);
+          endsAt = new Date(endsAt.getTime() + bulkEditConfig.timeShiftMinutes * 60000);
+        }
+
+        const newAuditoriumId = bulkEditConfig.changeAuditorium ? bulkEditConfig.auditoriumId : st.auditorium_id;
+        const newAud = auditoriums.find((a) => a.id === newAuditoriumId) || st.auditorium;
+
+        const newMovieId = bulkEditConfig.changeMovie ? bulkEditConfig.movieId : st.movie_id;
+        const newMovie = movies.find((m) => m.id === newMovieId) || st.movie;
+
+        if (bulkEditConfig.changeMovie && newMovie && bulkEditConfig.timeShiftMinutes === 0) {
+          const buffer = newAud?.cleaning_buffer_minutes || 15;
+          const totalMins = newMovie.duration_minutes + buffer;
+          endsAt = new Date(startsAt.getTime() + totalMins * 60000);
+        }
+
+        const newFormat = bulkEditConfig.changeFormat
+          ? bulkEditConfig.format
+          : (bulkEditConfig.changeAuditorium && newAud?.screen_type === 'IMAX' ? 'IMAX' : st.format);
+
+        const newLang = bulkEditConfig.changeLanguage
+          ? bulkEditConfig.language
+          : st.language_version;
+
+        const newStatus = bulkEditConfig.changeStatus
+          ? bulkEditConfig.status
+          : st.status;
+
+        return {
+          ...st,
+          movie_id: newMovieId,
+          movie: newMovie,
+          auditorium_id: newAuditoriumId,
+          auditorium: newAud,
+          format: newFormat,
+          language_version: newLang,
+          status: newStatus,
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+        };
+      });
+
+      if (onBulkUpdateShowtimes) {
+        await onBulkUpdateShowtimes(updatedList);
+      } else {
+        for (const st of updatedList) {
+          await onSaveShowtime(st);
+        }
+        showToast(`Đã cập nhật ${updatedList.length} suất chiếu!`);
+      }
+
+      setBulkEditModalOpen(false);
+      setSelectedShowtimeIds([]);
+      setIsBulkMode(false);
+    } catch (err: any) {
+      showToast('Lỗi khi sửa hàng loạt: ' + (err.message || 'Thử lại'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // QUICK BATCH SCHEDULING LOGIC (TẠO SUẤT CHIẾU THEO RULE)
   const handleOpenQuickBatchModal = () => {
@@ -948,18 +1120,87 @@ export default function ShowtimesView({
               IMAX
             </button>
             {conflictCount > 0 && (
-              <button
-                onClick={() => setRoomFilter(roomFilter === 'CONFLICT' ? 'ALL' : 'CONFLICT')}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 animate-pulse ${
-                  roomFilter === 'CONFLICT'
-                    ? 'bg-[#EF4444] text-white shadow'
-                    : 'bg-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444]/30'
-                }`}
-                title="Click để lọc ngay các phòng có suất chiếu bị trùng"
-              >
-                <AlertTriangle className="w-3 h-3" />
-                <span>{conflictCount} Xung đột</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setRoomFilter(roomFilter === 'CONFLICT' ? 'ALL' : 'CONFLICT')}
+                  className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 animate-pulse ${
+                    roomFilter === 'CONFLICT'
+                      ? 'bg-[#EF4444] text-white shadow'
+                      : 'bg-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444]/30'
+                  }`}
+                  title="Click để lọc ngay các phòng có suất chiếu bị trùng"
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  <span>{conflictCount} Xung đột</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSelectAllConflicts}
+                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-[#EF4444]/20 border border-[#EF4444]/50 text-[#EF4444] hover:bg-[#EF4444] hover:text-white transition-all cursor-pointer flex items-center gap-1"
+                  title="Chọn tất cả các suất chiếu đang bị xung đột để xóa hoặc sửa hàng loạt"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Dọn {conflictCount} suất trùng</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Nút Chọn Nhiều & Quick Selection Helpers */}
+          <div className="flex items-center gap-1 shrink-0 bg-[#0E121B] p-0.5 rounded-lg border border-[#1E2638]">
+            <button
+              type="button"
+              onClick={() => {
+                if (isBulkMode) {
+                  handleExitBulkMode();
+                } else {
+                  setIsBulkMode(true);
+                }
+              }}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                isBulkMode || selectedShowtimeIds.length > 0
+                  ? 'bg-[#06B6D4] text-black shadow-md font-black'
+                  : 'text-[#8E9AAF] hover:text-white hover:bg-[#1E2638]'
+              }`}
+              title="Bật/Tắt chế độ chọn nhiều suất chiếu để sửa hoặc xóa"
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>{isBulkMode ? `Đang Chọn (${selectedShowtimeIds.length})` : 'Chọn Nhiều'}</span>
+            </button>
+
+            {isBulkMode && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleSelectAllToday}
+                  className="px-2 py-0.5 rounded text-[10px] font-bold text-[#8E9AAF] hover:text-white hover:bg-[#1E2638] transition-all cursor-pointer"
+                  title="Chọn tất cả suất chiếu trong ngày đang xem"
+                >
+                  Tất cả ({todayShowtimes.length})
+                </button>
+                {todayConflictShowtimes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSelectAllConflicts}
+                    className="px-2 py-0.5 rounded text-[10px] font-bold text-[#EF4444] hover:bg-[#EF4444]/20 transition-all cursor-pointer"
+                    title="Chọn tất cả suất bị xung đột"
+                  >
+                    Trùng ({todayConflictShowtimes.length})
+                  </button>
+                )}
+                {selectedShowtimeIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearSelection}
+                    className="px-2 py-0.5 rounded text-[10px] font-bold text-[#8E9AAF] hover:text-white hover:bg-[#1E2638] transition-all cursor-pointer"
+                    title="Bỏ chọn các suất đã tích"
+                  >
+                    Bỏ chọn
+                  </button>
+                )}
+              </>
             )}
           </div>
 
@@ -1117,6 +1358,8 @@ export default function ShowtimesView({
                           minute: '2-digit'
                         });
 
+                        const isSelected = selectedShowtimeIds.includes(st.id);
+
                         return (
                           <div
                             key={st.id}
@@ -1124,19 +1367,48 @@ export default function ShowtimesView({
                               left: `${leftPercent}%`,
                               width: `${widthPercent}%`
                             }}
-                            onClick={() => handleOpenEditShowtime(st)}
+                            onClick={() => {
+                              if (isBulkMode || selectedShowtimeIds.length > 0) {
+                                toggleSelectShowtime(st.id);
+                              } else {
+                                handleOpenEditShowtime(st);
+                              }
+                            }}
                             className={`absolute h-8.5 rounded-lg px-1.5 py-0.5 z-10 shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer select-none group/card min-w-[32px] ${
-                              isOverlap
+                              isSelected
+                                ? 'bg-[#0B2538] border-2 border-[#06B6D4] ring-2 ring-[#06B6D4]/50 shadow-lg shadow-cyan-950/70 text-cyan-200'
+                                : isOverlap
                                 ? 'bg-[#3B191C] border-2 border-[#EF4444] animate-pulse text-[#EF4444]'
                                 : 'bg-gradient-to-r from-[#172233] to-[#141B29] border border-[#2D3F5E] hover:border-[#06B6D4] hover:shadow-cyan-900/40'
                             }`}
-                            title={`Bấm để chỉnh sửa: ${movie?.title || 'Phim'} (${startTimeStr} - ${endTimeStr})`}
+                            title={
+                              isBulkMode
+                                ? `Click để ${isSelected ? 'bỏ chọn' : 'chọn'} suất chiếu này`
+                                : `Bấm để chỉnh sửa: ${movie?.title || 'Phim'} (${startTimeStr} - ${endTimeStr})`
+                            }
                           >
-                            {/* Top Bar: Title & Format */}
+                            {/* Top Bar: Checkbox, Title & Format */}
                             <div className="flex items-center justify-between gap-1 leading-none">
-                              <span className="font-bold text-white text-[10px] truncate max-w-[75%]">
-                                {movie?.title || 'Phim'}
-                              </span>
+                              <div className="flex items-center gap-1 truncate max-w-[75%]">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSelectShowtime(st.id);
+                                  }}
+                                  className={`w-3 h-3 rounded flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-[#06B6D4] text-black shadow-sm font-black'
+                                      : 'border border-[#4B5E7D] bg-[#121824] hover:border-[#06B6D4] text-transparent hover:text-[#06B6D4]/60'
+                                  }`}
+                                  title={isSelected ? 'Bỏ chọn' : 'Chọn suất này'}
+                                >
+                                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                </button>
+                                <span className="font-bold text-white text-[10px] truncate">
+                                  {movie?.title || 'Phim'}
+                                </span>
+                              </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <span className="px-1 py-0.2 rounded text-[7px] font-black bg-[#E63845] text-white">
                                   {st.format || '2D'}
@@ -1154,31 +1426,35 @@ export default function ShowtimesView({
                               </span>
 
                               <div className="flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openPricingMatrix(st);
-                                  }}
-                                  className="p-0.5 rounded bg-[#253247] hover:bg-[#FABF2E] hover:text-black text-white transition-all cursor-pointer"
-                                  title="Chỉnh bảng giá vé"
-                                >
-                                  <DollarSign className="w-2 h-2" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteConfirmShowtime({
-                                      id: st.id,
-                                      title: movie?.title || 'Suất chiếu',
-                                      time: `${startTimeStr} - ${endTimeStr}`,
-                                      room: aud?.name || 'Phòng chiếu'
-                                    });
-                                  }}
-                                  className="p-0.5 rounded bg-[#253247] hover:bg-[#EF4444] text-[#8E9AAF] hover:text-white transition-all cursor-pointer"
-                                  title="Xóa suất"
-                                >
-                                  <Trash2 className="w-2 h-2" />
-                                </button>
+                                {!isBulkMode && (
+                                  <>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openPricingMatrix(st);
+                                      }}
+                                      className="p-0.5 rounded bg-[#253247] hover:bg-[#FABF2E] hover:text-black text-white transition-all cursor-pointer"
+                                      title="Chỉnh bảng giá vé"
+                                    >
+                                      <DollarSign className="w-2 h-2" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteConfirmShowtime({
+                                          id: st.id,
+                                          title: movie?.title || 'Suất chiếu',
+                                          time: `${startTimeStr} - ${endTimeStr}`,
+                                          room: aud?.name || 'Phòng chiếu'
+                                        });
+                                      }}
+                                      className="p-0.5 rounded bg-[#253247] hover:bg-[#EF4444] text-[#8E9AAF] hover:text-white transition-all cursor-pointer"
+                                      title="Xóa suất"
+                                    >
+                                      <Trash2 className="w-2 h-2" />
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
 
@@ -2350,6 +2626,422 @@ export default function ShowtimesView({
                 className="px-5 py-2.5 rounded-xl bg-[#EF4444] hover:bg-[#DC2626] text-white font-bold transition-all shadow-lg shadow-[#EF4444]/30 cursor-pointer"
               >
                 Xóa Vĩnh Viễn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FLOATING BULK ACTIONS TOOLBAR (THANH THAO TÁC HÀNG LOẠT NỔI CỐ ĐỊNH) */}
+      {selectedShowtimeIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0E131F]/95 backdrop-blur-md border-2 border-[#06B6D4]/50 px-4 py-2.5 rounded-2xl shadow-2xl shadow-cyan-950/80 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-200 max-w-[94vw]">
+          <div className="flex items-center gap-2 pr-3 border-r border-[#222B3D] shrink-0">
+            <span className="w-6 h-6 rounded-lg bg-[#06B6D4] text-black font-black text-xs flex items-center justify-center">
+              {selectedShowtimeIds.length}
+            </span>
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-white leading-tight">
+                Đã chọn {selectedShowtimeIds.length} suất
+              </span>
+              <span className="text-[10px] text-[#8E9AAF]">
+                {selectedDate}
+              </span>
+            </div>
+          </div>
+
+          {/* Quick selection helpers inside floating toolbar */}
+          <div className="hidden sm:flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleSelectAllToday}
+              className="px-2 py-1 rounded-lg bg-[#182133] hover:bg-[#222E47] text-[11px] font-bold text-[#8E9AAF] hover:text-white transition-colors cursor-pointer"
+            >
+              Chọn hết ({todayShowtimes.length})
+            </button>
+            {todayConflictShowtimes.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSelectAllConflicts}
+                className="px-2 py-1 rounded-lg bg-[#3B191C] hover:bg-[#4E2125] text-[11px] font-bold text-[#EF4444] transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                <span>{todayConflictShowtimes.length} xung đột</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Sửa nhiều */}
+            <button
+              type="button"
+              onClick={() => {
+                setBulkEditConfig({
+                  changeMovie: false,
+                  movieId: movies[0]?.id || '',
+                  changeAuditorium: false,
+                  auditoriumId: auditoriums[0]?.id || '',
+                  timeShiftMinutes: 0,
+                  changeFormat: false,
+                  format: '2D',
+                  changeLanguage: false,
+                  language: 'Phụ đề Tiếng Việt',
+                  changeStatus: false,
+                  status: 'open'
+                });
+                setBulkEditModalOpen(true);
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#06B6D4] to-[#0284C7] hover:from-[#0891B2] hover:to-[#0369A1] text-black font-black text-xs shadow-md shadow-cyan-900/40 flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Sửa Hàng Loạt</span>
+            </button>
+
+            {/* Xóa nhiều */}
+            <button
+              type="button"
+              onClick={() => setBulkDeleteModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#EF4444] to-[#DC2626] hover:from-[#DC2626] hover:to-[#B91C1C] text-white font-bold text-xs shadow-md shadow-red-950/40 flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Xóa ({selectedShowtimeIds.length})</span>
+            </button>
+
+            {/* Bỏ chọn */}
+            <button
+              type="button"
+              onClick={handleClearSelection}
+              className="p-1.5 rounded-xl bg-[#1A202E] hover:bg-[#252E42] text-[#8E9AAF] hover:text-white transition-all cursor-pointer"
+              title="Bỏ chọn tất cả"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* BULK DELETE CONFIRMATION MODAL */}
+      {bulkDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#121622] border border-[#3B191C] rounded-3xl w-full max-w-lg p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#3B191C] border border-[#EF4444]/40 text-[#EF4444] flex items-center justify-center shrink-0 shadow-lg shadow-red-950/50">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-black text-white text-lg">
+                  Xác Nhận Xóa {selectedShowtimeIds.length} Suất Chiếu
+                </h3>
+                <p className="text-xs text-[#8E9AAF] mt-0.5">
+                  Toàn bộ suất chiếu đã chọn sẽ bị gỡ vĩnh viễn khỏi lịch chiếu và đồng bộ ngay lập tức.
+                </p>
+              </div>
+            </div>
+
+            {/* Selected showtimes list summary (scrollable max 240px) */}
+            <div className="bg-[#0A0D14] border border-[#1E2536] rounded-2xl p-3 max-h-60 overflow-y-auto space-y-2 custom-scrollbar">
+              <div className="text-[11px] font-bold text-[#8E9AAF] px-1 flex items-center justify-between">
+                <span>Danh sách {selectedShowtimes.length} suất sẽ bị xóa:</span>
+                <span className="text-[#EF4444] font-mono">{selectedShowtimes.filter(checkOverlap).length} suất trùng</span>
+              </div>
+              <div className="divide-y divide-[#171E2D]">
+                {selectedShowtimes.map((st) => {
+                  const m = st.movie || movies.find((movie) => movie.id === st.movie_id);
+                  const aud = st.auditorium || auditoriums.find((a) => a.id === st.auditorium_id);
+                  const sDate = new Date(st.starts_at);
+                  const eDate = new Date(st.ends_at);
+                  const timeStr = `${sDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${eDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+                  const isConflict = checkOverlap(st);
+
+                  return (
+                    <div key={st.id} className="py-1.5 px-2 flex items-center justify-between text-xs hover:bg-[#141A26] rounded-lg">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-[#E63845] text-white shrink-0">
+                          {st.format || '2D'}
+                        </span>
+                        <span className="font-bold text-white truncate max-w-[180px]">
+                          {m?.title || 'Phim'}
+                        </span>
+                        <span className="text-[10px] text-[#8E9AAF] shrink-0">
+                          • {aud?.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono text-[#06B6D4] text-[11px] font-semibold">
+                          {timeStr}
+                        </span>
+                        {isConflict && (
+                          <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/40">
+                            Trùng lịch
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-[#1E2536]">
+              <button
+                type="button"
+                onClick={() => setBulkDeleteModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-[#1A202E] hover:bg-[#252E42] text-[#8E9AAF] hover:text-white font-bold transition-all cursor-pointer text-xs"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleConfirmBulkDelete}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#EF4444] to-[#DC2626] hover:from-[#DC2626] hover:to-[#B91C1C] text-white font-black transition-all shadow-lg shadow-red-950/50 cursor-pointer text-xs flex items-center gap-2 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isSubmitting ? 'Đang Xóa...' : `Xóa Vĩnh Viễn ${selectedShowtimeIds.length} Suất`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK EDIT MODAL */}
+      {bulkEditModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#121622] border border-[#222E47] rounded-3xl w-full max-w-xl p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-[#1E2536] pb-3 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#06B6D4]/20 border border-[#06B6D4]/40 text-[#06B6D4] flex items-center justify-center shrink-0">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-base">
+                    Sửa Hàng Loạt ({selectedShowtimeIds.length} Suất Chiếu)
+                  </h3>
+                  <p className="text-xs text-[#8E9AAF]">
+                    Tích chọn các thuộc tính bạn muốn thay đổi đồng loạt cho các suất đã chọn.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBulkEditModalOpen(false)}
+                className="p-1 rounded-xl text-[#8E9AAF] hover:text-white hover:bg-[#1A202E] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scrollbar">
+              {/* Option 1: Dời Giờ Chiếu (Time Shift) */}
+              <div className="bg-[#0E131F] border border-[#1E273A] rounded-2xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-white flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-[#FABF2E]" />
+                    <span>Dời Giờ Chiếu (Time Shift)</span>
+                  </label>
+                  <span className="text-[11px] font-mono font-bold text-[#FABF2E]">
+                    {bulkEditConfig.timeShiftMinutes === 0
+                      ? 'Giữ nguyên giờ'
+                      : bulkEditConfig.timeShiftMinutes > 0
+                      ? `+${bulkEditConfig.timeShiftMinutes} phút (Dời trễ)`
+                      : `${bulkEditConfig.timeShiftMinutes} phút (Đẩy sớm)`}
+                  </span>
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {[-60, -30, -15, 0, 15, 30, 60].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => setBulkEditConfig({ ...bulkEditConfig, timeShiftMinutes: mins })}
+                      className={`py-1.5 rounded-lg text-xs font-bold font-mono transition-all cursor-pointer ${
+                        bulkEditConfig.timeShiftMinutes === mins
+                          ? 'bg-[#FABF2E] text-black shadow-md font-black'
+                          : 'bg-[#171E2D] text-[#8E9AAF] hover:text-white hover:bg-[#222E47]'
+                      }`}
+                    >
+                      {mins === 0 ? '0m' : mins > 0 ? `+${mins}m` : `${mins}m`}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-[#8E9AAF]">
+                  Cộng/trừ số phút cho cả giờ bắt đầu và kết thúc của tất cả {selectedShowtimeIds.length} suất đã chọn.
+                </p>
+              </div>
+
+              {/* Option 2: Đổi Phim */}
+              <div className="bg-[#0E131F] border border-[#1E273A] rounded-2xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-white flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={bulkEditConfig.changeMovie}
+                      onChange={(e) => setBulkEditConfig({ ...bulkEditConfig, changeMovie: e.target.checked })}
+                      className="w-4 h-4 rounded text-[#06B6D4] bg-[#161C28] border-[#2D3952] focus:ring-0 cursor-pointer"
+                    />
+                    <Film className="w-4 h-4 text-[#E63845]" />
+                    <span>Đổi sang phim khác cho các suất đã chọn</span>
+                  </label>
+                </div>
+                {bulkEditConfig.changeMovie && (
+                  <select
+                    value={bulkEditConfig.movieId}
+                    onChange={(e) => setBulkEditConfig({ ...bulkEditConfig, movieId: e.target.value })}
+                    className="w-full bg-[#141A26] border border-[#26334D] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#06B6D4]"
+                  >
+                    {movies.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.title} ({m.duration_minutes} phút | {m.age_rating || 'P'})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Option 3: Đổi Phòng Chiếu */}
+              <div className="bg-[#0E131F] border border-[#1E273A] rounded-2xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-white flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={bulkEditConfig.changeAuditorium}
+                      onChange={(e) => setBulkEditConfig({ ...bulkEditConfig, changeAuditorium: e.target.checked })}
+                      className="w-4 h-4 rounded text-[#06B6D4] bg-[#161C28] border-[#2D3952] focus:ring-0 cursor-pointer"
+                    />
+                    <Armchair className="w-4 h-4 text-[#06B6D4]" />
+                    <span>Chuyển sang phòng chiếu khác</span>
+                  </label>
+                </div>
+                {bulkEditConfig.changeAuditorium && (
+                  <select
+                    value={bulkEditConfig.auditoriumId}
+                    onChange={(e) => setBulkEditConfig({ ...bulkEditConfig, auditoriumId: e.target.value })}
+                    className="w-full bg-[#141A26] border border-[#26334D] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#06B6D4]"
+                  >
+                    {auditoriums.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.screen_type} • {a.total_seats} ghế)
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Option 4: Định Dạng Chiếu & Trạng Thái */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Format */}
+                <div className="bg-[#0E131F] border border-[#1E273A] rounded-2xl p-3.5 space-y-2.5">
+                  <label className="text-xs font-bold text-white flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={bulkEditConfig.changeFormat}
+                      onChange={(e) => setBulkEditConfig({ ...bulkEditConfig, changeFormat: e.target.checked })}
+                      className="w-4 h-4 rounded text-[#06B6D4] bg-[#161C28] border-[#2D3952] focus:ring-0 cursor-pointer"
+                    />
+                    <span>Đổi định dạng</span>
+                  </label>
+                  {bulkEditConfig.changeFormat && (
+                    <div className="grid grid-cols-4 gap-1">
+                      {['2D', '3D', 'IMAX', '4DX'].map((fmt) => (
+                        <button
+                          key={fmt}
+                          type="button"
+                          onClick={() => setBulkEditConfig({ ...bulkEditConfig, format: fmt })}
+                          className={`py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            bulkEditConfig.format === fmt
+                              ? 'bg-[#E63845] text-white shadow'
+                              : 'bg-[#171E2D] text-[#8E9AAF] hover:text-white'
+                          }`}
+                        >
+                          {fmt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Status */}
+                <div className="bg-[#0E131F] border border-[#1E273A] rounded-2xl p-3.5 space-y-2.5">
+                  <label className="text-xs font-bold text-white flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={bulkEditConfig.changeStatus}
+                      onChange={(e) => setBulkEditConfig({ ...bulkEditConfig, changeStatus: e.target.checked })}
+                      className="w-4 h-4 rounded text-[#06B6D4] bg-[#161C28] border-[#2D3952] focus:ring-0 cursor-pointer"
+                    />
+                    <span>Cập nhật trạng thái</span>
+                  </label>
+                  {bulkEditConfig.changeStatus && (
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setBulkEditConfig({ ...bulkEditConfig, status: 'open' })}
+                        className={`py-1 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          bulkEditConfig.status === 'open'
+                            ? 'bg-[#10B981] text-black font-black'
+                            : 'bg-[#171E2D] text-[#8E9AAF] hover:text-white'
+                        }`}
+                      >
+                        Mở bán
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBulkEditConfig({ ...bulkEditConfig, status: 'draft' })}
+                        className={`py-1 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          bulkEditConfig.status === 'draft'
+                            ? 'bg-[#FABF2E] text-black font-black'
+                            : 'bg-[#171E2D] text-[#8E9AAF] hover:text-white'
+                        }`}
+                      >
+                        Bản nháp
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Option 5: Phiên Bản Ngôn Ngữ */}
+              <div className="bg-[#0E131F] border border-[#1E273A] rounded-2xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-white flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={bulkEditConfig.changeLanguage}
+                      onChange={(e) => setBulkEditConfig({ ...bulkEditConfig, changeLanguage: e.target.checked })}
+                      className="w-4 h-4 rounded text-[#06B6D4] bg-[#161C28] border-[#2D3952] focus:ring-0 cursor-pointer"
+                    />
+                    <span>Cập nhật phiên bản ngôn ngữ</span>
+                  </label>
+                </div>
+                {bulkEditConfig.changeLanguage && (
+                  <select
+                    value={bulkEditConfig.language}
+                    onChange={(e) => setBulkEditConfig({ ...bulkEditConfig, language: e.target.value })}
+                    className="w-full bg-[#141A26] border border-[#26334D] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#06B6D4]"
+                  >
+                    <option value="Phụ đề Tiếng Việt">Phụ đề Tiếng Việt</option>
+                    <option value="Lồng tiếng Tiếng Việt">Lồng tiếng Tiếng Việt</option>
+                    <option value="Tiếng Anh - Phụ đề Tiếng Việt">Tiếng Anh - Phụ đề Tiếng Việt</option>
+                    <option value="Nguyên bản không phụ đề">Nguyên bản không phụ đề</option>
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-[#1E2536] shrink-0">
+              <button
+                type="button"
+                onClick={() => setBulkEditModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-[#1A202E] hover:bg-[#252E42] text-[#8E9AAF] hover:text-white font-bold transition-all cursor-pointer text-xs"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleConfirmBulkEdit}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#06B6D4] to-[#0284C7] hover:from-[#0891B2] hover:to-[#0369A1] text-black font-black transition-all shadow-lg shadow-cyan-950/60 cursor-pointer text-xs flex items-center gap-2 disabled:opacity-50"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>{isSubmitting ? 'Đang Lưu...' : `Áp Dụng Cho ${selectedShowtimeIds.length} Suất`}</span>
               </button>
             </div>
           </div>
