@@ -224,131 +224,163 @@ function getDynamicShowtimeSeats(
   return seats;
 }
 
-  useEffect(() => {
-    let isMounted = true;
-    async function loadSeats() {
-      // Tự động giải phóng các ghế giữ tạm đã hết hạn
-      await BookingService.releaseExpiredHolds();
+  const loadSeats = React.useCallback(async () => {
+    // Tự động giải phóng các ghế giữ tạm đã hết hạn
+    await BookingService.releaseExpiredHolds();
 
-      // 1. Đọc danh sách vé đã đặt từ localStorage CHỈ cho đúng rạp, phim và suất chiếu này
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
-      const localTickets = stored ? JSON.parse(stored) : [];
-      const bookedSeatLabels = new Set<string>();
+    // 1. Đọc danh sách vé đã đặt từ localStorage CHỈ cho đúng rạp, phim và suất chiếu này
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
+    const localTickets = stored ? JSON.parse(stored) : [];
+    const bookedSeatLabels = new Set<string>();
 
-      localTickets.forEach((t: any) => {
-        // Chỉ khớp vé của chính suất chiếu này, rạp này, phim này và ngày này
-        const matchShowtimeId =
-          t.showtimeId &&
-          selectedShowtime?.id &&
-          t.showtimeId.toString() === selectedShowtime.id.toString();
+    localTickets.forEach((t: any) => {
+      // Chỉ khớp vé của chính suất chiếu này, rạp này, phim này và ngày này
+      const matchShowtimeId =
+        t.showtimeId &&
+        selectedShowtime?.id &&
+        t.showtimeId.toString() === selectedShowtime.id.toString();
 
-        const matchCinema =
-          t.cinemaName === selectedCinema?.name ||
-          (t.cinemaId && t.cinemaId.toString() === queryCinemaId.toString());
+      const matchCinema =
+        t.cinemaName === selectedCinema?.name ||
+        (t.cinemaId && t.cinemaId.toString() === queryCinemaId.toString());
 
-        const matchMovie =
-          (t.movieId && selectedMovie?.id && t.movieId.toString() === selectedMovie.id.toString()) ||
-          t.movieTitle === selectedMovie?.title;
+      const matchMovie =
+        (t.movieId && selectedMovie?.id && t.movieId.toString() === selectedMovie.id.toString()) ||
+        t.movieTitle === selectedMovie?.title;
 
-        const matchDate =
-          t.showtimeDate === queryDate ||
-          t.date === queryDate ||
-          (t.showtime && t.showtime.includes(queryDate));
+      const matchDate =
+        t.showtimeDate === queryDate ||
+        t.date === queryDate ||
+        (t.showtime && t.showtime.includes(queryDate));
 
-        const matchTime =
-          t.showtimeTime === queryTime ||
-          (t.showtime && t.showtime.includes(queryTime));
+      const matchTime =
+        t.showtimeTime === queryTime ||
+        (t.showtime && t.showtime.includes(queryTime));
 
-        if (matchShowtimeId || (matchCinema && matchMovie && matchDate && matchTime)) {
-          if (Array.isArray(t.seats)) {
-            t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
-          } else if (typeof t.seats === 'string') {
-            t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(s.trim()));
-          }
-        }
-      });
-
-      // 2. Đọc danh sách ghế đang bị giữ tạm (HELD) bởi phiên khác còn hạn
-      const currentShowtimeKey = selectedShowtime?.id || queryShowtimeId;
-      const heldMap = BookingService.getLocalHeldSeats(currentShowtimeKey);
-      const heldSeatLabels = new Set<string>();
-      heldMap.forEach((info, label) => {
-        if (info.sessionId !== sessionId) {
-          heldSeatLabels.add(label);
-        }
-      });
-
-      const blockedSeatLabels = new Set<string>();
-
-      // 3. Nếu là suất chiếu thật của rạp Hà Nội Centre trong DB Supabase
-      const stId = selectedShowtime?.id?.toString();
-      const isRealDbShowtime =
-        stId &&
-        stId === '85608755-35ca-4157-87bd-96b50577e0e5' &&
-        (selectedCinema?.id === 1 || selectedCinema?.name?.includes('Hà Nội'));
-
-      if (isRealDbShowtime) {
-        try {
-          const dbSeats = await BookingService.getShowtimeSeats(stId);
-          if (dbSeats && dbSeats.length > 0) {
-            const mapped: Seat[] = dbSeats.map((s) => {
-              const seatLabel = `${s.row_label}${s.seat_number}`;
-              const isBookedLocally = bookedSeatLabels.has(seatLabel);
-              const isHeldLocally = heldSeatLabels.has(seatLabel);
-
-              let seatStatus: any = s.status;
-              if (isBookedLocally) seatStatus = 'sold';
-              else if (isHeldLocally) seatStatus = 'held';
-
-              return {
-                id: s.id,
-                row_label: s.row_label,
-                seat_number: s.seat_number,
-                grid_row: s.grid_row,
-                grid_col: s.grid_col,
-                seat_type: {
-                  id: s.seat_type || 'standard',
-                  code: (s.seat_type || 'STANDARD').toUpperCase() as any,
-                  name: (s.seat_type || 'STANDARD').toUpperCase(),
-                },
-                seat_group: s.seat_group,
-                status: seatStatus,
-              };
-            });
-            if (isMounted) setSeats(mapped);
-            return;
-          }
-        } catch (err) {
-          console.warn('Lỗi tải ghế Supabase, dùng sơ đồ riêng cho rạp:', err);
+      if (matchShowtimeId || (matchCinema && matchMovie && matchDate && matchTime)) {
+        if (Array.isArray(t.seats)) {
+          t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
+        } else if (typeof t.seats === 'string') {
+          t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(s.trim()));
         }
       }
+    });
 
-      // 4. Với các rạp khác (Landmark 81, Cầu Giấy...) hoặc các suất chiếu khác:
-      const dynamicSeats = getDynamicShowtimeSeats(
-        Number(selectedShowtime?.room_id) || 1,
-        selectedCinema?.id || queryCinemaId,
-        selectedShowtime?.id || queryShowtimeId,
-        queryDate,
-        queryTime,
-        bookedSeatLabels,
-        heldSeatLabels,
-        blockedSeatLabels
-      );
+    // 2. Đọc danh sách ghế đang bị giữ tạm (HELD) bởi phiên khác còn hạn
+    const currentShowtimeKey = selectedShowtime?.id || queryShowtimeId;
+    const heldMap = BookingService.getLocalHeldSeats(currentShowtimeKey);
+    const heldSeatLabels = new Set<string>();
+    heldMap.forEach((info, label) => {
+      if (info.sessionId !== sessionId) {
+        heldSeatLabels.add(label);
+      }
+    });
 
-      if (isMounted) setSeats(dynamicSeats);
+    const blockedSeatLabels = new Set<string>();
+
+    // Nếu ghế người này đang chọn bị phiên khác giữ trước -> Tự động loại bỏ khỏi giỏ hàng
+    setSelectedSeats((prev) => {
+      const conflicted = prev.filter((s) => {
+        const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+        return heldSeatLabels.has(label) || bookedSeatLabels.has(label);
+      });
+      if (conflicted.length > 0) {
+        return prev.filter((s) => !conflicted.some((c) => c.id === s.id));
+      }
+      return prev;
+    });
+
+    // 3. Nếu là suất chiếu thật của rạp Hà Nội Centre trong DB Supabase
+    const stId = selectedShowtime?.id?.toString();
+    const isRealDbShowtime =
+      stId &&
+      stId === '85608755-35ca-4157-87bd-96b50577e0e5' &&
+      (selectedCinema?.id === 1 || selectedCinema?.name?.includes('Hà Nội'));
+
+    if (isRealDbShowtime) {
+      try {
+        const dbSeats = await BookingService.getShowtimeSeats(stId);
+        if (dbSeats && dbSeats.length > 0) {
+          const mapped: Seat[] = dbSeats.map((s) => {
+            const seatLabel = `${s.row_label}${s.seat_number}`;
+            const isBookedLocally = bookedSeatLabels.has(seatLabel);
+            const isHeldLocally = heldSeatLabels.has(seatLabel);
+
+            let seatStatus: any = s.status;
+            if (isBookedLocally) seatStatus = 'sold';
+            else if (isHeldLocally) seatStatus = 'held';
+
+            return {
+              id: s.id,
+              row_label: s.row_label,
+              seat_number: s.seat_number,
+              grid_row: s.grid_row,
+              grid_col: s.grid_col,
+              seat_type: {
+                id: s.seat_type || 'standard',
+                code: (s.seat_type || 'STANDARD').toUpperCase() as any,
+                name: (s.seat_type || 'STANDARD').toUpperCase(),
+              },
+              seat_group: s.seat_group,
+              status: seatStatus,
+            };
+          });
+          setSeats(mapped);
+          return;
+        }
+      } catch (err) {
+        console.warn('Lỗi tải ghế Supabase, dùng sơ đồ riêng cho rạp:', err);
+      }
     }
 
+    // 4. Với các rạp khác (Landmark 81, Cầu Giấy...) hoặc các suất chiếu khác:
+    const dynamicSeats = getDynamicShowtimeSeats(
+      Number(selectedShowtime?.room_id) || 1,
+      selectedCinema?.id || queryCinemaId,
+      selectedShowtime?.id || queryShowtimeId,
+      queryDate,
+      queryTime,
+      bookedSeatLabels,
+      heldSeatLabels,
+      blockedSeatLabels
+    );
+
+    setSeats(dynamicSeats);
+  }, [selectedShowtime, queryCinemaId, queryShowtimeId, queryDate, queryTime, selectedCinema, sessionId]);
+
+  useEffect(() => {
     loadSeats();
     const handleUpdate = () => loadSeats();
     window.addEventListener('cinemax_data_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('cinemax_seat_sync');
+        bc.onmessage = () => {
+          loadSeats();
+        };
+      }
+    } catch {}
+
+    const handleBeforeUnload = () => {
+      if (currentStep !== 3) {
+        BookingService.releaseSessionHold(sessionId);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
-      isMounted = false;
       window.removeEventListener('cinemax_data_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      bc?.close();
+      if (currentStep !== 3) {
+        BookingService.releaseSessionHold(sessionId);
+      }
     };
-  }, [selectedShowtime, queryCinemaId, queryDate, queryTime, selectedCinema, sessionId]);
+  }, [loadSeats, sessionId, currentStep]);
 
   useEffect(() => {
     if (currentStep === 1 || currentStep === 2) {
@@ -400,6 +432,28 @@ function getDynamicShowtimeSeats(
       nextSelected = [...selectedSeats, seat];
     }
 
+    // Đồng bộ lập tức việc giữ ghế tạm (HELD) giữa các tab để chống chọn trùng đồng thời
+    const nextSeatLabels = nextSelected.map((s) =>
+      s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`
+    );
+
+    if (nextSeatLabels.length > 0) {
+      const holdRes = BookingService.holdSeatsLocal({
+        showtimeId: selectedShowtime?.id || queryShowtimeId,
+        sessionId,
+        seatLabels: nextSeatLabels,
+        holdMinutes: 10,
+      });
+
+      if (!holdRes.success) {
+        alert(holdRes.error || 'Ghế vừa được người khác giữ chỗ. Vui lòng chọn ghế khác!');
+        loadSeats();
+        return;
+      }
+    } else {
+      BookingService.releaseSessionHold(sessionId);
+    }
+
     setSelectedSeats(nextSelected);
 
     // Kiểm tra quy tắc ghế trống đơn lẻ (Orphan / Single Seat Rule)
@@ -443,6 +497,20 @@ function getDynamicShowtimeSeats(
         return;
       }
       const updated = [...selectedSeats, ...seatsToAdd];
+      const updatedLabels = updated.map((s) =>
+        s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`
+      );
+      const holdRes = BookingService.holdSeatsLocal({
+        showtimeId: selectedShowtime?.id || queryShowtimeId,
+        sessionId,
+        seatLabels: updatedLabels,
+        holdMinutes: 10,
+      });
+      if (!holdRes.success) {
+        alert(holdRes.error || 'Không thể chọn thêm ghế gợi ý do ghế vừa được giữ.');
+        loadSeats();
+        return;
+      }
       setSelectedSeats(updated);
       setOrphanWarning(null);
       setAcknowledgedOrphan(true);

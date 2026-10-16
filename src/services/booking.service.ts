@@ -227,7 +227,7 @@ export class BookingService {
   }
 
   /**
-   * Giữ ghế tạm thời (HELD) 10 phút chống đặt trùng đồng thời
+    * Giữ ghế tạm thời (HELD) 10 phút chống đặt trùng đồng thời
    */
   static holdSeatsLocal(params: {
     showtimeId: string | number;
@@ -237,6 +237,11 @@ export class BookingService {
   }): { success: boolean; error?: string; expiresAt: number } {
     if (typeof window === 'undefined') {
       return { success: false, error: 'Chỉ hỗ trợ trên client', expiresAt: 0 };
+    }
+
+    if (!params.seatLabels || params.seatLabels.length === 0) {
+      BookingService.releaseSessionHold(params.sessionId);
+      return { success: true, expiresAt: 0 };
     }
 
     const holdMinutes = params.holdMinutes || 10;
@@ -297,6 +302,15 @@ export class BookingService {
       window.dispatchEvent(new Event('cinemax_data_updated'));
       window.dispatchEvent(new Event('storage'));
 
+      // Phát tín hiệu tức thì qua BroadcastChannel tới tất cả các tab khác
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const ch = new BroadcastChannel('cinemax_seat_sync');
+          ch.postMessage({ type: 'HELD_SEATS_UPDATED', showtimeId: params.showtimeId, sessionId: params.sessionId });
+          ch.close();
+        }
+      } catch {}
+
       return { success: true, expiresAt };
     } catch (e: any) {
       return { success: false, error: e?.message || 'Lỗi khi giữ ghế', expiresAt: 0 };
@@ -316,6 +330,14 @@ export class BookingService {
         localStorage.setItem('cinemax_held_seats', JSON.stringify(filtered));
         window.dispatchEvent(new Event('cinemax_data_updated'));
         window.dispatchEvent(new Event('storage'));
+
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cinemax_seat_sync');
+            ch.postMessage({ type: 'HELD_SEATS_UPDATED', sessionId });
+            ch.close();
+          }
+        } catch {}
       }
     } catch (e) {
       console.error(e);
