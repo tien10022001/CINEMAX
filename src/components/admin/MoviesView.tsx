@@ -92,6 +92,7 @@ export default function MoviesView({
 }: MoviesViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | MovieStatus>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<ModalTab>('BASIC');
   const [editingMovie, setEditingMovie] = useState<Movie | null>(null);
@@ -507,7 +508,9 @@ export default function MoviesView({
     }
   };
 
-  // Filter movies
+  // Filter movies & Pagination (Hạn chế cuộn trang, tối đa 6 phim/trang)
+  const ITEMS_PER_PAGE = 6;
+
   const filteredMovies = movies.filter((m) => {
     const matchSearch = m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.director && m.director.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -515,6 +518,24 @@ export default function MoviesView({
     const matchStatus = statusFilter === 'ALL' || m.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredMovies.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedMovies = filteredMovies.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const getPaginationNumbers = () => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (safeCurrentPage <= 3) {
+      return [1, 2, 3, 4, '...', totalPages];
+    }
+    if (safeCurrentPage >= totalPages - 2) {
+      return [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, '...', safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1, '...', totalPages];
+  };
 
   return (
     <div className="space-y-3 animate-in fade-in duration-200">
@@ -531,7 +552,10 @@ export default function MoviesView({
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setStatusFilter(tab.id as any)}
+              onClick={() => {
+                setStatusFilter(tab.id as any);
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 statusFilter === tab.id
                   ? 'bg-[#E63845] text-white shadow-md'
@@ -557,7 +581,10 @@ export default function MoviesView({
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Tìm phim, đạo diễn, diễn viên..."
               className="w-full bg-[#141924] border border-[#222B3D] rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-[#5C677D] focus:outline-none focus:border-[#E63845]"
             />
@@ -575,7 +602,14 @@ export default function MoviesView({
 
       {/* Movies Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredMovies.map((movie) => {
+        {filteredMovies.length === 0 ? (
+          <div className="col-span-full py-12 text-center bg-[#121622]/50 border border-[#222B3D] rounded-2xl">
+            <Film className="w-10 h-10 text-[#5C677D] mx-auto mb-3 opacity-50" />
+            <p className="text-sm font-semibold text-white">Không tìm thấy phim phù hợp</p>
+            <p className="text-xs text-[#8E9AAF] mt-1">Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc trạng thái</p>
+          </div>
+        ) : (
+          paginatedMovies.map((movie) => {
           const genreNames =
             movie.genres && movie.genres.length > 0
               ? movie.genres.map((g: any) => g.name).join(', ')
@@ -684,8 +718,67 @@ export default function MoviesView({
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
+
+      {/* Pagination Bar - Hạn chế cuộn trang */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[#1E2638] text-xs">
+          <div className="text-[#8E9AAF] text-xs">
+            Hiển thị <span className="font-bold text-white">{startIndex + 1}</span> -{' '}
+            <span className="font-bold text-white">
+              {Math.min(startIndex + ITEMS_PER_PAGE, filteredMovies.length)}
+            </span>{' '}
+            trên tổng số <span className="font-bold text-[#E63845]">{filteredMovies.length}</span> phim
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              disabled={safeCurrentPage === 1}
+              className="px-3 py-1.5 rounded-xl bg-[#141924] border border-[#222B3D] text-[#8E9AAF] hover:text-white hover:border-[#384663] disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1 cursor-pointer font-semibold"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Trước</span>
+            </button>
+
+            <div className="flex items-center gap-1">
+              {getPaginationNumbers().map((pageNum, idx) => {
+                if (pageNum === '...') {
+                  return (
+                    <span key={`ellipsis-${idx}`} className="px-2 py-1 text-[#5C677D] select-none">
+                      ...
+                    </span>
+                  );
+                }
+                const isCurrent = pageNum === safeCurrentPage;
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum as number)}
+                    className={`min-w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                      isCurrent
+                        ? 'bg-[#E63845] text-white shadow-md shadow-[#E63845]/30'
+                        : 'bg-[#141924] border border-[#222B3D] text-[#8E9AAF] hover:text-white hover:border-[#384663]'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={safeCurrentPage === totalPages}
+              className="px-3 py-1.5 rounded-xl bg-[#141924] border border-[#222B3D] text-[#8E9AAF] hover:text-white hover:border-[#384663] disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-1 cursor-pointer font-semibold"
+            >
+              <span>Sau</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modern Add / Edit Movie Modal with 4 Organized Tabs */}
       {modalOpen && (
