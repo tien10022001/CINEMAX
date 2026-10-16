@@ -17,6 +17,8 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
   const [trailerOpen, setTrailerOpen] = useState(false);
   const [showtimeOpen, setShowtimeOpen] = useState(false);
 
+  if (!featured) return null;
+
   return (
     <>
       <div className="relative w-full h-[460px] sm:h-[500px] overflow-hidden bg-[#0F1217]">

@@ -8,16 +8,22 @@ import TrailerModal from '@/components/common/TrailerModal';
 import ShowtimeModal from '@/components/common/ShowtimeModal';
 import ShowtimeCard, { ShowtimeSlot } from '@/components/common/ShowtimeCard';
 import { MovieService } from '@/services/movie.service';
-import { MOCK_MOVIES, MOCK_CINEMAS } from '@/lib/mock-data';
+import { useData } from '@/lib/data-context';
+import { MOCK_MOVIES, MOCK_CINEMAS, MOCK_SHOWTIMES } from '@/lib/mock-data';
 import { Star, MapPin, Play, Ticket } from 'lucide-react';
 
 export default function MovieDetailPage() {
   const params = useParams();
   const router = useRouter();
   const slug = params?.slug as string;
+  const { movies } = useData();
 
-  const movie = MOCK_MOVIES.find((m) => m.slug === slug) || MOCK_MOVIES[0];
-  const [selectedDate, setSelectedDate] = useState<string>('2026-10-15');
+  const movie =
+    movies.find((m) => m.slug === slug) ||
+    MOCK_MOVIES.find((m) => m.slug === slug) ||
+    movies[0] ||
+    MOCK_MOVIES[0];
+  const [selectedDate, setSelectedDate] = useState<string>('2026-10-16');
   const [isTrailerOpen, setIsTrailerOpen] = useState<boolean>(false);
   const [isShowtimeModalOpen, setIsShowtimeModalOpen] = useState<boolean>(false);
   const [cinemaSlots, setCinemaSlots] = useState<Record<string | number, ShowtimeSlot[]>>({});

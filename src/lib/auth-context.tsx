@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from './types';
+import { createClient } from '@/lib/supabase/client';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -102,6 +103,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(userSession);
       localStorage.setItem('cinemax_session_user', JSON.stringify(userSession));
       setIsAuthModalOpen(false);
+
+      // Attempt Supabase Auth login if account exists on Supabase Cloud
+      try {
+        const supabase = createClient();
+        await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: password || 'admin'
+        });
+      } catch (err) {
+        console.warn('Supabase auth signin fallback note:', err);
+      }
+
       return { success: true };
     } catch (e) {
       return { success: false, error: 'Đã có lỗi xảy ra khi đăng nhập.' };
@@ -156,6 +169,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(null);
     try {
       localStorage.removeItem('cinemax_session_user');
+      const supabase = createClient();
+      supabase.auth.signOut().catch(() => {});
     } catch (e) {
       console.error(e);
     }

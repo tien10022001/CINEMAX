@@ -64,9 +64,13 @@ export interface Movie {
   banner_url?: string;
   trailer_url?: string;
   imdb_score?: number;
-  status: MovieStatus;
+  status: MovieStatus | 'now_showing' | 'coming_soon' | 'ended' | 'draft';
   is_deleted?: boolean;
   genres?: Genre[];
+  studio?: string;
+  meta_title?: string;
+  meta_description?: string;
+  formats?: string[];
   created_at?: string;
 }
 

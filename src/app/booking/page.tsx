@@ -55,10 +55,19 @@ function BookingContent() {
   // Steps: 1 = Chọn ghế (Screen 3), 2 = Bắp nước & Thanh toán (Screen 4), 3 = Vé điện tử (Screen 5)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
-  // Dynamic Entities
-  const selectedMovie = movies.find((m) => m.id.toString() === queryMovieId) || movies[0];
-  const selectedCinema = cinemas.find((c) => c.id.toString() === queryCinemaId) || cinemas[0];
-  const selectedShowtime = showtimes.find((s) => s.id.toString() === queryShowtimeId) || showtimes[0];
+  // Dynamic Entities (safe lookup)
+  const selectedMovie =
+    (queryMovieId && queryMovieId !== 'undefined'
+      ? movies.find((m) => m && m.id != null && String(m.id) === String(queryMovieId))
+      : null) || movies[0];
+  const selectedCinema =
+    (queryCinemaId && queryCinemaId !== 'undefined'
+      ? cinemas.find((c) => c && c.id != null && String(c.id) === String(queryCinemaId))
+      : null) || cinemas[0];
+  const selectedShowtime =
+    (queryShowtimeId && queryShowtimeId !== 'undefined'
+      ? showtimes.find((s) => s && s.id != null && String(s.id) === String(queryShowtimeId))
+      : null) || showtimes[0];
 
   // Seats State
   const [seats, setSeats] = useState<Seat[]>([]);

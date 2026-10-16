@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, X, Ticket, LogOut, Menu, ShieldCheck, User as UserIcon, Sparkles } from 'lucide-react';
+import { Search, X, Ticket, LogOut, Menu, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { MOCK_MOVIES, MOCK_CINEMAS } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
 
