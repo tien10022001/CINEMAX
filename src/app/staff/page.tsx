@@ -101,7 +101,7 @@ const ROLE_CONFIG: Record<StaffRoleCode, { label: string; allowedTabs: StaffTab[
   },
   CHECKIN: {
     label: 'Nhân viên Soát vé',
-    allowedTabs: ['checkin', 'rooms'],
+    allowedTabs: ['checkin'],
   },
   CONCESSION: {
     label: 'Nhân viên Bắp nước',
@@ -328,16 +328,47 @@ export default function StaffWorkspacePage() {
   // ==========================================================================
   // CORE NAVIGATION & STAFF STATE
   // ==========================================================================
+  const isSupervisorOrAdmin = useMemo(() => {
+    return (
+      currentUser?.role_code === 'ADMIN' ||
+      currentUser?.staff_permissions?.includes('SUPERVISOR') ||
+      false
+    );
+  }, [currentUser]);
+
+  const availableRoles = useMemo<StaffRoleCode[]>(() => {
+    if (isSupervisorOrAdmin) return ['SUPERVISOR', 'POS', 'CHECKIN', 'CONCESSION'];
+    const perms = currentUser?.staff_permissions || [];
+    const roles: StaffRoleCode[] = [];
+    if (perms.includes('POS')) roles.push('POS');
+    if (perms.includes('CHECKIN')) roles.push('CHECKIN');
+    if (perms.includes('CONCESSION')) roles.push('CONCESSION');
+    return roles.length > 0 ? roles : ['CHECKIN'];
+  }, [isSupervisorOrAdmin, currentUser?.staff_permissions]);
+
   const [staffName, setStaffName] = useState<string>(currentUser?.full_name || 'Nhân viên Cinemax');
   const [staffRole, setStaffRole] = useState<StaffRoleCode>(() => {
     if (currentUser?.role_code === 'ADMIN') return 'SUPERVISOR';
-    if (currentUser?.staff_permissions?.includes('SUPERVISOR')) return 'SUPERVISOR';
-    if (currentUser?.staff_permissions?.includes('POS')) return 'POS';
-    if (currentUser?.staff_permissions?.includes('CHECKIN')) return 'CHECKIN';
-    if (currentUser?.staff_permissions?.includes('CONCESSION')) return 'CONCESSION';
-    return 'SUPERVISOR';
+    const perms = currentUser?.staff_permissions || [];
+    if (perms.includes('SUPERVISOR')) return 'SUPERVISOR';
+    if (perms.includes('CHECKIN') && !perms.includes('POS')) return 'CHECKIN';
+    if (perms.includes('POS')) return 'POS';
+    if (perms.includes('CONCESSION')) return 'CONCESSION';
+    return 'CHECKIN';
   });
-  const [activeTab, setActiveTab] = useState<StaffTab>('checkin');
+
+  const [activeTab, setActiveTab] = useState<StaffTab>(() => {
+    const role: StaffRoleCode = currentUser?.role_code === 'ADMIN'
+      ? 'SUPERVISOR'
+      : (currentUser?.staff_permissions?.includes('SUPERVISOR')
+          ? 'SUPERVISOR'
+          : (currentUser?.staff_permissions?.includes('CHECKIN') && !currentUser?.staff_permissions?.includes('POS'))
+          ? 'CHECKIN'
+          : (currentUser?.staff_permissions?.includes('POS') ? 'POS' : 'CHECKIN'));
+    const allowed = ROLE_CONFIG[role]?.allowedTabs || ['checkin'];
+    return allowed[0];
+  });
+
   const [posTerminal, setPosTerminal] = useState<string>('POS-01');
   const [shiftLabel, setShiftLabel] = useState<string>('Ca Tối (14:00 - 22:00)');
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
@@ -348,13 +379,21 @@ export default function StaffWorkspacePage() {
     if (currentUser?.full_name) {
       setStaffName(currentUser.full_name);
     }
+    let targetRole: StaffRoleCode = 'CHECKIN';
     if (currentUser?.role_code === 'ADMIN') {
-      setStaffRole('SUPERVISOR');
+      targetRole = 'SUPERVISOR';
     } else if (currentUser?.staff_permissions && currentUser.staff_permissions.length > 0) {
-      if (currentUser.staff_permissions.includes('SUPERVISOR')) setStaffRole('SUPERVISOR');
-      else if (currentUser.staff_permissions.includes('POS')) setStaffRole('POS');
-      else if (currentUser.staff_permissions.includes('CHECKIN')) setStaffRole('CHECKIN');
-      else if (currentUser.staff_permissions.includes('CONCESSION')) setStaffRole('CONCESSION');
+      const perms = currentUser.staff_permissions;
+      if (perms.includes('SUPERVISOR')) targetRole = 'SUPERVISOR';
+      else if (perms.includes('CHECKIN') && !perms.includes('POS')) targetRole = 'CHECKIN';
+      else if (perms.includes('POS')) targetRole = 'POS';
+      else if (perms.includes('CONCESSION')) targetRole = 'CONCESSION';
+    }
+    setStaffRole(targetRole);
+
+    const allowed = ROLE_CONFIG[targetRole]?.allowedTabs || ['checkin'];
+    if (!allowed.includes(activeTab)) {
+      setActiveTab(allowed[0]);
     }
   }, [currentUser]);
 
@@ -366,6 +405,7 @@ export default function StaffWorkspacePage() {
   }, []);
 
   const handleRoleChange = (newRole: StaffRoleCode) => {
+    if (!availableRoles.includes(newRole)) return;
     setStaffRole(newRole);
     const allowed = ROLE_CONFIG[newRole].allowedTabs;
     if (!allowed.includes(activeTab)) {
@@ -1952,17 +1992,24 @@ export default function StaffWorkspacePage() {
           <span className="text-sm font-bold text-slate-200">{activeTabTitle}</span>
 
           <div className="flex items-center gap-4">
-            {/* Compact Role Selector */}
-            <select
-              value={staffRole}
-              onChange={(e) => handleRoleChange(e.target.value as StaffRoleCode)}
-              className="bg-[#141822] border border-[#242B3D] rounded-lg px-3 py-1.5 text-xs text-slate-200 font-medium focus:outline-none focus:border-[#E63845]"
-            >
-              <option value="SUPERVISOR">Trưởng ca (Toàn quyền)</option>
-              <option value="POS">Nhân viên POS (Bán vé)</option>
-              <option value="CHECKIN">Nhân viên Soát vé</option>
-              <option value="CONCESSION">Nhân viên Bắp nước</option>
-            </select>
+            {/* Compact Role Selector / Assigned Role Badge */}
+            {availableRoles.length > 1 ? (
+              <select
+                value={staffRole}
+                onChange={(e) => handleRoleChange(e.target.value as StaffRoleCode)}
+                className="bg-[#141822] border border-[#242B3D] rounded-lg px-3 py-1.5 text-xs text-slate-200 font-medium focus:outline-none focus:border-[#E63845] cursor-pointer"
+              >
+                {availableRoles.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_CONFIG[r].label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="bg-[#141822] border border-[#242B3D] rounded-lg px-3 py-1.5 text-xs text-[#E63845] font-bold select-none">
+                {ROLE_CONFIG[staffRole]?.label || 'Nhân viên Soát vé'}
+              </div>
+            )}
 
             <button
               type="button"
