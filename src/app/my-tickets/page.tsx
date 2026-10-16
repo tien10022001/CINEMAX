@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth-context';
-import { Ticket, QrCode, Download, Calendar, MapPin, X, Lock, Search, ShieldCheck } from 'lucide-react';
+import { Ticket, QrCode, Download, Calendar, MapPin, X, Lock, Search, ShieldCheck, Coffee } from 'lucide-react';
 import { TicketScannerService } from '@/services/ticket-scanner.service';
 
 interface StoredTicket {
@@ -259,11 +259,45 @@ export default function MyTicketsPage() {
                       <QrCode className="w-3.5 h-3.5" /> Xem QR
                     </button>
                   </div>
-                  <div className="bg-[#0F1217] border border-[#303645] rounded-2xl p-4 space-y-1 text-xs">
+                  <div className="bg-[#0F1217] border border-[#303645] rounded-2xl p-4 space-y-2 text-xs">
                     <div className="font-bold text-white text-sm">{lookupResult.movieTitle}</div>
                     <div className="text-[#9EA6B8]">{lookupResult.cinemaName} • {lookupResult.roomName}</div>
-                    <div className="text-[#FABF2E] font-semibold">Suất: {lookupResult.showtime} - Ghế: {lookupResult.seats}</div>
+                    <div className="text-[#FABF2E] font-semibold">
+                      Suất: {lookupResult.showtime} - Ghế: {Array.isArray(lookupResult.seats) ? lookupResult.seats.join(', ') : lookupResult.seats}
+                    </div>
                     <div className="text-white">Người đặt: {lookupResult.customerName || 'Khách vãng lai'}</div>
+
+                    {/* Hiển thị Bắp Nước & Combo */}
+                    {lookupResult.foodsStr ? (
+                      <div className="mt-2.5 pt-2.5 border-t border-[#303645] flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Coffee className="w-4 h-4 text-[#FABF2E] shrink-0" />
+                          <span className="text-[#FABF2E] font-bold">Bắp Nước & Combo:</span>
+                          <span className="text-white font-medium">{lookupResult.foodsStr}</span>
+                        </div>
+                        <span className="text-[10px] bg-[#FABF2E]/20 text-[#FABF2E] px-2 py-0.5 rounded-full border border-[#FABF2E]/40 font-semibold">
+                          Nhận tại quầy
+                        </span>
+                      </div>
+                    ) : lookupResult.foods && lookupResult.foods.length > 0 ? (
+                      <div className="mt-2.5 pt-2.5 border-t border-[#303645] flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Coffee className="w-4 h-4 text-[#FABF2E] shrink-0" />
+                          <span className="text-[#FABF2E] font-bold">Bắp Nước & Combo:</span>
+                          <span className="text-white font-medium">
+                            {lookupResult.foods.map((f: any) => `${f.quantity}x ${f.name}`).join(', ')}
+                          </span>
+                        </div>
+                        <span className="text-[10px] bg-[#FABF2E]/20 text-[#FABF2E] px-2 py-0.5 rounded-full border border-[#FABF2E]/40 font-semibold">
+                          Nhận tại quầy
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="mt-2 pt-2 border-t border-[#303645]/60 flex items-center gap-2 text-[#9EA6B8] text-[11px]">
+                        <Coffee className="w-3.5 h-3.5 text-[#9EA6B8]/60" />
+                        <span>Bắp nước: Không có bắp nước đi kèm đơn vé này</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -343,7 +377,7 @@ export default function MyTicketsPage() {
                             </div>
                             <div>
                               <span>Ghế: </span>
-                              <span className="text-white font-bold">{ticket.seats}</span>
+                              <span className="text-white font-bold">{Array.isArray(ticket.seats) ? ticket.seats.join(', ') : ticket.seats}</span>
                             </div>
                           </div>
                           <div className="flex items-center justify-between">
@@ -357,10 +391,12 @@ export default function MyTicketsPage() {
                               </span>
                             )}
                           </div>
-                          {ticket.foodsStr && (
+                          {(ticket.foodsStr || (ticket.foods && ticket.foods.length > 0)) && (
                             <div className="bg-[#141722] px-2.5 py-1.5 rounded-xl border border-[#FABF2E]/30 text-xs">
                               <span className="text-[#FABF2E] font-bold">🍿 Bắp nước: </span>
-                              <span className="text-white font-medium">{ticket.foodsStr}</span>
+                              <span className="text-white font-medium">
+                                {ticket.foodsStr || ticket.foods?.map((f: any) => `${f.quantity}x ${f.name}`).join(', ')}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -433,12 +469,37 @@ export default function MyTicketsPage() {
                 {selectedQrTicket.bookingCode}
               </div>
               <div className="text-xs text-white/90">
-                {selectedQrTicket.cinemaName} • Ghế {selectedQrTicket.seats}
+                {selectedQrTicket.cinemaName} • Ghế {Array.isArray(selectedQrTicket.seats) ? selectedQrTicket.seats.join(', ') : selectedQrTicket.seats}
               </div>
-              {selectedQrTicket.foodsStr && (
-                <div className="p-2 rounded-xl bg-[#0F1217] border border-[#FABF2E]/30 text-xs text-left">
-                  <span className="text-[10px] text-[#FABF2E] font-bold uppercase block">🍿 Combo Bắp Nước:</span>
-                  <span className="text-white font-bold">{selectedQrTicket.foodsStr}</span>
+              {selectedQrTicket.foodsStr ? (
+                <div className="p-2.5 rounded-xl bg-[#0F1217] border border-[#FABF2E]/30 text-xs text-left space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-[#FABF2E] font-bold uppercase flex items-center gap-1">
+                      <Coffee className="w-3 h-3" /> Combo Bắp Nước:
+                    </span>
+                    <span className="text-[9px] bg-[#FABF2E]/20 text-[#FABF2E] px-1.5 py-0.5 rounded border border-[#FABF2E]/40 font-semibold">
+                      Nhận tại quầy
+                    </span>
+                  </div>
+                  <div className="text-white font-bold">{selectedQrTicket.foodsStr}</div>
+                </div>
+              ) : selectedQrTicket.foods && selectedQrTicket.foods.length > 0 ? (
+                <div className="p-2.5 rounded-xl bg-[#0F1217] border border-[#FABF2E]/30 text-xs text-left space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-[#FABF2E] font-bold uppercase flex items-center gap-1">
+                      <Coffee className="w-3 h-3" /> Combo Bắp Nước:
+                    </span>
+                    <span className="text-[9px] bg-[#FABF2E]/20 text-[#FABF2E] px-1.5 py-0.5 rounded border border-[#FABF2E]/40 font-semibold">
+                      Nhận tại quầy
+                    </span>
+                  </div>
+                  <div className="text-white font-bold">
+                    {selectedQrTicket.foods.map((f: any) => `${f.quantity}x ${f.name}`).join(', ')}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-2 rounded-xl bg-[#0F1217] border border-[#303645] text-[11px] text-[#9EA6B8] text-center">
+                  🍿 Không có bắp nước đi kèm đơn vé này
                 </div>
               )}
               <div className="text-[11px] text-[#9EA6B8]">

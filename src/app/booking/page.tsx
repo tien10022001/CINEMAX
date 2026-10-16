@@ -104,6 +104,7 @@ function BookingContent() {
     payerPhone: string;
     seatsStr: string;
     foodsStr?: string;
+    foods?: any[];
   } | null>(null);
   const [completedBooking, setCompletedBooking] = useState<{
     bookingCode: string;
@@ -724,6 +725,7 @@ function getDynamicShowtimeSeats(
           payerPhone,
           seatsStr,
           foodsStr: foodsStr || undefined,
+          foods: purchasedFoods,
         });
         setIsVietQRModalOpen(true);
         setIsProcessingPayment(false);
@@ -884,8 +886,9 @@ function getDynamicShowtimeSeats(
         showtimeDate: queryDate,
         showtimeTime: queryTime,
         showtime: `${queryTime} • ${queryDate}`,
-        seats: selectedSeats.map((s) => `${s.row_label}${s.seat_number}`),
+        seats: pendingVietQROrder.seatsStr || selectedSeats.map((s) => `${s.row_label}${s.seat_number}`).join(', '),
         seatsStr: pendingVietQROrder.seatsStr,
+        foods: pendingVietQROrder.foods || [],
         foodsStr: pendingVietQROrder.foodsStr,
         totalAmount: pendingVietQROrder.amount,
         status: 'ĐÃ THANH TOÁN',
