@@ -531,7 +531,9 @@ function getDynamicShowtimeSeats(
     setIsShowtimeChangeOpen(false);
 
     // 1. Xóa sạch danh sách ghế cũ của suất trước (P0.2)
+    BookingService.releaseSessionHold(sessionId);
     setSelectedSeats([]);
+    setOrphanWarning(null);
 
     // 2. Reset combo bắp nước và chiết khấu (tính lại giá)
     setFoodQuantities({ 1: 0, 2: 0, 3: 0 });
