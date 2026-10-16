@@ -15,6 +15,7 @@ import {
 import { Movie, Cinema, Showtime, Seat, Promotion } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { useData } from '@/lib/data-context';
+import { syncOrderToSupabase } from '@/lib/supabase/queries';
 import {
   Clock,
   CheckCircle,
@@ -27,7 +28,6 @@ import {
   User as UserIcon,
   Phone,
   Mail,
-  Lock,
   AlertTriangle,
   Sparkles,
 } from 'lucide-react';
@@ -41,12 +41,21 @@ function BookingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { currentUser, openAuthModal, register } = useAuth();
-  const { movies, cinemas, showtimes, foods, promotions } = useData();
+  const {
+    movies,
+    cinemas,
+    showtimes,
+    foods,
+    promotions,
+    soldSeatsByShowtime,
+    seatUuidLookup,
+    refreshFromSupabase,
+  } = useData();
 
   // Query Params
   const queryMovieId = searchParams.get('movie') || '1';
   const queryCinemaId = searchParams.get('cinema') || '1';
-  const queryShowtimeId = searchParams.get('showtime') || '101';
+  const queryShowtimeId = searchParams.get('showtime') || '1001';
   const queryPromoCode = searchParams.get('promo') || '';
   const queryTime = searchParams.get('time') || '15:30';
   const queryDate = searchParams.get('date') || '15/10/2026';
@@ -55,19 +64,36 @@ function BookingContent() {
   // Steps: 1 = Chọn ghế (Screen 3), 2 = Bắp nước & Thanh toán (Screen 4), 3 = Vé điện tử (Screen 5)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
-  // Dynamic Entities (safe lookup)
+  // Dynamic Entities (safe lookup with supabase_id fallback)
   const selectedMovie =
     (queryMovieId && queryMovieId !== 'undefined'
-      ? movies.find((m) => m && m.id != null && String(m.id) === String(queryMovieId))
+      ? movies.find((m) => m && m.id != null && (String(m.id) === String(queryMovieId) || m.supabase_id === queryMovieId))
       : null) || movies[0];
   const selectedCinema =
     (queryCinemaId && queryCinemaId !== 'undefined'
-      ? cinemas.find((c) => c && c.id != null && String(c.id) === String(queryCinemaId))
+      ? cinemas.find((c) => c && c.id != null && (String(c.id) === String(queryCinemaId) || c.supabase_id === queryCinemaId))
       : null) || cinemas[0];
-  const selectedShowtime =
-    (queryShowtimeId && queryShowtimeId !== 'undefined'
-      ? showtimes.find((s) => s && s.id != null && String(s.id) === String(queryShowtimeId))
-      : null) || showtimes[0];
+  const foundShowtime =
+    queryShowtimeId && queryShowtimeId !== 'undefined'
+      ? showtimes.find((s) => s && s.id != null && (String(s.id) === String(queryShowtimeId) || s.supabase_id === queryShowtimeId))
+      : null;
+  const selectedShowtime: Showtime = foundShowtime || showtimes[0] || {
+    id: queryShowtimeId || 'st-default',
+    movie_id: selectedMovie?.id ?? 1,
+    room_id: 1,
+    start_time: `${queryDate}T${queryTime}:00`,
+    end_time: `${queryDate}T${queryTime}:00`,
+    status: 'OPEN',
+    available_seats: 80,
+    room: {
+      id: 1,
+      cinema_id: Number(selectedCinema?.id) || 1,
+      name: 'Phòng 1 (2D Tiêu Chuẩn)',
+      screen_type: '2D',
+      total_seats: 80,
+      status: 'ACTIVE',
+    },
+  };
 
   // Seats State
   const [seats, setSeats] = useState<Seat[]>([]);
@@ -140,55 +166,27 @@ function BookingContent() {
   // 10-minute hold timer (Figma Screen 3: "⏱ Giữ ghế còn 09:42")
   const [timeLeft, setTimeLeft] = useState<number>(600); // 10:00 initial
 
-// Helper: Sinh sơ đồ ghế chuẩn xác cho từng rạp, từng suất chiếu tuân thủ 4 trạng thái: AVAILABLE, HELD, BOOKED (SOLD), BLOCKED
-function getDynamicShowtimeSeats(
-  roomId: number = 1,
-  cinemaId: string | number,
-  showtimeId: string | number,
-  date: string,
-  time: string,
-  locallyBookedSeats: Set<string>,
-  locallyHeldSeats: Set<string>,
-  locallyBlockedSeats: Set<string>
-): Seat[] {
-  const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  const seats: Seat[] = [];
-  let seatId = 1;
+  // Helper: Sinh sơ đồ ghế chuẩn xác 10 cột khớp 100% với Nhân viên quầy vé Staff POS
+  function getDynamicShowtimeSeats(
+    roomId: number = 1,
+    cinemaId: string | number,
+    showtimeId: string | number,
+    date: string,
+    time: string,
+    locallyBookedSeats: Set<string>,
+    locallyHeldSeats: Set<string>,
+    locallyBlockedSeats: Set<string>
+  ): Seat[] {
+    const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const dynamicSeats: Seat[] = [];
+    let seatId = 1;
 
-  rows.forEach((row, rowIdx) => {
-    const isCouple = row === 'H';
-    const isVip = row === 'E' || row === 'F' || row === 'G';
-    const typeId = isCouple ? 3 : isVip ? 2 : 1;
-    const typeCode = isCouple ? 'COUPLE' : isVip ? 'VIP' : 'STANDARD';
+    rows.forEach((row, rowIdx) => {
+      const isCouple = row === 'H';
+      const isVip = row === 'F' || row === 'G';
+      const typeId = isCouple ? 3 : isVip ? 2 : 1;
+      const typeCode = isCouple ? 'COUPLE' : isVip ? 'VIP' : 'STANDARD';
 
-    if (isCouple) {
-      for (let c = 1; c <= 5; c++) {
-        const label = `ĐÔI ${c}`;
-        let status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' = 'AVAILABLE';
-        if (locallyBookedSeats.has(label)) status = 'SOLD';
-        else if (locallyHeldSeats.has(label)) status = 'HELD';
-        else if (locallyBlockedSeats.has(label)) status = 'BLOCKED';
-
-        seats.push({
-          id: seatId++,
-          room_id: roomId,
-          seat_type_id: typeId,
-          row_label: row,
-          seat_number: c,
-          grid_row: rowIdx + 1,
-          grid_col: c,
-          is_active: true,
-          seat_type: {
-            id: typeId,
-            code: typeCode,
-            name: 'Ghế đôi',
-            capacity: 2,
-            color_code: '#F472B6',
-          },
-          status,
-        });
-      }
-    } else {
       for (let c = 1; c <= 10; c++) {
         const label = `${row}${c}`;
         let status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' = 'AVAILABLE';
@@ -196,7 +194,7 @@ function getDynamicShowtimeSeats(
         else if (locallyHeldSeats.has(label)) status = 'HELD';
         else if (locallyBlockedSeats.has(label)) status = 'BLOCKED';
 
-        seats.push({
+        dynamicSeats.push({
           id: seatId++,
           room_id: roomId,
           seat_type_id: typeId,
@@ -207,19 +205,18 @@ function getDynamicShowtimeSeats(
           is_active: true,
           seat_type: {
             id: typeId,
-            code: typeCode,
-            name: isVip ? 'Ghế VIP' : 'Ghế thường',
-            capacity: 1,
-            color_code: isVip ? '#FABF2E' : '#9CA3AF',
+            code: typeCode as any,
+            name: isCouple ? 'Ghế đôi' : isVip ? 'Ghế VIP' : 'Ghế thường',
+            capacity: isCouple ? 2 : 1,
+            color_code: isCouple ? '#F472B6' : isVip ? '#FBBF24' : '#9CA3AF',
           },
           status,
         });
       }
-    }
-  });
+    });
 
-  return seats;
-}
+    return dynamicSeats;
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -232,42 +229,71 @@ function getDynamicShowtimeSeats(
       const localTickets = stored ? JSON.parse(stored) : [];
       const bookedSeatLabels = new Set<string>();
 
+      // Đọc từ soldSeatsByShowtime trong DataContext chỉ khi đúng suất chiếu trong DB
+      if (foundShowtime) {
+        const ctxSold = (soldSeatsByShowtime as Record<string | number, string[]>)?.[foundShowtime.id];
+        if (Array.isArray(ctxSold)) {
+          ctxSold.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
+        }
+      }
+
       localTickets.forEach((t: any) => {
-        // Chỉ khớp vé của chính suất chiếu này, rạp này, phim này và ngày này
-        const matchShowtimeId =
+        const matchExactShowtime =
           t.showtimeId &&
-          selectedShowtime?.id &&
-          t.showtimeId.toString() === selectedShowtime.id.toString();
+          t.showtimeId.toString() === queryShowtimeId.toString();
 
-        const matchCinema =
-          t.cinemaName === selectedCinema?.name ||
-          (t.cinemaId && t.cinemaId.toString() === queryCinemaId.toString());
+        const matchAttributes =
+          ((t.movieId && t.movieId.toString() === selectedMovie.id.toString()) || t.movieTitle === selectedMovie.title) &&
+          (t.cinemaId?.toString() === queryCinemaId.toString() || t.cinemaName === selectedCinema.name) &&
+          (t.showtimeDate === queryDate || t.date === queryDate || (t.showtime && t.showtime.includes(queryDate))) &&
+          (t.showtimeTime === queryTime || (t.showtime && t.showtime.includes(queryTime)));
 
-        const matchMovie =
-          (t.movieId && selectedMovie?.id && t.movieId.toString() === selectedMovie.id.toString()) ||
-          t.movieTitle === selectedMovie?.title;
-
-        const matchDate =
-          t.showtimeDate === queryDate ||
-          t.date === queryDate ||
-          (t.showtime && t.showtime.includes(queryDate));
-
-        const matchTime =
-          t.showtimeTime === queryTime ||
-          (t.showtime && t.showtime.includes(queryTime));
-
-        if (matchShowtimeId || (matchCinema && matchMovie && matchDate && matchTime)) {
+        if (matchExactShowtime || matchAttributes) {
           if (Array.isArray(t.seats)) {
-            t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
+            t.seats.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
           } else if (typeof t.seats === 'string') {
-            t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(s.trim()));
+            t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
           }
         }
       });
 
+      // Also sync seats sold from Staff POS (cinemax_booked_seats_v2)
+      try {
+        const posSeatsRaw = localStorage.getItem('cinemax_booked_seats_v2');
+        if (posSeatsRaw) {
+          const posSeatsMap = JSON.parse(posSeatsRaw);
+          const stSeats = posSeatsMap?.[queryShowtimeId];
+          if (Array.isArray(stSeats)) {
+            stSeats.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
+          }
+        }
+      } catch (e) {
+        // POS seats sync fallback
+      }
+
+      // Also sync maintenance/broken seats locked from Staff Room Management
+      const blockedSeatLabels = new Set<string>();
+      try {
+        const maintRaw = localStorage.getItem('cinemax_maintenance_seats_v2');
+        if (maintRaw) {
+          const maintMap = JSON.parse(maintRaw);
+          const roomName = selectedShowtime?.room?.name || 'Phòng 1';
+          const roomKey = roomName.includes('2')
+            ? 'room-q1-2'
+            : roomName.includes('3')
+            ? 'room-q1-3'
+            : 'room-q1-1';
+          const roomBrokenSeats = maintMap?.[roomKey];
+          if (Array.isArray(roomBrokenSeats)) {
+            roomBrokenSeats.forEach((s: string) => blockedSeatLabels.add(String(s).trim().toUpperCase()));
+          }
+        }
+      } catch (e) {
+        console.warn('Maintenance seats sync error:', e);
+      }
+
       // 2. Đọc danh sách ghế đang bị giữ tạm (HELD) bởi phiên khác còn hạn
-      const currentShowtimeKey = selectedShowtime?.id || queryShowtimeId;
-      const heldMap = BookingService.getLocalHeldSeats(currentShowtimeKey);
+      const heldMap = BookingService.getLocalHeldSeats(queryShowtimeId);
       const heldSeatLabels = new Set<string>();
       heldMap.forEach((info, label) => {
         if (info.sessionId !== sessionId) {
@@ -275,27 +301,25 @@ function getDynamicShowtimeSeats(
         }
       });
 
-      const blockedSeatLabels = new Set<string>();
+      // 3. Nếu suất chiếu có ID UUID hợp lệ trong DB Supabase, tải trực tiếp sơ đồ ghế từ DB
+      const targetShowtimeUuid =
+        selectedShowtime?.supabase_id ||
+        (typeof queryShowtimeId === 'string' && queryShowtimeId.length === 36 ? queryShowtimeId : null);
 
-      // 3. Nếu là suất chiếu thật của rạp Hà Nội Centre trong DB Supabase
-      const stId = selectedShowtime?.id?.toString();
-      const isRealDbShowtime =
-        stId &&
-        stId === '85608755-35ca-4157-87bd-96b50577e0e5' &&
-        (selectedCinema?.id === 1 || selectedCinema?.name?.includes('Hà Nội'));
-
-      if (isRealDbShowtime) {
+      if (targetShowtimeUuid) {
         try {
-          const dbSeats = await BookingService.getShowtimeSeats(stId);
+          const dbSeats = await BookingService.getShowtimeSeats(targetShowtimeUuid);
           if (dbSeats && dbSeats.length > 0) {
             const mapped: Seat[] = dbSeats.map((s) => {
               const seatLabel = `${s.row_label}${s.seat_number}`;
               const isBookedLocally = bookedSeatLabels.has(seatLabel);
               const isHeldLocally = heldSeatLabels.has(seatLabel);
+              const isBlockedLocally = blockedSeatLabels.has(seatLabel);
 
               let seatStatus: any = s.status;
               if (isBookedLocally) seatStatus = 'sold';
               else if (isHeldLocally) seatStatus = 'held';
+              else if (isBlockedLocally) seatStatus = 'blocked';
 
               return {
                 id: s.id,
@@ -320,11 +344,11 @@ function getDynamicShowtimeSeats(
         }
       }
 
-      // 4. Với các rạp khác (Landmark 81, Cầu Giấy...) hoặc các suất chiếu khác:
+      // 4. Với tất cả các phim và suất chiếu khác: Sinh sơ đồ ghế độc lập
       const dynamicSeats = getDynamicShowtimeSeats(
         Number(selectedShowtime?.room_id) || 1,
         selectedCinema?.id || queryCinemaId,
-        selectedShowtime?.id || queryShowtimeId,
+        queryShowtimeId,
         queryDate,
         queryTime,
         bookedSeatLabels,
@@ -405,7 +429,7 @@ function getDynamicShowtimeSeats(
     const blockedSet = new Set<string>();
 
     seats.forEach((s) => {
-      const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+      const label = `${s.row_label}${s.seat_number}`;
       const statusUpper = (s.status || '').toUpperCase();
       if (statusUpper === 'SOLD' || statusUpper === 'BOOKED') bookedSet.add(label);
       else if (statusUpper === 'HELD') heldSet.add(label);
@@ -430,7 +454,7 @@ function getDynamicShowtimeSeats(
 
   const handleAddOrphanSeats = (orphanLabels: string[]) => {
     const seatsToAdd = seats.filter((s) => {
-      const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+      const label = `${s.row_label}${s.seat_number}`;
       return orphanLabels.includes(label) && !selectedSeats.some((sel) => sel.id === s.id);
     });
 
@@ -452,7 +476,7 @@ function getDynamicShowtimeSeats(
       return;
     }
 
-    // Nếu phát hiện ghế trống đơn lẻ mà khách chưa xác nhận bỏ qua, hiển thị nhắc nhở (Phương án A)
+    // Nếu phát hiện ghế trống đơn lẻ mà khách chưa xác nhận bỏ qua, hiển thị nhắc nhở
     if (orphanWarning && orphanWarning.hasOrphanSeats && !acknowledgedOrphan) {
       const userConfirm = confirm(
         `${orphanWarning.suggestionMessage}\n\nBạn có chắc chắn muốn tiếp tục giữ các ghế này không?`
@@ -461,9 +485,7 @@ function getDynamicShowtimeSeats(
     }
 
     // Cơ chế chống trùng vé (Concurrency Control): Giữ ghế 10 phút
-    const seatLabels = selectedSeats.map((s) =>
-      s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`
-    );
+    const seatLabels = selectedSeats.map((s) => `${s.row_label}${s.seat_number}`);
 
     const holdRes = BookingService.holdSeatsLocal({
       showtimeId: selectedShowtime?.id || queryShowtimeId,
@@ -482,18 +504,15 @@ function getDynamicShowtimeSeats(
   };
 
   const getSeatPrice = (seat: Seat) => {
-    if (seat.seat_type?.code === 'COUPLE') return 210000;
-    if (seat.seat_type?.code === 'VIP') return 110000;
+    const code =
+      seat.seat_type?.code ||
+      (seat.row_label === 'H' ? 'COUPLE' : ['F', 'G'].includes(seat.row_label) ? 'VIP' : 'STANDARD');
+    const dynamicPrice = selectedShowtime?.prices?.find((p) => p.seat_type?.code === code)?.price;
+    if (dynamicPrice && dynamicPrice > 0) return dynamicPrice;
+    if (code === 'COUPLE') return 210000;
+    if (code === 'VIP') return 110000;
     return 90000;
   };
-
-  // Thống kê đếm số ghế và số ghế trống thời gian thực
-  const totalSeatsCount = seats.length || 75;
-  const soldSeatsCount = seats.filter(
-    (s) => s.status === 'SOLD' || s.status === 'sold' || s.status === 'HELD' || s.status === 'held'
-  ).length;
-  const selectedSeatsCount = selectedSeats.length;
-  const availableSeatsCount = Math.max(0, totalSeatsCount - soldSeatsCount - selectedSeatsCount);
 
   const ticketSubtotal = selectedSeats.reduce((sum, seat) => sum + getSeatPrice(seat), 0);
 
@@ -567,14 +586,14 @@ function getDynamicShowtimeSeats(
     setTimeLeft(10 * 60);
 
     // 5. Tải lại sơ đồ ghế của suất chiếu mới
-    const isRealDb =
-      slot.id === '85608755-35ca-4157-87bd-96b50577e0e5' &&
-      (newCinemaId === 1 || newCinemaId === '1');
+    const targetSlotUuid =
+      slot.supabase_id ||
+      (slot.id && String(slot.id).length === 36 ? String(slot.id) : null);
 
-    if (isRealDb) {
+    if (targetSlotUuid) {
       try {
         const { BookingService } = await import('@/services/booking.service');
-        const dbSeats = await BookingService.getShowtimeSeats(slot.id);
+        const dbSeats = await BookingService.getShowtimeSeats(targetSlotUuid);
         if (dbSeats && dbSeats.length > 0) {
           setSeats(
             dbSeats.map((s) => ({
@@ -642,52 +661,58 @@ function getDynamicShowtimeSeats(
       const { PaymentService } = await import('@/services/payment.service');
 
       const seatIds = selectedSeats.map((s) => s.id.toString());
-      const showtimeId = selectedShowtime?.id?.toString() || '85608755-35ca-4157-87bd-96b50577e0e5';
-      const validShowtimeId = showtimeId.length === 36 ? showtimeId : '85608755-35ca-4157-87bd-96b50577e0e5';
+      const targetShowtimeUuid =
+        selectedShowtime?.supabase_id ||
+        (queryShowtimeId && queryShowtimeId.length === 36 ? queryShowtimeId : null);
 
-      // P0.3: Kiểm tra xung đột ghế thời gian thực (Atomic seat availability verification)
-      const freshSeats = await BookingService.getShowtimeSeats(validShowtimeId);
-      if (freshSeats && freshSeats.length > 0) {
-        const conflictedSeat = freshSeats.find((fs) => {
-          const isSelected = seatIds.includes(fs.id.toString());
-          if (!isSelected) return false;
-          // Nếu ghế đã bị bán hoặc đang giữ bởi người khác còn hạn
-          const isSold = (fs.status as string) === 'booked' || fs.status === 'sold';
-          const isHeldValid = fs.status === 'held' && fs.held_until && new Date(fs.held_until) > new Date();
-          return isSold || isHeldValid;
-        });
+      // P0.3: Kiểm tra xung đột ghế thời gian thực nếu suất chiếu đã được lưu trong DB Supabase
+      if (targetShowtimeUuid) {
+        const freshSeats = await BookingService.getShowtimeSeats(targetShowtimeUuid);
+        if (freshSeats && freshSeats.length > 0) {
+          const conflictedSeat = freshSeats.find((fs) => {
+            const isSelected = seatIds.includes(fs.id.toString());
+            if (!isSelected) return false;
+            // Nếu ghế đã bị bán hoặc đang giữ bởi người khác còn hạn
+            const isSold = (fs.status as string) === 'booked' || fs.status === 'sold';
+            const isHeldValid = fs.status === 'held' && fs.held_until && new Date(fs.held_until) > new Date();
+            return isSold || isHeldValid;
+          });
 
-        if (conflictedSeat) {
-          setIsProcessingPayment(false);
-          const label = `${conflictedSeat.row_label}${conflictedSeat.seat_number}`;
-          alert(`Ghế ${label} vừa được khách hàng khác giữ hoặc mua. Vui lòng chọn ghế khác!`);
-          // Làm mới lại sơ đồ ghế
-          setSeats((prev) =>
-            prev.map((s) => (s.id.toString() === conflictedSeat.id.toString() ? { ...s, status: 'sold' as any } : s))
-          );
-          setSelectedSeats((prev) => prev.filter((s) => s.id.toString() !== conflictedSeat.id.toString()));
-          return;
+          if (conflictedSeat) {
+            setIsProcessingPayment(false);
+            const label = `${conflictedSeat.row_label}${conflictedSeat.seat_number}`;
+            alert(`Ghế ${label} vừa được khách hàng khác giữ hoặc mua. Vui lòng chọn ghế khác!`);
+            // Làm mới lại sơ đồ ghế
+            setSeats((prev) =>
+              prev.map((s) => (s.id.toString() === conflictedSeat.id.toString() ? { ...s, status: 'sold' as any } : s))
+            );
+            setSelectedSeats((prev) => prev.filter((s) => s.id.toString() !== conflictedSeat.id.toString()));
+            return;
+          }
         }
       }
 
       // 1. Tạo đơn hàng và giữ ghế trên Supabase (RPC hold_seats)
+      let orderRes: any = null;
+      if (targetShowtimeUuid) {
+        try {
+          orderRes = await BookingService.holdSeats({
+            showtimeId: targetShowtimeUuid,
+            seatIds: seatIds,
+            userId: currentUser?.id || null,
+            channel: 'online',
+            contactName: payerName,
+            contactEmail: payerEmail,
+            contactPhone: payerPhone,
+          });
+        } catch (err: any) {
+          console.warn('hold_seats RPC fallback to direct flow:', err);
+        }
+      }
 
-      let orderRes;
-      try {
-        orderRes = await BookingService.holdSeats({
-          showtimeId: showtimeId,
-          seatIds: seatIds,
-          userId: currentUser?.id || null,
-          channel: 'online',
-          contactName: payerName,
-          contactEmail: payerEmail,
-          contactPhone: payerPhone,
-        });
-      } catch (err: any) {
-        console.warn('hold_seats RPC fallback to direct flow:', err);
-        // Nếu mock showtime ID không tồn tại trong DB, tạo mock order_id an toàn
+      if (!orderRes || !orderRes.order_id) {
         orderRes = {
-          order_id: 'mock-' + Date.now(),
+          order_id: 'ord-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
           order_code: 'CNM' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
         };
       }
@@ -713,11 +738,11 @@ function getDynamicShowtimeSeats(
       }
 
       // 2. Xác nhận thanh toán qua Supabase (RPC confirm_order_payment)
-      if (!orderId.startsWith('mock-')) {
+      if (orderId && orderId.length === 36) {
         try {
           await PaymentService.confirmPayment(orderId, paymentMethod as any);
         } catch (payErr) {
-          console.error('Lỗi xác nhận thanh toán Supabase:', payErr);
+          console.warn('Xác nhận thanh toán Supabase RPC fallback:', payErr);
         }
       }
 
@@ -725,6 +750,15 @@ function getDynamicShowtimeSeats(
         new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
         ' • ' +
         new Date().toLocaleDateString('vi-VN');
+
+      const chosenFoodsStr = Object.entries(foodQuantities)
+        .filter(([, qty]) => qty > 0)
+        .map(([id, qty]) => {
+          const item = foods.find((f) => f.id === parseInt(id));
+          return item ? `${qty}x ${item.name}` : '';
+        })
+        .filter(Boolean)
+        .join(', ');
 
       const newBooking = {
         bookingCode: generatedCode,
@@ -738,7 +772,61 @@ function getDynamicShowtimeSeats(
 
       setCompletedBooking(newBooking);
 
-      // 3. Lưu vào localStorage dự phòng cho client
+      // 3. Đồng bộ vào Supabase database qua syncOrderToSupabase
+      const foodItemsList = Object.entries(foodQuantities)
+        .filter(([, qty]) => qty > 0)
+        .map(([id, qty]) => {
+          const item = foods.find((f) => f.id === parseInt(id));
+          return item
+            ? {
+                productUuid: item.supabase_id,
+                name: item.name,
+                quantity: qty,
+                unitPrice: item.price,
+              }
+            : null;
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+
+      try {
+        await syncOrderToSupabase({
+          orderCode: generatedCode,
+          channel: 'online',
+          contactName: payerName,
+          contactEmail: payerEmail,
+          contactPhone: payerPhone,
+          subtotal: subtotalBeforeDiscount,
+          discountAmount,
+          totalAmount: finalTotal,
+          paymentProvider: paymentMethod,
+          showtimeUuid: selectedShowtime?.supabase_id,
+          auditoriumUuid: selectedShowtime?.auditorium_id,
+          seatCodes: selectedSeats.map((s) => `${s.row_label}${s.seat_number}`),
+          seatUuidLookup,
+          audienceType: 'ADULT',
+          unitTicketPrice: Math.round(ticketSubtotal / Math.max(1, selectedSeats.length)),
+          movieSnapshot: {
+            movieTitle: selectedMovie.title,
+            cinemaName: selectedCinema.name,
+            roomName: selectedShowtime?.room?.name || 'Phòng 1 (2D Tiêu Chuẩn)',
+            showTime: selectedShowtime?.start_time
+              ? new Date(selectedShowtime.start_time).toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : queryTime,
+            showDate: queryDate || '14/10/2026',
+            format: selectedShowtime?.room?.screen_type || '2D',
+            ageRating: selectedMovie.age_rating,
+          },
+          foodItems: foodItemsList,
+        });
+        refreshFromSupabase();
+      } catch (syncErr) {
+        console.warn('Sync to Supabase error:', syncErr);
+      }
+
+      // 4. Lưu vào localStorage dự phòng cho client
       try {
         const stored = localStorage.getItem('cinemax_user_tickets');
         const list = stored ? JSON.parse(stored) : [];
@@ -749,17 +837,19 @@ function getDynamicShowtimeSeats(
           customerEmail: payerEmail,
           customerPhone: payerPhone,
           bookingCode: generatedCode,
+          showtimeId: selectedShowtime?.id || queryShowtimeId,
           movieTitle: selectedMovie.title,
-          movieId: selectedMovie.id,
+          ageRating: selectedMovie.age_rating,
           posterUrl: selectedMovie.poster_url,
           cinemaName: selectedCinema.name,
-          cinemaId: selectedCinema.id,
-          roomName: selectedShowtime.room?.name || 'Phòng 01 (IMAX)',
-          showtimeId: selectedShowtime?.id || queryShowtimeId,
-          showtimeDate: queryDate,
-          showtimeTime: queryTime,
-          showtime: `${queryTime} • ${queryDate}`,
+          roomName: selectedShowtime?.room?.name || 'Phòng 01 (IMAX)',
+          showtime: `${queryTime} • ${queryDate || '14/10/2026'}`,
           seats: seatsStr,
+          audienceLabel: 'Người lớn (Đặt Online)',
+          foodSummary: chosenFoodsStr || 'Không kèm bắp nước',
+          foodFulfilled: !chosenFoodsStr,
+          paymentMethod: paymentMethod,
+          channel: 'ONLINE',
           totalAmount: finalTotal,
           createdAt: paidTime,
           status: 'ĐÃ THANH TOÁN',
@@ -817,11 +907,11 @@ function getDynamicShowtimeSeats(
     const bankTxnId = txDetails?.transactionId || `FT-${Date.now()}`;
     const senderBank = txDetails?.senderBank || 'TPBank';
 
-    if (!pendingVietQROrder.orderId.startsWith('mock-')) {
+    if (pendingVietQROrder.orderId && pendingVietQROrder.orderId.length === 36) {
       try {
         await PaymentService.confirmPayment(pendingVietQROrder.orderId, 'CARD', bankTxnId);
       } catch (payErr) {
-        console.error('Lỗi xác nhận thanh toán Supabase:', payErr);
+        console.warn('Xác nhận thanh toán Supabase RPC fallback:', payErr);
       }
     }
 
@@ -829,6 +919,15 @@ function getDynamicShowtimeSeats(
       new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
       ' • ' +
       new Date().toLocaleDateString('vi-VN');
+
+    const chosenFoodsStr = Object.entries(foodQuantities)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, qty]) => {
+        const item = foods.find((f) => f.id === parseInt(id));
+        return item ? `${qty}x ${item.name}` : '';
+      })
+      .filter(Boolean)
+      .join(', ');
 
     const newBooking = {
       bookingCode: pendingVietQROrder.orderCode,
@@ -842,6 +941,60 @@ function getDynamicShowtimeSeats(
 
     setCompletedBooking(newBooking);
 
+    // Đồng bộ vào Supabase database
+    const foodItemsList = Object.entries(foodQuantities)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, qty]) => {
+        const item = foods.find((f) => f.id === parseInt(id));
+        return item
+          ? {
+              productUuid: item.supabase_id,
+              name: item.name,
+              quantity: qty,
+              unitPrice: item.price,
+            }
+          : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    try {
+      await syncOrderToSupabase({
+        orderCode: pendingVietQROrder.orderCode,
+        channel: 'online',
+        contactName: pendingVietQROrder.payerName,
+        contactEmail: pendingVietQROrder.payerEmail,
+        contactPhone: pendingVietQROrder.payerPhone,
+        subtotal: subtotalBeforeDiscount,
+        discountAmount,
+        totalAmount: pendingVietQROrder.amount,
+        paymentProvider: `VIETQR (${senderBank})`,
+        showtimeUuid: selectedShowtime?.supabase_id,
+        auditoriumUuid: selectedShowtime?.auditorium_id,
+        seatCodes: selectedSeats.map((s) => `${s.row_label}${s.seat_number}`),
+        seatUuidLookup,
+        audienceType: 'ADULT',
+        unitTicketPrice: Math.round(ticketSubtotal / Math.max(1, selectedSeats.length)),
+        movieSnapshot: {
+          movieTitle: selectedMovie.title,
+          cinemaName: selectedCinema.name,
+          roomName: selectedShowtime?.room?.name || 'Phòng 1 (2D Tiêu Chuẩn)',
+          showTime: selectedShowtime?.start_time
+            ? new Date(selectedShowtime.start_time).toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : queryTime,
+          showDate: queryDate || '14/10/2026',
+          format: selectedShowtime?.room?.screen_type || '2D',
+          ageRating: selectedMovie.age_rating,
+        },
+        foodItems: foodItemsList,
+      });
+      refreshFromSupabase();
+    } catch (syncErr) {
+      console.warn('Sync VietQR order to Supabase error:', syncErr);
+    }
+
     try {
       const stored = localStorage.getItem('cinemax_user_tickets');
       const list = stored ? JSON.parse(stored) : [];
@@ -854,19 +1007,22 @@ function getDynamicShowtimeSeats(
         bookingCode: pendingVietQROrder.orderCode,
         movieTitle: selectedMovie.title,
         movieId: selectedMovie.id,
-        moviePoster: selectedMovie.poster_url,
+        ageRating: selectedMovie.age_rating,
+        posterUrl: selectedMovie.poster_url,
         cinemaName: selectedCinema.name,
         cinemaId: selectedCinema.id,
-        roomName: selectedShowtime.room?.name || 'Phòng 01 (IMAX)',
+        roomName: selectedShowtime?.room?.name || 'Phòng 01 (IMAX)',
         showtimeId: selectedShowtime?.id || queryShowtimeId,
         showtimeDate: queryDate,
         showtimeTime: queryTime,
-        showtime: `${queryTime} • ${queryDate}`,
-        seats: selectedSeats.map((s) => `${s.row_label}${s.seat_number}`),
-        seatsStr: pendingVietQROrder.seatsStr,
+        showtime: `${queryTime} • ${queryDate || '14/10/2026'}`,
+        seats: pendingVietQROrder.seatsStr,
+        audienceLabel: 'Người lớn (Đặt Online)',
+        foodSummary: chosenFoodsStr || 'Không kèm bắp nước',
+        foodFulfilled: !chosenFoodsStr,
         totalAmount: pendingVietQROrder.amount,
         status: 'ĐÃ THANH TOÁN',
-        paymentMethod: `VIETQR (TPBank) • ${bankTxnId}`,
+        paymentMethod: `VIETQR (${senderBank}) • ${bankTxnId}`,
         bankTxnId,
         senderBank,
         paidAt: paidTime,
@@ -994,62 +1150,6 @@ function getDynamicShowtimeSeats(
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Seat Map (Left 2 cols) */}
             <div className="lg:col-span-2 bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 flex flex-col items-center">
-              {/* Thống kê đếm đúng số ghế và số ghế trống thời gian thực */}
-              <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-[#0F1217] p-3 rounded-2xl border border-[#303645] mb-8 text-xs select-none shadow-inner">
-                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#1A1C26] px-3 py-2 rounded-xl border border-[#303645]/70">
-                  <span className="text-[#9EA6B8]">Tổng số ghế:</span>
-                  <span className="font-bold text-white font-mono">{totalSeatsCount} ghế</span>
-                </div>
-                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#33C773]/10 px-3 py-2 rounded-xl border border-[#33C773]/30">
-                  <span className="text-[#9EA6B8]">Ghế trống:</span>
-                  <span className="font-bold text-[#33C773] font-mono">{availableSeatsCount} ghế</span>
-                </div>
-                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#383D4D]/40 px-3 py-2 rounded-xl border border-[#383D4D]">
-                  <span className="text-[#9EA6B8]">Đã khóa/bán:</span>
-                  <span className="font-bold text-gray-300 font-mono">{soldSeatsCount} ghế</span>
-                </div>
-                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#E63845]/10 px-3 py-2 rounded-xl border border-[#E63845]/30">
-                  <span className="text-[#9EA6B8]">Đang chọn:</span>
-                  <span className="font-bold text-[#E63845] font-mono">{selectedSeatsCount} ghế</span>
-                </div>
-              </div>
-
-              {/* Banner cảnh báo ghế trống đơn lẻ (Orphan Seat Warning - Phương án A) */}
-              {orphanWarning && orphanWarning.hasOrphanSeats && (
-                <div className="w-full bg-[#FABF2E]/10 border border-[#FABF2E]/40 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 shadow-lg">
-                  <div className="flex items-start gap-2.5 text-[#FABF2E]">
-                    <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold text-white text-sm">
-                        Cảnh báo: Phát hiện ghế trống đơn lẻ bị kẹp
-                      </div>
-                      <p className="text-gray-300 mt-1 leading-relaxed">
-                        {orphanWarning.suggestionMessage}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0 pt-1 sm:pt-0">
-                    <button
-                      type="button"
-                      onClick={() => handleAddOrphanSeats(orphanWarning.orphanSeats)}
-                      className="px-3.5 py-1.5 rounded-lg bg-[#FABF2E] hover:bg-yellow-400 text-black font-bold text-xs cursor-pointer transition-colors shadow-md"
-                    >
-                      + Chọn luôn ghế {orphanWarning.orphanSeats.join(', ')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAcknowledgedOrphan(true);
-                        setOrphanWarning(null);
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-[#303645] hover:bg-[#383D4D] text-gray-300 hover:text-white font-medium text-xs cursor-pointer transition-colors"
-                    >
-                      Bỏ qua & Tiếp tục
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Red Screen Curve (Figma Screen 3) */}
               <div className="w-full max-w-xl mx-auto flex flex-col items-center mb-10">
                 <div className="w-full h-3 rounded-t-[100%] border-t-2 border-[#E63845] shadow-[0_-10px_20px_rgba(230,56,69,0.35)] mb-3" />
@@ -1058,133 +1158,123 @@ function getDynamicShowtimeSeats(
                 </span>
               </div>
 
-              {/* Seat Matrix with Center Aisle */}
+              {/* Seat Matrix: 10 columns continuous grid matching Staff POS */}
               <div className="w-full overflow-x-auto pb-6 flex justify-center">
-                <div className="inline-grid gap-2 text-center select-none">
+                <div className="space-y-2 select-none min-w-[320px]">
                   {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((row) => {
-                    const rowSeats = seats.filter((s) => s.row_label === row);
+                    const isVipRow = row === 'F' || row === 'G';
                     const isCoupleRow = row === 'H';
-
-                    // Center aisle: 5 seats on left, 5 on right (for couple: 3 and 3)
-                    const leftSeats = isCoupleRow ? rowSeats.slice(0, 3) : rowSeats.slice(0, 5);
-                    const rightSeats = isCoupleRow ? rowSeats.slice(3, 6) : rowSeats.slice(5, 10);
-
-                    const renderSeatButton = (seat: Seat) => {
-                      const isSelected = selectedSeats.some((s) => s.id === seat.id);
-                      const isSold =
-                        seat.status === 'SOLD' ||
-                        seat.status === 'sold' ||
-                        seat.status === 'BOOKED' ||
-                        seat.status === 'booked';
-                      const isHeld = seat.status === 'HELD' || seat.status === 'held';
-                      const isBlocked = seat.status === 'BLOCKED' || seat.status === 'blocked';
-                      const isVip = seat.seat_type?.code === 'VIP';
-                      const isCouple = seat.seat_type?.code === 'COUPLE';
-
-                      let bgClass = 'bg-[#303645]/80 text-[#9CA3AF] border border-[#9CA3AF]/40 hover:border-white';
-                      if (isVip) {
-                        bgClass = 'bg-[#FABF2E]/20 text-[#FABF2E] border border-[#FABF2E]/70 hover:bg-[#FABF2E]/30';
-                      }
-                      if (isCouple) {
-                        bgClass = 'bg-[#F472B6]/20 text-[#F472B6] border border-[#F472B6]/70 hover:bg-[#F472B6]/30';
-                      }
-                      if (isSelected) {
-                        bgClass = 'bg-[#E63845] text-white border-transparent font-bold glow-primary scale-105';
-                      }
-                      if (isHeld) {
-                        bgClass = 'bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/60 cursor-not-allowed opacity-85';
-                      }
-                      if (isBlocked) {
-                        bgClass = 'bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed line-through opacity-40';
-                      }
-                      if (isSold) {
-                        bgClass = 'bg-[#383D4D] text-transparent border-transparent cursor-not-allowed opacity-35';
-                      }
-
-                      return (
-                        <button
-                          key={seat.id}
-                          disabled={isSold || isHeld || isBlocked}
-                          onClick={() => handleSeatClick(seat)}
-                          className={`h-8 sm:h-9 rounded-lg text-xs font-semibold transition-all flex items-center justify-center cursor-pointer ${bgClass} ${
-                            isCouple ? 'w-16 sm:w-20' : 'w-7 sm:w-8'
-                          }`}
-                          title={`${row}${seat.seat_number} - ${seat.seat_type?.name}${
-                            isHeld ? ' (Đang được giữ chỗ tạm thời)' : isBlocked ? ' (Đang bảo trì/khóa)' : isSold ? ' (Đã bán)' : ''
-                          }`}
-                        >
-                          {isHeld ? (
-                            <Clock className="w-3.5 h-3.5 animate-pulse text-[#F59E0B]" />
-                          ) : isBlocked ? (
-                            '✕'
-                          ) : isCouple ? (
-                            `ĐÔI ${seat.seat_number}`
-                          ) : (
-                            seat.seat_number
-                          )}
-                        </button>
-                      );
-                    };
-
                     return (
-                      <div key={row} className="flex items-center justify-center gap-2">
-                        <span className="w-5 text-xs font-bold text-[#9EA6B8]">{row}</span>
+                      <div key={row} className="flex items-center justify-center gap-1.5 sm:gap-2">
+                        <span className="w-4 sm:w-5 text-xs font-bold text-slate-400 text-center">
+                          {row}
+                        </span>
+                        <div className="grid grid-cols-10 gap-1.5 sm:gap-2">
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((col) => {
+                            const code = `${row}${col}`;
+                            const seat =
+                              seats.find((s) => s.row_label === row && s.seat_number === col) || {
+                                id: `${row}-${col}`,
+                                row_label: row,
+                                seat_number: col,
+                                seat_type: {
+                                  code: isCoupleRow ? 'COUPLE' : isVipRow ? 'VIP' : 'STANDARD',
+                                  name: isCoupleRow ? 'Ghế đôi' : isVipRow ? 'Ghế VIP' : 'Ghế thường',
+                                },
+                                status: 'AVAILABLE',
+                              };
+                            const isSelected = selectedSeats.some(
+                              (s) => s.id === seat.id || `${s.row_label}${s.seat_number}` === code
+                            );
+                            const isSold =
+                              seat.status === 'SOLD' ||
+                              seat.status === 'sold' ||
+                              seat.status === 'BOOKED' ||
+                              seat.status === 'booked';
+                            const isHeld = seat.status === 'HELD' || seat.status === 'held';
+                            const isBlocked = seat.status === 'BLOCKED' || seat.status === 'blocked';
 
-                        {/* Left seat block */}
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                          {leftSeats.map(renderSeatButton)}
+                            let seatClass =
+                              'bg-[#283044] text-slate-200 border-[#36415C] hover:border-white';
+                            if (isVipRow) {
+                              seatClass =
+                                'bg-[#3B2610] text-[#FBBF24] border-[#92400E] hover:border-[#FBBF24]';
+                            }
+                            if (isCoupleRow) {
+                              seatClass =
+                                'bg-[#3B1530] text-[#F472B6] border-[#9D174D] hover:border-[#F472B6]';
+                            }
+                            if (isSelected) {
+                              seatClass =
+                                'bg-[#E63845] text-white border-[#E63845] font-bold shadow-lg shadow-[#E63845]/40 scale-105';
+                            }
+                            if (isSold) {
+                              seatClass =
+                                'bg-[#181C26] text-slate-600 border-[#1E2433] cursor-not-allowed';
+                            }
+                            if (isHeld) {
+                              seatClass =
+                                'bg-[#2D2A1C] text-[#FDE047] border-[#854D0E] cursor-not-allowed';
+                            }
+                            if (isBlocked) {
+                              seatClass =
+                                'bg-[#3A1217] text-[#F87171] border-[#7F1D1D] cursor-not-allowed line-through';
+                            }
+
+                            return (
+                              <button
+                                key={code}
+                                type="button"
+                                disabled={isSold || isHeld || isBlocked}
+                                onClick={() => handleSeatClick(seat as Seat)}
+                                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg text-[10px] sm:text-xs font-semibold border transition-all flex items-center justify-center cursor-pointer ${seatClass}`}
+                                title={`${code} - ${
+                                  isCoupleRow
+                                    ? 'Ghế đôi (210.000đ)'
+                                    : isVipRow
+                                    ? 'Ghế VIP (110.000đ)'
+                                    : 'Ghế thường (90.000đ)'
+                                }`}
+                              >
+                                {code}
+                              </button>
+                            );
+                          })}
                         </div>
-
-                        {/* Center Aisle */}
-                        <div className="w-8 sm:w-12 text-[10px] text-[#9EA6B8]/40 flex items-center justify-center font-mono">
-                          •
-                        </div>
-
-                        {/* Right seat block */}
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                          {rightSeats.map(renderSeatButton)}
-                        </div>
-
-                        <span className="w-5 text-xs font-bold text-[#9EA6B8]">{row}</span>
+                        <span className="w-4 sm:w-5 text-xs font-bold text-slate-400 text-center">
+                          {row}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Seat Legend - Phân biệt rõ cả 4 trạng thái: AVAILABLE, HELD, BOOKED, BLOCKED */}
-              <div className="w-full border-t border-[#303645] pt-6 mt-6 flex flex-wrap items-center justify-center gap-3.5 sm:gap-5 text-xs text-[#9EA6B8]">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded bg-[#303645] border border-[#9CA3AF]" />
-                  <span>Thường (90k)</span>
+              {/* Seat Legend (Khớp 100% Staff POS) */}
+              <div className="w-full border-t border-[#303645] pt-6 mt-6 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs text-[#9EA6B8]">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#283044] border border-[#36415C]" />
+                  <span>Ghế thường (90.000đ)</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded bg-[#FABF2E]/20 border border-[#FABF2E]" />
-                  <span>VIP (110k)</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#3B2610] border border-[#92400E] text-[#FBBF24]" />
+                  <span>Ghế VIP (110.000đ)</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-4 rounded bg-[#F472B6]/20 border border-[#F472B6]" />
-                  <span>Đôi (210k)</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#3B1530] border border-[#9D174D] text-[#F472B6]" />
+                  <span>Ghế đôi (210.000đ)</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded bg-[#E63845]" />
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#E63845] border border-[#E63845]" />
                   <span className="text-white font-semibold">Đang chọn</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded bg-[#F59E0B]/20 border border-[#F59E0B] flex items-center justify-center">
-                    <Clock className="w-2.5 h-2.5 text-[#F59E0B]" />
-                  </div>
-                  <span className="text-[#F59E0B] font-medium">Đang giữ chỗ (HELD)</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#181C26] border border-[#1E2433]" />
+                  <span>Đã bán</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded bg-[#383D4D] opacity-40" />
-                  <span>Đã bán (BOOKED)</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[9px] text-zinc-500 font-bold">
-                    ✕
-                  </div>
-                  <span>Bị khóa (BLOCKED)</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#2D2A1C] border border-[#854D0E]" />
+                  <span>Đang giữ chỗ</span>
                 </div>
               </div>
             </div>
@@ -1211,29 +1301,9 @@ function getDynamicShowtimeSeats(
                       {selectedShowtime.room?.name || 'Phòng 01 (IMAX)'}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[#9EA6B8] block text-xs">Suất chiếu:</span>
-                      <span className="font-bold text-[#FABF2E]">{queryTime} • {queryDate}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsShowtimeChangeOpen(true)}
-                      className="text-[11px] text-[#E63845] hover:underline font-semibold bg-[#E63845]/10 px-2.5 py-1 rounded-lg border border-[#E63845]/30 cursor-pointer transition-colors"
-                    >
-                      Đổi suất
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 p-2.5 bg-[#0F1217] rounded-xl border border-[#303645] text-xs">
-                    <div>
-                      <span className="text-[#9EA6B8] block text-[10px]">Tổng số ghế:</span>
-                      <span className="font-bold text-white font-mono">{totalSeatsCount} ghế</span>
-                    </div>
-                    <div>
-                      <span className="text-[#9EA6B8] block text-[10px]">Ghế trống còn lại:</span>
-                      <span className="font-bold text-[#33C773] font-mono">{availableSeatsCount} ghế</span>
-                    </div>
+                  <div>
+                    <span className="text-[#9EA6B8] block text-xs">Suất chiếu:</span>
+                    <span className="font-bold text-[#FABF2E]">{queryTime} • {queryDate}</span>
                   </div>
 
                   <div className="pt-2 border-t border-[#303645]">
@@ -1267,7 +1337,7 @@ function getDynamicShowtimeSeats(
 
                 <button
                   disabled={selectedSeats.length === 0}
-                  onClick={handleProceedToStep2}
+                  onClick={() => setCurrentStep(2)}
                   className="w-full bg-[#E63845] hover:bg-[#CC2B37] disabled:opacity-40 disabled:cursor-not-allowed text-white py-3.5 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
                 >
                   Tiếp tục
@@ -1454,40 +1524,29 @@ function getDynamicShowtimeSeats(
 
               {/* Phương thức thanh toán (Figma Screen 4) */}
               <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-white">Phương thức thanh toán</h3>
-                  <span className="text-xs text-[#FABF2E] font-medium hidden sm:inline">
-                    Khuyên dùng VietQR (Không mất phí)
-                  </span>
-                </div>
+                <h3 className="text-lg font-bold text-white">Phương thức thanh toán</h3>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-                  {/* VIETQR TPBank (Khuyên dùng) */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('VIETQR')}
-                    className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all relative overflow-hidden ${
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'VIETQR'
-                        ? 'border-[#8E24AA] bg-[#8E24AA]/15 ring-2 ring-[#8E24AA]'
+                        ? 'border-[#0052CC] bg-[#0052CC]/15 ring-2 ring-[#0052CC]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
                     }`}
                   >
-                    <div className="absolute top-0 right-0 bg-[#E63845] text-white text-[9px] font-black px-1.5 py-0.5 rounded-bl-lg">
-                      HOT
+                    <div className="w-10 h-10 rounded-xl bg-[#0052CC] flex items-center justify-center text-white font-black text-xs shadow-md">
+                      QR
                     </div>
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#6A1B9A] to-[#AB47BC] flex items-center justify-center text-white font-black text-xs shadow-md">
-                      TPB
-                    </div>
-                    <div className="text-center">
-                      <span className="text-xs font-bold text-white block">VietQR</span>
-                      <span className="text-[10px] text-[#FABF2E] font-medium">TPBank 24/7</span>
-                    </div>
+                    <span className="text-xs font-bold text-white text-center">VietQR Pro</span>
+                    <span className="text-[10px] text-[#33C773] font-semibold -mt-1">Tự động 24/7</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('MOMO')}
-                    className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'MOMO'
                         ? 'border-[#D82D8B] bg-[#D82D8B]/10 ring-2 ring-[#D82D8B]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -1502,7 +1561,7 @@ function getDynamicShowtimeSeats(
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('VNPAY')}
-                    className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'VNPAY'
                         ? 'border-[#0066FF] bg-[#0066FF]/10 ring-2 ring-[#0066FF]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -1517,7 +1576,7 @@ function getDynamicShowtimeSeats(
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('ZALOPAY')}
-                    className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'ZALOPAY'
                         ? 'border-[#0088FF] bg-[#0088FF]/10 ring-2 ring-[#0088FF]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -1532,7 +1591,7 @@ function getDynamicShowtimeSeats(
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('CARD')}
-                    className={`p-3.5 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'CARD'
                         ? 'border-[#FABF2E] bg-[#FABF2E]/10 ring-2 ring-[#FABF2E]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -1663,7 +1722,7 @@ function getDynamicShowtimeSeats(
                     <div>
                       <span className="text-white/60 block text-[11px]">Phòng & Suất chiếu:</span>
                       <span className="text-[#FABF2E] font-bold">
-                        {selectedShowtime.room?.name || 'Phòng 01 (IMAX)'} • 10:00 - 29/09/2026
+                        {selectedShowtime.room?.name || 'Phòng 01 (IMAX)'} • {queryTime} - {queryDate}
                       </span>
                     </div>
                     <div>
@@ -1794,7 +1853,6 @@ function getDynamicShowtimeSeats(
         )}
       </main>
 
-      {/* Modal Thanh toán VietQR An toàn (TPBank) */}
       {pendingVietQROrder && (
         <VietQRModal
           isOpen={isVietQRModalOpen}
@@ -1805,15 +1863,6 @@ function getDynamicShowtimeSeats(
           timeLeftSeconds={timeLeft}
         />
       )}
-
-      {/* Modal Đổi Suất Chiếu Form Mẫu (P0.2: Xóa ghế cũ, tải ghế mới, tính lại giá) */}
-      <ShowtimeModal
-        isOpen={isShowtimeChangeOpen}
-        onClose={() => setIsShowtimeChangeOpen(false)}
-        movie={selectedMovie}
-        cinemas={cinemas}
-        onSelectShowtime={handleSelectShowtimeInBooking}
-      />
 
       <Footer />
     </div>

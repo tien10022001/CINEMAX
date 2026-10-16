@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import QRCode from 'qrcode';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth-context';
@@ -31,6 +32,7 @@ export default function MyTicketsPage() {
   const [allTickets, setAllTickets] = useState<StoredTicket[]>([]);
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'HISTORY'>('UPCOMING');
   const [selectedQrTicket, setSelectedQrTicket] = useState<StoredTicket | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
   // Admin toggle to view all tickets in system
   const [adminViewAll, setAdminViewAll] = useState<boolean>(false);
@@ -40,6 +42,20 @@ export default function MyTicketsPage() {
   const [lookupPhone, setLookupPhone] = useState<string>('');
   const [lookupError, setLookupError] = useState<string>('');
   const [lookupResult, setLookupResult] = useState<StoredTicket | null>(null);
+
+  useEffect(() => {
+    if (!selectedQrTicket) {
+      setQrDataUrl('');
+      return;
+    }
+    QRCode.toDataURL(selectedQrTicket.bookingCode, {
+      width: 240,
+      margin: 1,
+      color: { dark: '#000000', light: '#FFFFFF' },
+    })
+      .then((url) => setQrDataUrl(url))
+      .catch(() => setQrDataUrl(''));
+  }, [selectedQrTicket]);
 
   useEffect(() => {
     try {
@@ -411,7 +427,7 @@ export default function MyTicketsPage() {
 
             <div className="bg-white p-3 rounded-2xl inline-block shadow-lg">
               <img
-                src={TicketScannerService.generateTicketQrUrl(selectedQrTicket.bookingCode, 240)}
+                src={qrDataUrl || TicketScannerService.generateTicketQrUrl(selectedQrTicket.bookingCode, 240)}
                 alt={`Mã QR vé ${selectedQrTicket.bookingCode}`}
                 className="w-48 h-48 object-contain"
               />
@@ -435,12 +451,24 @@ export default function MyTicketsPage() {
               </div>
             </div>
 
-            <button
-              onClick={() => setSelectedQrTicket(null)}
-              className="w-full bg-[#E63845] hover:bg-[#CC2B37] text-white py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer"
-            >
-              Đóng
-            </button>
+            <div className="grid grid-cols-2 gap-2.5">
+              {qrDataUrl && (
+                <a
+                  href={qrDataUrl}
+                  download={`QR-${selectedQrTicket.bookingCode}.png`}
+                  className="bg-[#0F1217] border border-[#303645] hover:border-white text-white py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Tải ảnh QR</span>
+                </a>
+              )}
+              <button
+                onClick={() => setSelectedQrTicket(null)}
+                className={`${qrDataUrl ? '' : 'col-span-2'} bg-[#E63845] hover:bg-[#CC2B37] text-white py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer`}
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}

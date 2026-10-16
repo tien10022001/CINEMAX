@@ -18,8 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'movies', label: 'Phim', href: '/?tab=movies' },
   { id: 'cinemas', label: 'Rạp chiếu', href: '/?tab=cinemas' },
   { id: 'promotions', label: 'Khuyến mãi', href: '/?tab=promotions' },
-  { id: 'lookup', label: 'Tra cứu vé', href: '/lookup' },
-  { id: 'support', label: 'Hỗ trợ', href: '/support' },
+  { id: 'news', label: 'Tin tức', href: '/?tab=news' },
 ];
 
 interface HeaderProps {
@@ -71,24 +70,16 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
     if (typeof window === 'undefined') return;
 
     const syncActiveTab = () => {
-      if (pathname === '/lookup') {
-        setActiveTab('lookup');
-        return;
-      }
-      if (pathname === '/support') {
-        setActiveTab('support');
-        return;
-      }
-
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get('tab');
-      if (tabParam && ['home', 'movies', 'cinemas', 'promotions', 'lookup', 'support'].includes(tabParam)) {
+      if (tabParam && ['home', 'movies', 'cinemas', 'promotions', 'news'].includes(tabParam)) {
         setActiveTab(tabParam);
       } else {
         const hash = window.location.hash;
         if (hash === '#movies') setActiveTab('movies');
         else if (hash === '#cinemas') setActiveTab('cinemas');
         else if (hash === '#promotions') setActiveTab('promotions');
+        else if (hash === '#news') setActiveTab('news');
         else if (pathname === '/' && !tabParam && !hash) {
           setActiveTab('home');
         }
@@ -108,15 +99,6 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
     setActiveTab(id);
     setMobileMenuOpen(false);
 
-    if (id === 'lookup') {
-      router.push('/lookup');
-      return;
-    }
-    if (id === 'support') {
-      router.push('/support');
-      return;
-    }
-
     if (pathname === '/') {
       const newUrl = id === 'home' ? '/' : `/?tab=${id}`;
       window.history.pushState(null, '', newUrl);
@@ -133,6 +115,7 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
     setIsSubmitting(true);
 
     if (tab === 'LOGIN') {
+      const cleanMail = emailInput.trim().toLowerCase();
       const res = await login(emailInput, passwordInput);
       setIsSubmitting(false);
       if (!res.success) {
@@ -140,6 +123,13 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
       } else {
         setEmailInput('');
         setPasswordInput('');
+        if (
+          ['staff@cinemax.vn', 'pos@cinemax.vn', 'checkin@cinemax.vn', 'fnb@cinemax.vn'].includes(
+            cleanMail
+          )
+        ) {
+          router.push('/staff');
+        }
       }
     } else {
       const res = await register(nameInput, emailInput, phoneInput, passwordInput);
@@ -269,6 +259,8 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
                   className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
                     currentUser.role_code === 'ADMIN'
                       ? 'bg-[#FABF2E]/15 border border-[#FABF2E] text-[#FABF2E] hover:bg-[#FABF2E]/25'
+                      : currentUser.role_code === 'STAFF'
+                      ? 'bg-[#33C773]/15 border border-[#33C773] text-[#33C773] hover:bg-[#33C773]/25'
                       : 'bg-[#1A1C26] border border-[#303645] text-white hover:border-[#E63845]'
                   }`}
                 >
@@ -276,6 +268,10 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
                     <>
                       <ShieldCheck className="w-4 h-4 text-[#FABF2E]" />
                       <span>Admin: {currentUser.full_name} ▾</span>
+                    </>
+                  ) : currentUser.role_code === 'STAFF' ? (
+                    <>
+                      <span>Staff: {currentUser.full_name} ▾</span>
                     </>
                   ) : (
                     <>
@@ -288,7 +284,7 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 top-12 w-52 bg-[#1A1C26] border border-[#303645] rounded-2xl shadow-2xl py-2 z-50 text-xs text-white space-y-1">
+                  <div className="absolute right-0 top-12 w-56 bg-[#1A1C26] border border-[#303645] rounded-2xl shadow-2xl py-2 z-50 text-xs text-white space-y-1">
                     {/* User header info */}
                     <div className="px-4 py-2 border-b border-[#303645]/70">
                       <div className="font-bold text-white line-clamp-1">{currentUser.full_name}</div>
@@ -297,11 +293,17 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
                         <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
                           currentUser.role_code === 'ADMIN'
                             ? 'bg-[#FABF2E] text-black'
+                            : currentUser.role_code === 'STAFF'
+                            ? 'bg-[#33C773] text-black'
                             : 'bg-[#E63845] text-white'
                         }`}>
-                          {currentUser.role_code === 'ADMIN' ? 'QUẢN TRỊ VIÊN' : 'THÀNH VIÊN'}
+                          {currentUser.role_code === 'ADMIN'
+                            ? 'QUẢN TRỊ VIÊN'
+                            : currentUser.role_code === 'STAFF'
+                            ? 'NHÂN VIÊN RẠP'
+                            : 'THÀNH VIÊN'}
                         </span>
-                        {currentUser.role_code !== 'ADMIN' && (
+                        {currentUser.role_code === 'CUSTOMER' && (
                           <span className="text-[10px] text-[#FABF2E] font-semibold">
                             {currentUser.loyalty_points || 0} điểm
                           </span>
@@ -316,8 +318,18 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
                         onClick={() => setUserDropdownOpen(false)}
                         className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#0F1217] text-[#FABF2E] font-semibold transition-colors"
                       >
-                        <ShieldCheck className="w-4 h-4 text-[#FABF2E]" />
-                        <span>Trang Quản Trị</span>
+                        <span>Trang Quản Trị (Admin)</span>
+                      </Link>
+                    )}
+
+                    {/* Staff Workspace Option */}
+                    {(currentUser.role_code === 'STAFF' || currentUser.role_code === 'ADMIN') && (
+                      <Link
+                        href="/staff"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#0F1217] text-[#33C773] font-semibold transition-colors"
+                      >
+                        <span>Cổng Nhân Viên Rạp (/staff)</span>
                       </Link>
                     )}
 
