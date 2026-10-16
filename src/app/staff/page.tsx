@@ -5,12 +5,15 @@ import Link from 'next/link';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
 import { useData } from '@/lib/data-context';
+import { createClient } from '@/lib/supabase/client';
 import {
   syncOrderToSupabase,
   syncCheckInToSupabase,
   syncStockMovementToSupabase,
   syncShiftToSupabase,
   syncRefundToSupabase,
+  syncSeatExchangeToSupabase,
+  syncConcessionFulfillmentToSupabase,
   fetchSupabaseStaffRecords,
 } from '@/lib/supabase/queries';
 
@@ -485,47 +488,225 @@ export default function StaffWorkspacePage() {
 
     try {
       const supaRecords = await fetchSupabaseStaffRecords();
+
+      // Build audit snapshot lookup by order_code as fallback metadata source
+      const auditSnapshotByCode = new Map<string, Record<string, unknown>>();
+      for (const aud of (supaRecords.audits || []) as Record<string, unknown>[]) {
+        const entityId = String(aud.entity_id || '');
+        const afterData = (aud.after_data as Record<string, unknown>) || null;
+        if (entityId && afterData && !auditSnapshotByCode.has(entityId)) {
+          auditSnapshotByCode.set(entityId, afterData);
+        }
+      }
+
       if (supaRecords.orders && supaRecords.orders.length > 0) {
         setOrders((prev) => {
-          const existingCodes = new Set(prev.map((o) => o.id));
-          const mappedFromDb: SharedTicketOrder[] = supaRecords.orders
-            .filter(
-              (dbO: Record<string, unknown>) =>
-                !existingCodes.has(String(dbO.order_code || dbO.id))
-            )
-            .map((dbO: Record<string, unknown>) => ({
-              id: String(dbO.order_code || dbO.id),
-              movie_title: 'Phim chiếu rạp CINEMAX',
-              age_rating: 'T16',
-              cinema_name: 'Cinemax Quận 1',
-              room_name: 'Phòng 1',
-              screen_type: '2D Dolby',
-              start_time: String(dbO.created_at || new Date().toISOString()),
-              seats: ['E7', 'E8'],
-              checked_in_seats: [],
-              audience_type: 'ADULT',
-              foods: [],
-              food_fulfilled: false,
-              promo_code: null,
-              discount_amount: Number(dbO.discount_total || 0),
-              total_amount: Number(dbO.total_amount || 170000),
-              payment_method:
-                String(dbO.channel || 'pos').toUpperCase() === 'POS' ? 'CASH' : 'VNPAY',
-              customer_name:
-                String(dbO.channel || 'pos').toLowerCase() === 'pos'
-                  ? 'Khách vãng lai (POS)'
-                  : 'Khách đặt trực tuyến',
-              customer_phone: '0909888777',
-              customer_email: 'khachhang@cinemax.vn',
-              status:
-                String(dbO.status).toLowerCase() === 'cancelled'
-                  ? 'CANCELLED'
-                  : 'PAID',
-              created_at: new Date(String(dbO.created_at || Date.now())).toLocaleString('vi-VN'),
-              channel: String(dbO.channel || '').toLowerCase() === 'pos' ? 'POS' : 'ONLINE',
-              showtime_id: 1,
-            }));
-          return [...mappedFromDb, ...prev];
+          const prevByCode = new Map<string, SharedTicketOrder>();
+          prev.forEach((o) => prevByCode.set(o.id, o));
+
+          const dbMappedOrders: SharedTicketOrder[] = (
+            supaRecords.orders as Record<string, unknown>[]
+          ).map((dbO) => {
+            const orderCode = String(dbO.order_code || dbO.id);
+            const existingLocal = prevByCode.get(orderCode);
+            const auditSnap = auditSnapshotByCode.get(orderCode) || {};
+            const auditMovieSnap =
+              (auditSnap.movieSnapshot as Record<string, unknown>) || {};
+
+            const rawOrderItems = Array.isArray(dbO.order_items)
+              ? (dbO.order_items as Record<string, unknown>[])
+              : [];
+            const ticketItems = rawOrderItems.filter(
+              (oi) => String(oi.item_type || '').toLowerCase() === 'ticket'
+            );
+            const productItems = rawOrderItems.filter(
+              (oi) => String(oi.item_type || '').toLowerCase() === 'product'
+            );
+
+            const firstTicketSnap =
+              (ticketItems[0]?.item_snapshot as Record<string, unknown>) ||
+              auditMovieSnap ||
+              {};
+
+            // Extract real seats & checked-in seats from order_items + tickets
+            const extractedSeats: string[] = [];
+            const extractedCheckedInSeats: string[] = [];
+            let anyTicketUsed = false;
+
+            ticketItems.forEach((ti) => {
+              const snap = (ti.item_snapshot as Record<string, unknown>) || {};
+              const sCode = String(snap.seatCode || '').trim().toUpperCase();
+              if (sCode) extractedSeats.push(sCode);
+
+              const nestedTickets = Array.isArray(ti.tickets)
+                ? (ti.tickets as Record<string, unknown>[])
+                : ti.tickets && typeof ti.tickets === 'object'
+                ? [ti.tickets as Record<string, unknown>]
+                : [];
+              nestedTickets.forEach((tk) => {
+                if (String(tk.status || '').toLowerCase() === 'used') {
+                  anyTicketUsed = true;
+                  if (sCode) extractedCheckedInSeats.push(sCode);
+                }
+              });
+            });
+
+            const auditSeats = Array.isArray(auditSnap.seats)
+              ? (auditSnap.seats as unknown[]).map((s) => String(s))
+              : [];
+
+            const finalSeats =
+              extractedSeats.length > 0
+                ? extractedSeats
+                : auditSeats.length > 0
+                ? auditSeats
+                : existingLocal?.seats || ['E7', 'E8'];
+
+            // Extract real food items & fulfillment status
+            const extractedFoods: FoodOrderItem[] = productItems.map((pi) => {
+              const snap = (pi.item_snapshot as Record<string, unknown>) || {};
+              const fulfillments = Array.isArray(pi.order_item_fulfillments)
+                ? (pi.order_item_fulfillments as unknown[])
+                : [];
+              const isFulfilled =
+                Boolean(snap.fulfilled) || fulfillments.length > 0;
+              const modStr = String(snap.modifierName || '');
+              const parts = modStr.split('•').map((s) => s.trim());
+              return {
+                name: String(snap.productName || 'Combo Bắp Nước'),
+                qty: Number(pi.quantity || 1),
+                price: Number(pi.unit_price || 69000),
+                flavor: parts[0] || 'Vị Phô Mai',
+                drinkSize: parts[1] || 'Coca (M)',
+                fulfilled: isFulfilled,
+              };
+            });
+
+            const finalFoods =
+              extractedFoods.length > 0
+                ? extractedFoods
+                : existingLocal?.foods || [];
+            const allFoodFulfilled =
+              finalFoods.length > 0
+                ? finalFoods.every((f) => Boolean(f.fulfilled))
+                : Boolean(existingLocal?.food_fulfilled);
+
+            // Payment method from payments array or audit or channel
+            const paymentsArr = Array.isArray(dbO.payments)
+              ? (dbO.payments as Record<string, unknown>[])
+              : [];
+            const dbPaymentProvider = String(
+              paymentsArr[0]?.provider ||
+                auditSnap.paymentProvider ||
+                existingLocal?.payment_method ||
+                (String(dbO.channel || 'pos').toLowerCase() === 'pos' ? 'CASH' : 'VNPAY')
+            ).toUpperCase();
+
+            // Order status
+            const rawDbStatus = String(dbO.status || 'paid').toLowerCase();
+            let finalStatus: SharedTicketOrder['status'] =
+              existingLocal?.status || 'PAID';
+            if (rawDbStatus === 'refunded') {
+              finalStatus = 'REFUNDED';
+            } else if (rawDbStatus === 'cancelled') {
+              finalStatus = 'CANCELLED';
+            } else if (
+              anyTicketUsed ||
+              (extractedSeats.length > 0 &&
+                extractedCheckedInSeats.length === extractedSeats.length)
+            ) {
+              finalStatus = 'USED';
+            }
+
+            return {
+              id: orderCode,
+              movie_title: String(
+                firstTicketSnap.movieTitle ||
+                  existingLocal?.movie_title ||
+                  'Dune: Hành Tinh Cát - Phần 2'
+              ),
+              age_rating: String(
+                firstTicketSnap.ageRating || existingLocal?.age_rating || 'T16'
+              ),
+              cinema_name: String(
+                firstTicketSnap.cinemaName ||
+                  existingLocal?.cinema_name ||
+                  'Cinemax Hà Nội Centre'
+              ),
+              room_name: String(
+                firstTicketSnap.roomName || existingLocal?.room_name || 'Phòng 1'
+              ),
+              screen_type: String(
+                firstTicketSnap.format || existingLocal?.screen_type || '2D Dolby'
+              ),
+              start_time: String(
+                existingLocal?.start_time || dbO.created_at || new Date().toISOString()
+              ),
+              seats: finalSeats,
+              checked_in_seats:
+                extractedCheckedInSeats.length > 0
+                  ? extractedCheckedInSeats
+                  : existingLocal?.checked_in_seats || [],
+              audience_type:
+                (ticketItems[0]?.audience_type as AudienceType) ||
+                existingLocal?.audience_type ||
+                'ADULT',
+              foods: finalFoods,
+              food_fulfilled: allFoodFulfilled,
+              promo_code: existingLocal?.promo_code || null,
+              discount_amount: Number(
+                dbO.discount_amount ??
+                  dbO.discount_total ??
+                  existingLocal?.discount_amount ??
+                  0
+              ),
+              total_amount: Number(
+                dbO.total_amount ?? existingLocal?.total_amount ?? 170000
+              ),
+              payment_method: dbPaymentProvider,
+              customer_name: String(
+                dbO.contact_name ||
+                  auditSnap.contactName ||
+                  existingLocal?.customer_name ||
+                  (String(dbO.channel || 'pos').toLowerCase() === 'pos'
+                    ? 'Khách vãng lai (POS)'
+                    : 'Khách đặt trực tuyến')
+              ),
+              customer_phone: String(
+                dbO.contact_phone ||
+                  auditSnap.contactPhone ||
+                  existingLocal?.customer_phone ||
+                  '0909888777'
+              ),
+              customer_email: String(
+                dbO.contact_email ||
+                  auditSnap.contactEmail ||
+                  existingLocal?.customer_email ||
+                  'khachhang@cinemax.vn'
+              ),
+              status: finalStatus,
+              created_at:
+                existingLocal?.created_at ||
+                new Date(String(dbO.created_at || Date.now())).toLocaleString('vi-VN'),
+              checked_in_at: existingLocal?.checked_in_at,
+              checked_in_by: existingLocal?.checked_in_by,
+              channel:
+                String(dbO.channel || '').toLowerCase() === 'pos' ? 'POS' : 'ONLINE',
+              showtime_id: existingLocal?.showtime_id || 1,
+            };
+          });
+
+          const dbCodes = new Set(dbMappedOrders.map((o) => o.id));
+          const merged = [
+            ...dbMappedOrders,
+            ...prev.filter((o) => !dbCodes.has(o.id)),
+          ];
+          try {
+            localStorage.setItem('cinemax_my_tickets_v2', JSON.stringify(merged));
+          } catch {
+            // Ignore
+          }
+          return merged;
         });
       }
     } catch {
@@ -537,7 +718,29 @@ export default function StaffWorkspacePage() {
     loadSynchronizedData();
     const handleStorage = () => loadSynchronizedData();
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+
+    // Subscribe to Supabase Realtime for orders, order_items, tickets, and refunds
+    const supabase = createClient();
+    const channel = supabase
+      .channel('cinemax-staff-history-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        loadSynchronizedData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
+        loadSynchronizedData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        loadSynchronizedData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'refunds' }, () => {
+        loadSynchronizedData();
+      })
+      .subscribe();
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      supabase.removeChannel(channel);
+    };
   }, [loadSynchronizedData]);
 
   const saveOrders = (nextOrders: SharedTicketOrder[]) => {
@@ -1281,7 +1484,7 @@ export default function StaffWorkspacePage() {
   const [inventoryMoveQty, setInventoryMoveQty] = useState<number>(20);
   const [inventoryMoveReason, setInventoryMoveReason] = useState<string>('Nhập bổ sung đầu ca');
 
-  const handleFulfillFoodOrder = (orderId: string) => {
+  const handleFulfillFoodOrder = async (orderId: string) => {
     const nextOrders = orders.map((o) =>
       o.id === orderId
         ? {
@@ -1292,7 +1495,8 @@ export default function StaffWorkspacePage() {
         : o
     );
     saveOrders(nextOrders);
-    showToast(`Đã xác nhận giao đủ combo cho đơn #${orderId.slice(0, 8)}!`);
+    await syncConcessionFulfillmentToSupabase(orderId, staffName);
+    showToast(`Đã xác nhận giao đủ combo cho đơn #${orderId.slice(0, 8)} (Đã đồng bộ Supabase)!`);
   };
 
   const handleRecordInventoryMovement = async () => {
@@ -1441,7 +1645,7 @@ export default function StaffWorkspacePage() {
     setExchangeNewSeats([...order.seats]);
   };
 
-  const handleConfirmExchangeTicket = () => {
+  const handleConfirmExchangeTicket = async () => {
     if (!exchangingOrder || exchangeNewSeats.length === 0) return;
 
     const targetShowtime = showtimes.find((s) => s.id === exchangeShowtimeId) || showtimes[0];
@@ -1464,25 +1668,37 @@ export default function StaffWorkspacePage() {
     setBookedSeatsMap(nextBooked);
     localStorage.setItem('cinemax_booked_seats_v2', JSON.stringify(nextBooked));
 
+    const newRoomName = targetShowtime?.room?.name || exchangingOrder.room_name;
+    const newStartTime = targetShowtime?.start_time || exchangingOrder.start_time;
+    const newTotalAmount = exchangingOrder.total_amount + surcharge;
+
     const nextOrders = orders.map((o) =>
       o.id === exchangingOrder.id
         ? {
             ...o,
             showtime_id: exchangeShowtimeId,
-            room_name: targetShowtime?.room?.name || o.room_name,
-            start_time: targetShowtime?.start_time || o.start_time,
+            room_name: newRoomName,
+            start_time: newStartTime,
             seats: exchangeNewSeats,
             surcharge_amount: (o.surcharge_amount || 0) + surcharge,
-            total_amount: o.total_amount + surcharge,
+            total_amount: newTotalAmount,
           }
         : o
     );
     saveOrders(nextOrders);
+    await syncSeatExchangeToSupabase({
+      orderCode: exchangingOrder.id,
+      newRoomName,
+      newStartTime,
+      newSeats: exchangeNewSeats,
+      surcharge,
+      newTotalAmount,
+    });
     setExchangingOrder(null);
     showToast(
       surcharge > 0
-        ? `Đã đổi sang ghế ${exchangeNewSeats.join(', ')} (Phụ phí nâng hạng: +${surcharge.toLocaleString('vi-VN')} đ)`
-        : `Đã đổi sang ghế ${exchangeNewSeats.join(', ')} thành công!`
+        ? `Đã đổi sang ghế ${exchangeNewSeats.join(', ')} (Phụ phí nâng hạng: +${surcharge.toLocaleString('vi-VN')} đ - Đã đồng bộ Supabase)`
+        : `Đã đổi sang ghế ${exchangeNewSeats.join(', ')} thành công (Đã đồng bộ Supabase)!`
     );
   };
 

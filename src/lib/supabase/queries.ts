@@ -452,6 +452,81 @@ export async function syncOrderToSupabase(params: {
           p_shift_id: null,
           p_received_by: null,
         });
+
+        // Enrich the RPC-created order with our exact orderCode, totalAmount, and snapshots
+        await supabase
+          .from('orders')
+          .update({
+            order_code: params.orderCode,
+            subtotal: params.subtotal,
+            discount_amount: params.discountAmount,
+            total_amount: params.totalAmount,
+          })
+          .eq('id', orderUuid);
+
+        // Enrich ticket order_items with full movie/seat snapshot
+        const { data: existingTicketItems } = await supabase
+          .from('order_items')
+          .select('id')
+          .eq('order_id', orderUuid)
+          .eq('item_type', 'ticket');
+
+        if (existingTicketItems && existingTicketItems.length > 0) {
+          for (let i = 0; i < existingTicketItems.length; i++) {
+            const seatCode = params.seatCodes[i] || params.seatCodes[0] || 'E5';
+            await supabase
+              .from('order_items')
+              .update({
+                audience_type: params.audienceType || 'ADULT',
+                unit_price: params.unitTicketPrice,
+                line_total: params.unitTicketPrice,
+                item_snapshot: {
+                  ...params.movieSnapshot,
+                  seatCode,
+                },
+              })
+              .eq('id', existingTicketItems[i].id);
+          }
+        }
+
+        // Insert food items for this order
+        for (const item of params.foodItems || []) {
+          if (item.quantity <= 0) continue;
+          await supabase.from('order_items').insert({
+            order_id: orderUuid,
+            item_type: 'product',
+            product_id: item.productUuid || null,
+            selected_modifiers: item.modifierName ? [{ option_name: item.modifierName }] : null,
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            line_total: item.unitPrice * item.quantity,
+            item_snapshot: {
+              productName: item.name,
+              modifierName: item.modifierName || null,
+              fulfilled: false,
+            },
+          });
+        }
+
+        await supabase.from('audit_logs').insert({
+          action: params.channel === 'pos' ? 'ISSUE_POS_ORDER' : 'ONLINE_BOOKING_PAID',
+          entity_type: 'orders',
+          entity_id: params.orderCode,
+          after_data: {
+            order_code: params.orderCode,
+            movieSnapshot: params.movieSnapshot,
+            seats: params.seatCodes,
+            foods: params.foodItems || [],
+            paymentProvider: params.paymentProvider,
+            contactName: params.contactName,
+            contactPhone: params.contactPhone,
+            contactEmail: params.contactEmail,
+            discountAmount: params.discountAmount,
+            totalAmount: params.totalAmount,
+            channel: params.channel,
+          },
+        });
+
         return { synced: true, orderUuid };
       }
     }
@@ -510,7 +585,7 @@ export async function syncOrderToSupabase(params: {
           order_item_id: oiRow.id,
           qr_token_hash: `${params.orderCode}-${seatCode}`,
           status: 'issued',
-          age_check_passed: true,
+          age_check_passed: false,
         });
       }
 
@@ -539,6 +614,7 @@ export async function syncOrderToSupabase(params: {
           item_snapshot: {
             productName: item.name,
             modifierName: item.modifierName || null,
+            fulfilled: false,
           },
         })
         .select()
@@ -565,14 +641,22 @@ export async function syncOrderToSupabase(params: {
       paid_at: new Date().toISOString(),
     });
 
-    // 5. Write audit log
+    // 5. Write audit log with full snapshot
     await supabase.from('audit_logs').insert({
       action: params.channel === 'pos' ? 'ISSUE_POS_ORDER' : 'ONLINE_BOOKING_PAID',
       entity_type: 'orders',
       entity_id: params.orderCode,
       after_data: {
+        order_code: params.orderCode,
+        movieSnapshot: params.movieSnapshot,
         seats: params.seatCodes,
-        total_amount: params.totalAmount,
+        foods: params.foodItems || [],
+        paymentProvider: params.paymentProvider,
+        contactName: params.contactName,
+        contactPhone: params.contactPhone,
+        contactEmail: params.contactEmail,
+        discountAmount: params.discountAmount,
+        totalAmount: params.totalAmount,
         channel: params.channel,
       },
     });
@@ -596,14 +680,14 @@ export async function fetchSupabaseStaffRecords() {
   ] = await Promise.all([
     supabase
       .from('orders')
-      .select('*, order_items(*, tickets(*), order_item_fulfillments(*))')
+      .select('*, order_items(*, tickets(*), order_item_fulfillments(*)), payments(*)')
       .order('created_at', { ascending: false })
       .limit(50),
     supabase.from('shifts').select('*').order('opened_at', { ascending: false }).limit(20),
     supabase.from('refunds').select('*, orders(order_code)').order('created_at', { ascending: false }).limit(20),
     supabase.from('invoice_requests').select('*, orders(order_code, total_amount)').order('requested_at', { ascending: false }).limit(20),
     supabase.from('inventory_movements').select('*, products(name)').order('created_at', { ascending: false }).limit(30),
-    supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(30),
+    supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(50),
   ]);
 
   return {
@@ -822,3 +906,105 @@ export async function syncInvoiceToSupabase(params: {
     after_data: params,
   });
 }
+
+// Sync Seat Exchange (2.6) to Supabase
+export async function syncSeatExchangeToSupabase(params: {
+  orderCode: string;
+  newSeats: string[];
+  newRoomName: string;
+  newStartTime: string;
+  newTotalAmount: number;
+  surcharge: number;
+}) {
+  const supabase = createClient();
+  const { data: orderRow } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('order_code', params.orderCode)
+    .maybeSingle();
+
+  if (orderRow?.id) {
+    await supabase
+      .from('orders')
+      .update({ total_amount: params.newTotalAmount })
+      .eq('id', orderRow.id);
+
+    const { data: ticketItems } = await supabase
+      .from('order_items')
+      .select('id, item_snapshot')
+      .eq('order_id', orderRow.id)
+      .eq('item_type', 'ticket');
+
+    if (ticketItems && ticketItems.length > 0) {
+      for (let i = 0; i < ticketItems.length; i++) {
+        const seatCode = params.newSeats[i] || params.newSeats[0];
+        const prevSnap = (ticketItems[i].item_snapshot as Record<string, unknown>) || {};
+        await supabase
+          .from('order_items')
+          .update({
+            item_snapshot: {
+              ...prevSnap,
+              roomName: params.newRoomName,
+              seatCode,
+            },
+          })
+          .eq('id', ticketItems[i].id);
+      }
+    }
+  }
+
+  await supabase.from('audit_logs').insert({
+    action: 'EXCHANGE_TICKET_SEATS',
+    entity_type: 'orders',
+    entity_id: params.orderCode,
+    after_data: params,
+  });
+}
+
+// Sync Concession Food Fulfillment (2.3) to Supabase
+export async function syncConcessionFulfillmentToSupabase(orderCode: string, staffName: string) {
+  const supabase = createClient();
+  const { data: orderRow } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('order_code', orderCode)
+    .maybeSingle();
+
+  if (orderRow?.id) {
+    const { data: prodItems } = await supabase
+      .from('order_items')
+      .select('id, quantity, item_snapshot')
+      .eq('order_id', orderRow.id)
+      .eq('item_type', 'product');
+
+    if (prodItems && prodItems.length > 0) {
+      for (const pItem of prodItems) {
+        const prevSnap = (pItem.item_snapshot as Record<string, unknown>) || {};
+        await supabase
+          .from('order_items')
+          .update({
+            item_snapshot: {
+              ...prevSnap,
+              fulfilled: true,
+              fulfilledBy: staffName,
+            },
+          })
+          .eq('id', pItem.id);
+
+        await supabase.from('order_item_fulfillments').insert({
+          order_item_id: pItem.id,
+          fulfilled_qty: pItem.quantity || 1,
+          note: `Đã giao khách tại quầy bởi ${staffName}`,
+        });
+      }
+    }
+  }
+
+  await supabase.from('audit_logs').insert({
+    action: 'FULFILL_CONCESSION_ORDER',
+    entity_type: 'orders',
+    entity_id: orderCode,
+    after_data: { fulfilled: true, staffName },
+  });
+}
+
