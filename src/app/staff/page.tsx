@@ -1475,11 +1475,29 @@ export default function StaffWorkspacePage() {
         saveOrders([newOrder, ...currentStored]);
       }
 
+      // Auto-decrement concession inventory in DataContext, LocalStorage, and Supabase
+      for (const food of foods) {
+        const qtySold = posFoodQuantities[food.id] || 0;
+        if (qtySold > 0) {
+          const currentStock = food.stock ?? 150;
+          const newStock = Math.max(0, currentStock - qtySold);
+          updateFoodItem(food.id, { stock: newStock });
+          await syncStockMovementToSupabase({
+            productUuid: food.supabase_id,
+            productName: food.name,
+            movementType: 'SALE',
+            quantity: -qtySold,
+            newStock,
+            reason: `Bán tại quầy POS đơn #${newOrder.id}`,
+          });
+        }
+      }
+
       await refreshFromSupabase();
       setPosSelectedSeats([]);
       setPosFoodQuantities({});
       setPrintingOrder(newOrder);
-      showToast(`Đã tạo vé POS #${newOrder.id} thành công (Đã lưu Supabase)!`);
+      showToast(`Đã tạo vé POS #${newOrder.id} thành công (Đã cập nhật kho & Supabase)!`);
     } finally {
       setPosSubmitting(false);
     }
@@ -1652,10 +1670,73 @@ export default function StaffWorkspacePage() {
     });
   }, [orders, historySearch, historyStatusFilter]);
 
+  const checkCanExchangeOrRefund = useCallback(
+    (order: SharedTicketOrder) => {
+      // 1. If ticket already used / checked in
+      if (order.status === 'USED') {
+        return {
+          canExchange: false,
+          canRefund: staffRole === 'SUPERVISOR',
+          reason:
+            staffRole === 'SUPERVISOR'
+              ? 'Vé đã qua cổng soát vé (đang áp dụng ngoại lệ Trưởng ca duyệt hoàn vé sự cố).'
+              : 'Vé đã qua cổng soát vé (đã xem phim). Chỉ Trưởng ca mới có quyền duyệt hoàn vé sự cố.',
+        };
+      }
+
+      // 2. If ticket already cancelled or refunded
+      if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
+        return {
+          canExchange: false,
+          canRefund: false,
+          reason: 'Đơn hàng này đã bị hủy hoặc đã hoàn tiền.',
+        };
+      }
+
+      // 3. Time constraint: minimum 30 minutes before showtime
+      const showTimeMs = new Date(order.start_time).getTime();
+      if (!isNaN(showTimeMs)) {
+        const minutesLeft = Math.round((showTimeMs - Date.now()) / (60 * 1000));
+        if (minutesLeft < 30) {
+          const isPast = minutesLeft <= 0;
+          const isSupervisor = staffRole === 'SUPERVISOR';
+          const reasonMsg = isPast
+            ? 'Suất chiếu đã bắt đầu hoặc đã qua. Quá hạn đổi/hoàn vé (Quy định: trước tối thiểu 30 phút).'
+            : `Chỉ còn ${minutesLeft} phút trước giờ chiếu. Quá hạn đổi/hoàn vé (Quy định: trước tối thiểu 30 phút).`;
+
+          return {
+            canExchange: isSupervisor,
+            canRefund: isSupervisor,
+            reason: isSupervisor
+              ? `${reasonMsg} (Trưởng ca có quyền can thiệp đặc biệt).`
+              : reasonMsg,
+          };
+        }
+      }
+
+      return { canExchange: true, canRefund: true, reason: '' };
+    },
+    [staffRole]
+  );
+
   const handleOpenExchangeModal = (order: SharedTicketOrder) => {
+    const check = checkCanExchangeOrRefund(order);
+    if (!check.canExchange) {
+      showToast(check.reason || 'Vé này không đủ điều kiện đổi ghế.');
+      return;
+    }
     setExchangingOrder(order);
     setExchangeShowtimeId(order.showtime_id || 1);
     setExchangeNewSeats([...order.seats]);
+  };
+
+  const handleOpenRefundModal = (order: SharedTicketOrder) => {
+    const check = checkCanExchangeOrRefund(order);
+    if (!check.canRefund) {
+      showToast(check.reason || 'Vé này không đủ điều kiện hoàn vé.');
+      return;
+    }
+    setRefundingOrder(order);
   };
 
   const handleConfirmExchangeTicket = async () => {
@@ -2828,7 +2909,16 @@ export default function StaffWorkspacePage() {
                                 <button
                                   type="button"
                                   onClick={() => handleOpenExchangeModal(ord)}
-                                  className="px-2.5 py-1 rounded bg-[#1E2433] hover:bg-[#2B3348] text-amber-300 text-[11px]"
+                                  disabled={!checkCanExchangeOrRefund(ord).canExchange}
+                                  title={
+                                    checkCanExchangeOrRefund(ord).reason ||
+                                    'Đổi ghế và nâng hạng suất chiếu'
+                                  }
+                                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition ${
+                                    checkCanExchangeOrRefund(ord).canExchange
+                                      ? 'bg-[#1E2433] hover:bg-[#2B3348] text-amber-300 cursor-pointer'
+                                      : 'bg-[#141824] text-slate-600 cursor-not-allowed border border-[#1A1F2C]'
+                                  }`}
                                 >
                                   Đổi ghế
                                 </button>
@@ -2836,8 +2926,17 @@ export default function StaffWorkspacePage() {
                               {(ord.status === 'PAID' || ord.status === 'USED') && (
                                 <button
                                   type="button"
-                                  onClick={() => setRefundingOrder(ord)}
-                                  className="px-2.5 py-1 rounded bg-[#2A1217] hover:bg-[#E63845] text-[#F87171] hover:text-white text-[11px]"
+                                  onClick={() => handleOpenRefundModal(ord)}
+                                  disabled={!checkCanExchangeOrRefund(ord).canRefund}
+                                  title={
+                                    checkCanExchangeOrRefund(ord).reason ||
+                                    'Yêu cầu hoàn trả tiền vé'
+                                  }
+                                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition ${
+                                    checkCanExchangeOrRefund(ord).canRefund
+                                      ? 'bg-[#2A1217] hover:bg-[#E63845] text-[#F87171] hover:text-white cursor-pointer'
+                                      : 'bg-[#141824] text-slate-600 cursor-not-allowed border border-[#1A1F2C]'
+                                  }`}
                                 >
                                   Hoàn vé
                                 </button>
@@ -3168,12 +3267,21 @@ export default function StaffWorkspacePage() {
               Hoàn Tiền Đơn #{refundingOrder.id.slice(0, 8)} (
               {refundingOrder.total_amount.toLocaleString('vi-VN')} đ)
             </h3>
-            <textarea
-              rows={3}
-              value={refundReasonInput}
-              onChange={(e) => setRefundReasonInput(e.target.value)}
-              className="w-full bg-[#161A26] border border-[#262D40] rounded-lg p-3 text-xs text-white focus:outline-none"
-            />
+            <div className="bg-[#1A1F2C] border border-[#2B3548] rounded-lg p-2.5 text-[11px] text-slate-300">
+              <span className="font-bold text-amber-400">Quy định rạp: </span>
+              Chỉ áp dụng hoàn tiền trước giờ chiếu tối thiểu 30 phút. Trưởng ca chịu trách nhiệm xác nhận lý do hoàn tiền.
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Lý do hoàn vé / sự cố:
+              </label>
+              <textarea
+                rows={3}
+                value={refundReasonInput}
+                onChange={(e) => setRefundReasonInput(e.target.value)}
+                className="w-full bg-[#161A26] border border-[#262D40] rounded-lg p-3 text-xs text-white focus:outline-none"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
