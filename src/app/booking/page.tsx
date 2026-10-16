@@ -29,6 +29,7 @@ import {
   Mail,
   Lock,
   AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 import VietQRModal from '@/components/booking/VietQRModal';
 import ShowtimeModal from '@/components/common/ShowtimeModal';
@@ -38,7 +39,7 @@ import { checkAllSelectedSeatsForOrphans, OrphanSeatCheckResult } from '@/lib/se
 function BookingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, openAuthModal, register } = useAuth();
   const { movies, cinemas, showtimes, foods, promotions } = useData();
 
   // Query Params
@@ -102,6 +103,12 @@ function BookingContent() {
     customerEmail: string;
     customerPhone: string;
   } | null>(null);
+
+  // Chuyển đổi Guest thành Member (Post-payment conversion)
+  const [memberPassword, setMemberPassword] = useState<string>('');
+  const [memberCreated, setMemberCreated] = useState<boolean>(false);
+  const [memberError, setMemberError] = useState<string>('');
+  const [isRegisteringMember, setIsRegisteringMember] = useState<boolean>(false);
 
   // Mã phiên giữ ghế độc lập cho tab trình duyệt này (Session ID)
   const [sessionId] = useState<string>(() => {
@@ -895,6 +902,49 @@ function getDynamicShowtimeSeats(
     setCurrentStep(3);
   };
 
+  const handleQuickRegisterMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!completedBooking || !completedBooking.customerEmail) return;
+    if (!memberPassword || memberPassword.length < 6) {
+      setMemberError('Mật khẩu tối thiểu 6 ký tự');
+      return;
+    }
+    setIsRegisteringMember(true);
+    setMemberError('');
+    try {
+      const res = await register(
+        completedBooking.customerName || 'Khách hàng',
+        completedBooking.customerEmail,
+        completedBooking.customerPhone || '0900000000',
+        memberPassword
+      );
+      if (res.success) {
+        setMemberCreated(true);
+        // Cập nhật các vé trong localStorage sang user_id mới
+        try {
+          const stored = localStorage.getItem('cinemax_user_tickets');
+          if (stored) {
+            const list = JSON.parse(stored);
+            const userStr = localStorage.getItem('cinemax_session_user');
+            const newUid = userStr ? JSON.parse(userStr).id : 'member';
+            const updated = list.map((t: any) =>
+              t.bookingCode === completedBooking.bookingCode ? { ...t, userId: newUid } : t
+            );
+            localStorage.setItem('cinemax_user_tickets', JSON.stringify(updated));
+            window.dispatchEvent(new Event('cinemax_data_updated'));
+            window.dispatchEvent(new Event('storage'));
+          }
+        } catch (e) {
+          // ignore
+        }
+      } else {
+        setMemberError(res.error || 'Đăng ký thất bại');
+      }
+    } finally {
+      setIsRegisteringMember(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0F1217] flex flex-col">
       <Header />
@@ -1644,6 +1694,60 @@ function getDynamicShowtimeSeats(
                 </div>
               </div>
             </div>
+
+            {/* Gợi ý chuyển đổi Guest sang Member nhận 50 điểm thưởng (Kế hoạch thanh toán Guest) */}
+            {!currentUser && (
+              <div className="bg-gradient-to-r from-[#1A1C26] via-[#241B2E] to-[#1A1C26] border border-[#FABF2E]/40 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-[#FABF2E]/20 text-[#FABF2E] flex items-center justify-center shrink-0 mt-0.5">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-base font-bold text-white">
+                        Tặng 50 Điểm Thưởng Hội Viên (~25.000đ)
+                      </h4>
+                      <span className="text-[10px] bg-[#FABF2E] text-black font-black px-2 py-0.5 rounded-full">
+                        QUÀ TẶNG
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#9EA6B8]">
+                      Đăng ký tài khoản thành viên CINEMAX bằng email <strong className="text-[#FABF2E]">{completedBooking.customerEmail}</strong> để nhận ngay 50 điểm thưởng đổi bắp nước và quản lý vé trọn đời.
+                    </p>
+                  </div>
+                </div>
+
+                {memberCreated ? (
+                  <div className="p-3 bg-[#33C773]/15 border border-[#33C773]/40 rounded-2xl flex items-center gap-2.5 text-xs text-[#33C773] font-semibold">
+                    <CheckCircle className="w-4 h-4 shrink-0" />
+                    <span>Chúc mừng! Bạn đã đăng ký tài khoản thành công và nhận 50 điểm thưởng. Vé vừa mua đã được đồng bộ vào tài khoản của bạn.</span>
+                  </div>
+                ) : (
+                  <form onSubmit={handleQuickRegisterMember} className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                    <input
+                      type="password"
+                      value={memberPassword}
+                      onChange={(e) => {
+                        setMemberPassword(e.target.value);
+                        setMemberError('');
+                      }}
+                      placeholder="Thiết lập mật khẩu (tối thiểu 6 ký tự)"
+                      className="flex-1 bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#FABF2E]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isRegisteringMember}
+                      className="bg-[#FABF2E] hover:bg-[#E5AC26] text-black px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer shrink-0"
+                    >
+                      {isRegisteringMember ? 'Đang tạo...' : 'Kích Hoạt Tài Khoản & Nhận Quà'}
+                    </button>
+                  </form>
+                )}
+                {memberError && (
+                  <p className="text-xs text-[#E63845] font-medium">{memberError}</p>
+                )}
+              </div>
+            )}
 
             {/* Action Buttons: Tải vé PDF (Red) & Xem vé của tôi (Outline) (Figma Screen 5) */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
