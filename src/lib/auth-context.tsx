@@ -34,6 +34,71 @@ const SEED_USERS: (User & { password?: string })[] = [
     updated_at: '2026-01-01',
   },
   {
+    id: 'usr-staff-001',
+    role_id: 2,
+    role_code: 'STAFF',
+    full_name: 'Nhân viên Cinemax',
+    email: 'staff@cinemax.vn',
+    password: 'staff',
+    phone: '0977777777',
+    loyalty_points: 500,
+    is_active: true,
+    created_at: '2026-01-01',
+    updated_at: '2026-01-01',
+  },
+  {
+    id: 'usr-staff-002',
+    role_id: 2,
+    role_code: 'STAFF',
+    full_name: 'Trương Công Tiến (Supervisor)',
+    email: 'tientc@cinemax.vn',
+    password: 'staff',
+    phone: '0911222333',
+    loyalty_points: 800,
+    is_active: true,
+    created_at: '2026-01-01',
+    updated_at: '2026-01-01',
+  },
+  {
+    id: 'usr-staff-003',
+    role_id: 2,
+    role_code: 'STAFF',
+    full_name: 'Nguyễn Văn Thu Ngân (POS)',
+    email: 'pos.cashier@cinemax.vn',
+    password: 'staff',
+    phone: '0933444555',
+    loyalty_points: 200,
+    is_active: true,
+    created_at: '2026-01-01',
+    updated_at: '2026-01-01',
+  },
+  {
+    id: 'usr-staff-004',
+    role_id: 2,
+    role_code: 'STAFF',
+    full_name: 'Lê Soát Vé (Checkin QR)',
+    email: 'usher@cinemax.vn',
+    password: 'staff',
+    phone: '0944555666',
+    loyalty_points: 200,
+    is_active: true,
+    created_at: '2026-01-01',
+    updated_at: '2026-01-01',
+  },
+  {
+    id: 'usr-staff-005',
+    role_id: 2,
+    role_code: 'STAFF',
+    full_name: 'Phạm Bắp Nước (F&B / KDS)',
+    email: 'concession@cinemax.vn',
+    password: 'staff',
+    phone: '0955666777',
+    loyalty_points: 200,
+    is_active: true,
+    created_at: '2026-01-01',
+    updated_at: '2026-01-01',
+  },
+  {
     id: 'usr-cust-001',
     role_id: 1,
     role_code: 'CUSTOMER',
@@ -84,19 +149,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const cleanEmail = email.trim().toLowerCase();
       const existingDbStr = localStorage.getItem('cinemax_users_db');
-      const users: (User & { password?: string })[] = existingDbStr
+      const storedUsers: (User & { password?: string })[] = existingDbStr
         ? JSON.parse(existingDbStr)
-        : SEED_USERS;
+        : [];
 
-      const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
+      // Combine stored users and SEED_USERS to ensure preconfigured accounts always exist
+      const userMap = new Map<string, User & { password?: string }>();
+      SEED_USERS.forEach((u) => userMap.set(u.email.toLowerCase(), u));
+      storedUsers.forEach((u) => userMap.set(u.email.toLowerCase(), u));
+
+      const user = userMap.get(cleanEmail);
 
       if (!user) {
         return { success: false, error: 'Email không tồn tại trong hệ thống. Vui lòng đăng ký tài khoản.' };
       }
 
-      // Check password if set
-      if (user.password && password && user.password !== password) {
-        return { success: false, error: 'Mật khẩu không chính xác.' };
+      // Check password if set (support both 'staff' or 'staff123' for staff convenience)
+      if (user.password && password) {
+        const isStaff = user.role_code === 'STAFF';
+        const isMatch = user.password === password || (isStaff && (password === 'staff' || password === 'staff123'));
+        if (!isMatch) {
+          return { success: false, error: 'Mật khẩu không chính xác.' };
+        }
       }
 
       const { password: _, ...userSession } = user;
