@@ -110,6 +110,8 @@ export default function ShowtimesView({
   const [quickTrailerMinutes, setQuickTrailerMinutes] = useState(10);
   const [staggerRooms, setStaggerRooms] = useState(true);
   const [staggerSameMovie, setStaggerSameMovie] = useState(true);
+  const [goldenHoursBlockbuster, setGoldenHoursBlockbuster] = useState(true);
+  const [limitLateNightFamily, setLimitLateNightFamily] = useState(true);
   const [autoShiftConflicts, setAutoShiftConflicts] = useState(true);
   const [publishStatus, setPublishStatus] = useState<'open' | 'draft'>('open');
   const [isPreviewDrawerOpen, setIsPreviewDrawerOpen] = useState(false);
@@ -682,6 +684,8 @@ export default function ShowtimesView({
     setQuickTrailerMinutes(10);
     setStaggerRooms(true);
     setStaggerSameMovie(true);
+    setGoldenHoursBlockbuster(true);
+    setLimitLateNightFamily(true);
     setAutoShiftConflicts(true);
     setPublishStatus('open');
     setIsPreviewDrawerOpen(false);
@@ -802,14 +806,16 @@ export default function ShowtimesView({
           let candidatePool = compatibleMovies.filter((m) => {
             const prof = getMovieRuleProfile(m);
 
-            // Rule: Phim kinh dị ít hoặc không xếp suất sáng
-            if (isMorning && prof.isHorror) return false;
+            if (limitLateNightFamily) {
+              // Rule: Phim kinh dị ít hoặc không xếp suất sáng
+              if (isMorning && prof.isHorror) return false;
 
-            // Rule: Phim gia đình hạn chế suất muộn sau 20:30
-            if ((isLateNight || timeOfDayMin >= 20 * 60 + 30) && prof.isFamily) return false;
+              // Rule: Phim gia đình hạn chế suất muộn sau 20:30
+              if ((isLateNight || timeOfDayMin >= 20 * 60 + 30) && prof.isFamily) return false;
 
-            // Rule: Phim giới hạn tuổi T18 ưu tiên sau 18:00
-            if (isMorning && prof.isAdult) return false;
+              // Rule: Phim giới hạn tuổi T18 ưu tiên sau 18:00
+              if (isMorning && prof.isAdult) return false;
+            }
 
             // Rule: Phim dài trên 150p không tạo suất bắt đầu quá muộn
             if (prof.isLong && currentMin + (m.duration_minutes || 150) + 15 > endMinutesOfDay) return false;
@@ -830,24 +836,28 @@ export default function ShowtimesView({
             const profA = getMovieRuleProfile(a);
             const profB = getMovieRuleProfile(b);
 
-            // Ưu tiên 1: Khung giờ vàng tối (17:30 - 22:00) hoặc Phòng IMAX -> Bom Tấn lên hàng đầu
-            if (isPeakEvening || aud.screen_type === 'IMAX') {
-              if (profA.isBlockbuster && !profB.isBlockbuster) return -1;
-              if (profB.isBlockbuster && !profA.isBlockbuster) return 1;
+            if (goldenHoursBlockbuster) {
+              // Ưu tiên 1: Khung giờ vàng tối (17:30 - 22:00) hoặc Phòng IMAX -> Bom Tấn lên hàng đầu
+              if (isPeakEvening || aud.screen_type === 'IMAX') {
+                if (profA.isBlockbuster && !profB.isBlockbuster) return -1;
+                if (profB.isBlockbuster && !profA.isBlockbuster) return 1;
+              }
             }
 
-            // Ưu tiên 2: Cuối tuần / Ban ngày -> Phim Gia Đình / Hoạt Hình
-            if ((isWeekend || isMorning) && !isPeakEvening) {
-              if (profA.isFamily && !profB.isFamily) return -1;
-              if (profB.isFamily && !profA.isFamily) return 1;
-            }
+            if (limitLateNightFamily) {
+              // Ưu tiên 2: Cuối tuần / Ban ngày -> Phim Gia Đình / Hoạt Hình
+              if ((isWeekend || isMorning) && !isPeakEvening) {
+                if (profA.isFamily && !profB.isFamily) return -1;
+                if (profB.isFamily && !profA.isFamily) return 1;
+              }
 
-            // Ưu tiên 3: Tối & Đêm -> Phim Kinh Dị & Phim T18
-            if ((isPeakEvening || isLateNight) && !isMorning) {
-              if (profA.isHorror && !profB.isHorror) return -1;
-              if (profB.isHorror && !profA.isHorror) return 1;
-              if (profA.isAdult && !profB.isAdult) return -1;
-              if (profB.isAdult && !profA.isAdult) return 1;
+              // Ưu tiên 3: Tối & Đêm -> Phim Kinh Dị & Phim T18
+              if ((isPeakEvening || isLateNight) && !isMorning) {
+                if (profA.isHorror && !profB.isHorror) return -1;
+                if (profB.isHorror && !profA.isHorror) return 1;
+                if (profA.isAdult && !profB.isAdult) return -1;
+                if (profB.isAdult && !profA.isAdult) return 1;
+              }
             }
 
             // Luân phiên chia đều số suất giữa các phim
@@ -1000,6 +1010,8 @@ export default function ShowtimesView({
     quickTrailerMinutes,
     staggerRooms,
     staggerSameMovie,
+    goldenHoursBlockbuster,
+    limitLateNightFamily,
     autoShiftConflicts,
     movies,
     auditoriums,
@@ -1857,119 +1869,183 @@ export default function ShowtimesView({
                 </div>
               </div>
 
-              {/* 4. Cấu hình suất & Smart Rules */}
-              <div className="space-y-3 bg-[#0E121B]/80 border border-[#1E2638] p-4 rounded-2xl">
-                <div className="flex items-center justify-between pb-1.5 border-b border-[#1E2638]">
+              {/* 4. Cấu hình suất & Quy tắc tự động */}
+              <div className="space-y-3.5 bg-[#0E121B]/90 border border-[#1E2638] p-4 rounded-2xl">
+                <div className="flex items-center justify-between pb-2 border-b border-[#1E2638]">
                   <label className="font-bold text-white text-sm flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-[#E63845] text-white text-[11px] font-black flex items-center justify-center">4</span>
-                    <span>Cấu hình suất & Quy tắc xếp lịch thông minh</span>
+                    <span>Cấu hình suất & Quy tắc xếp lịch tự động</span>
                   </label>
-                  <span className="text-[11px] text-[#06B6D4] font-medium">Rule Engine tự động</span>
+                  <span className="text-[11px] text-[#06B6D4] font-semibold flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Rule Engine
+                  </span>
                 </div>
 
-                {/* Hàng 1: Giờ hoạt động & Thời lượng buffer/trailer */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Hàng 1: Giờ hoạt động, Trailer và Dọn phòng */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Giờ hoạt động */}
                   <div className="space-y-1">
-                    <label className="text-[#8E9AAF] font-medium text-[11px]">Giờ hoạt động:</label>
-                    <div className="flex items-center gap-1.5">
+                    <label className="text-[#8E9AAF] font-medium text-[11px] flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-[#06B6D4]" />
+                      <span>Giờ hoạt động</span>
+                    </label>
+                    <div className="flex items-center gap-1.5 bg-[#141924] border border-[#222B3D] focus-within:border-[#06B6D4] rounded-xl px-2.5 py-1.5">
                       <input
                         type="time"
                         value={quickOperatingStart}
                         onChange={(e) => setQuickOperatingStart(e.target.value)}
-                        className="flex-1 bg-[#141924] border border-[#222B3D] rounded-xl px-2 py-1.5 text-white font-mono font-bold text-xs"
+                        className="w-full bg-transparent text-white font-mono font-bold text-xs focus:outline-none cursor-pointer text-center"
                       />
-                      <span className="text-[#8E9AAF] text-[11px]">đến</span>
+                      <span className="text-[#8E9AAF] text-xs font-semibold shrink-0">đến</span>
                       <input
                         type="time"
                         value={quickOperatingEnd}
                         onChange={(e) => setQuickOperatingEnd(e.target.value)}
-                        className="flex-1 bg-[#141924] border border-[#222B3D] rounded-xl px-2 py-1.5 text-white font-mono font-bold text-xs"
+                        className="w-full bg-transparent text-white font-mono font-bold text-xs focus:outline-none cursor-pointer text-center"
                       />
                     </div>
                   </div>
 
+                  {/* Trailer / Quảng cáo */}
                   <div className="space-y-1">
-                    <label className="text-[#8E9AAF] font-medium text-[11px]">Trailer / Quảng cáo:</label>
-                    <div className="flex items-center gap-2">
+                    <label className="text-[#8E9AAF] font-medium text-[11px] flex items-center gap-1">
+                      <span>Trailer / Quảng cáo</span>
+                    </label>
+                    <div className="flex items-center justify-between bg-[#141924] border border-[#222B3D] focus-within:border-[#06B6D4] rounded-xl px-3 py-1.5">
                       <input
                         type="number"
                         min={0}
                         max={30}
                         step={5}
                         value={quickTrailerMinutes}
-                        onChange={(e) => setQuickTrailerMinutes(Number(e.target.value))}
-                        className="w-full bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-1.5 text-white font-mono font-bold text-xs text-center"
+                        onChange={(e) => setQuickTrailerMinutes(Math.max(0, Number(e.target.value)))}
+                        className="w-16 bg-transparent text-white font-mono font-bold text-xs focus:outline-none text-left"
                       />
-                      <span className="text-[#8E9AAF] text-xs">phút</span>
+                      <span className="text-[#8E9AAF] text-xs font-medium shrink-0">phút</span>
                     </div>
                   </div>
 
+                  {/* Thời gian dọn phòng */}
                   <div className="space-y-1">
-                    <label className="text-[#8E9AAF] font-medium text-[11px]">Thời gian dọn phòng:</label>
-                    <div className="flex items-center gap-2">
+                    <label className="text-[#8E9AAF] font-medium text-[11px] flex items-center gap-1">
+                      <span>Thời gian dọn phòng</span>
+                    </label>
+                    <div className="flex items-center justify-between bg-[#141924] border border-[#222B3D] focus-within:border-[#06B6D4] rounded-xl px-3 py-1.5">
                       <input
                         type="number"
-                        min={10}
-                        max={30}
+                        min={5}
+                        max={45}
                         step={5}
                         value={quickCleaningBuffer}
-                        onChange={(e) => setQuickCleaningBuffer(Number(e.target.value))}
-                        className="w-full bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-1.5 text-white font-mono font-bold text-xs text-center"
+                        onChange={(e) => setQuickCleaningBuffer(Math.max(5, Number(e.target.value)))}
+                        className="w-16 bg-transparent text-white font-mono font-bold text-xs focus:outline-none text-left"
                       />
-                      <span className="text-[#8E9AAF] text-xs">phút</span>
+                      <span className="text-[#8E9AAF] text-xs font-medium shrink-0">phút</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Hàng 2: Các quy tắc chống dồn khách, né xung đột */}
-                <div className="p-3 rounded-xl bg-[#131926] border border-[#20293B] space-y-2">
-                  <div className="text-[11px] font-bold text-[#FABF2E] uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Quy tắc vận hành rạp chiếu tự động (Business Rules)</span>
+                {/* Hàng 2: Quy tắc xếp lịch thông minh dạng ô tích có hiệu lực thực tế */}
+                <div className="p-3.5 rounded-xl bg-[#131926] border border-[#20293B] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#FABF2E] uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#FABF2E]" />
+                      Quy tắc vận hành rạp tự động
+                    </span>
+                    <span className="text-[10px] text-[#8E9AAF]">Tích chọn để áp dụng rule</span>
                   </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <label className="flex items-center gap-2 text-white cursor-pointer select-none">
+                    {/* Rule 1: So le phòng */}
+                    <label className="flex items-start gap-2.5 p-2 rounded-lg bg-[#182030]/60 border border-[#222D42] hover:border-[#06B6D4]/50 cursor-pointer transition-colors select-none">
                       <input
                         type="checkbox"
                         checked={staggerRooms}
                         onChange={(e) => setStaggerRooms(e.target.checked)}
-                        className="w-3.5 h-3.5 accent-[#06B6D4] rounded cursor-pointer"
+                        className="w-4 h-4 mt-0.5 accent-[#06B6D4] rounded cursor-pointer shrink-0"
                       />
-                      <span>Tránh dồn khách sảnh (So le giờ bắt đầu 10-15p giữa các phòng)</span>
+                      <div className="leading-tight">
+                        <div className="font-semibold text-white">So le giờ các phòng (10–15p)</div>
+                        <div className="text-[11px] text-[#8E9AAF] mt-0.5">Tránh ùn tắc sảnh & quầy soát vé</div>
+                      </div>
                     </label>
 
-                    <label className="flex items-center gap-2 text-white cursor-pointer select-none">
+                    {/* Rule 2: Giãn cách cùng phim */}
+                    <label className="flex items-start gap-2.5 p-2 rounded-lg bg-[#182030]/60 border border-[#222D42] hover:border-[#06B6D4]/50 cursor-pointer transition-colors select-none">
                       <input
                         type="checkbox"
                         checked={staggerSameMovie}
                         onChange={(e) => setStaggerSameMovie(e.target.checked)}
-                        className="w-3.5 h-3.5 accent-[#06B6D4] rounded cursor-pointer"
+                        className="w-4 h-4 mt-0.5 accent-[#06B6D4] rounded cursor-pointer shrink-0"
                       />
-                      <span>Giãn giờ cùng phim (Lệch 15-30p với phim hot, 30-60p phim thường)</span>
+                      <div className="leading-tight">
+                        <div className="font-semibold text-white">Giãn cách giờ chiếu cùng phim (30p)</div>
+                        <div className="text-[11px] text-[#8E9AAF] mt-0.5">Tránh chiếu trùng giờ cùng một phim</div>
+                      </div>
                     </label>
 
-                    <label className="flex items-center gap-2 text-white cursor-pointer select-none">
+                    {/* Rule 3: Ưu tiên Giờ vàng cho Bom tấn */}
+                    <label className="flex items-start gap-2.5 p-2 rounded-lg bg-[#182030]/60 border border-[#222D42] hover:border-[#E63845]/50 cursor-pointer transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={goldenHoursBlockbuster}
+                        onChange={(e) => setGoldenHoursBlockbuster(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 accent-[#E63845] rounded cursor-pointer shrink-0"
+                      />
+                      <div className="leading-tight">
+                        <div className="font-semibold text-white">Ưu tiên Bom tấn Giờ vàng (17h30–22h)</div>
+                        <div className="text-[11px] text-[#8E9AAF] mt-0.5">Tối ưu lấp đầy ghế khung cao điểm</div>
+                      </div>
+                    </label>
+
+                    {/* Rule 4: Phân bổ theo độ tuổi / thể loại */}
+                    <label className="flex items-start gap-2.5 p-2 rounded-lg bg-[#182030]/60 border border-[#222D42] hover:border-[#10B981]/50 cursor-pointer transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={limitLateNightFamily}
+                        onChange={(e) => setLimitLateNightFamily(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 accent-[#10B981] rounded cursor-pointer shrink-0"
+                      />
+                      <div className="leading-tight">
+                        <div className="font-semibold text-white">Xếp giờ theo độ tuổi (P ngày, T18 tối)</div>
+                        <div className="text-[11px] text-[#8E9AAF] mt-0.5">Gia đình trước 20h30, kinh dị/T18 chiếu tối</div>
+                      </div>
+                    </label>
+
+                    {/* Rule 5: Né xung đột & vé đã bán */}
+                    <label className="flex items-start gap-2.5 p-2 rounded-lg bg-[#182030]/60 border border-[#222D42] hover:border-[#22C55E]/50 cursor-pointer transition-colors select-none">
                       <input
                         type="checkbox"
                         checked={autoShiftConflicts}
                         onChange={(e) => setAutoShiftConflicts(e.target.checked)}
-                        className="w-3.5 h-3.5 accent-[#22C55E] rounded cursor-pointer"
+                        className="w-4 h-4 mt-0.5 accent-[#22C55E] rounded cursor-pointer shrink-0"
                       />
-                      <span>Tự động né suất trùng / vé đã bán (Auto-shift sang slot trống gần nhất)</span>
+                      <div className="leading-tight">
+                        <div className="font-semibold text-white">Tự dời slot khi gặp suất đã bán vé</div>
+                        <div className="text-[11px] text-[#8E9AAF] mt-0.5">Tự tìm slot trống kế tiếp, không đè vé cũ</div>
+                      </div>
                     </label>
 
-                    <label className="flex items-center gap-2 text-white cursor-pointer select-none">
+                    {/* Rule 6: Làm mới phòng */}
+                    <label className="flex items-start gap-2.5 p-2 rounded-lg bg-[#182030]/60 border border-[#222D42] hover:border-[#FABF2E]/50 cursor-pointer transition-colors select-none">
                       <input
                         type="checkbox"
                         checked={overwriteExisting}
                         onChange={(e) => setOverwriteExisting(e.target.checked)}
-                        className="w-3.5 h-3.5 accent-[#FABF2E] rounded cursor-pointer"
+                        className="w-4 h-4 mt-0.5 accent-[#FABF2E] rounded cursor-pointer shrink-0"
                       />
-                      <span className="text-[#FABF2E] font-medium">Làm mới phòng chiếu (Xóa các suất cũ chưa bán vé trong ngày để chống đè ô)</span>
+                      <div className="leading-tight">
+                        <div className="font-semibold text-[#FABF2E]">Làm mới phòng (Xóa lịch cũ chưa có vé)</div>
+                        <div className="text-[11px] text-[#8E9AAF] mt-0.5">Xóa suất trống cũ trong ngày để chống đè ô</div>
+                      </div>
                     </label>
+                  </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="text-[#8E9AAF] text-[11px]">Trạng thái xuất bản:</span>
+                  {/* Trạng thái xuất bản */}
+                  <div className="pt-2 border-t border-[#1E2638] flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-[#8E9AAF] text-xs font-medium">Trạng thái xuất bản:</span>
+                    <div className="flex items-center gap-4">
                       <label className="flex items-center gap-1.5 text-white cursor-pointer select-none text-xs">
                         <input
                           type="radio"
