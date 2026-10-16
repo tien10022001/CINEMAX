@@ -26,9 +26,10 @@ export type AdminTab =
   | 'SHOWTIMES'
   | 'AUDITORIUMS'
   | 'CONCESSION'
+  | 'COUPONS'
+  | 'ORDERS_FINANCE'
   | 'POS_SHIFTS'
   | 'CHECKIN'
-  | 'ORDERS_FINANCE'
   | 'SETTINGS'
   | 'AUDIT_LOGS';
 
@@ -46,6 +47,7 @@ interface AdminSidebarProps {
     products: number;
     orders: number;
     refunds: number;
+    coupons?: number;
   };
 }
 
@@ -91,13 +93,19 @@ export default function AdminSidebar({
     },
     {
       id: 'CONCESSION',
-      label: 'Dịch vụ Bắp & Nước',
+      label: 'Food',
       icon: Coffee,
       badge: counts.products
     },
     {
+      id: 'COUPONS',
+      label: 'Mã Giảm Giá',
+      icon: Gift,
+      badge: counts.coupons
+    },
+    {
       id: 'ORDERS_FINANCE',
-      label: 'Mã Giảm Giá & Vé',
+      label: 'Quản lý Vé',
       icon: Ticket,
       badge: counts.orders
     },

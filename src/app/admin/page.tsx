@@ -29,6 +29,7 @@ import MoviesView from '@/components/admin/MoviesView';
 import ShowtimesView from '@/components/admin/ShowtimesView';
 import AuditoriumsView from '@/components/admin/AuditoriumsView';
 import ConcessionView from '@/components/admin/ConcessionView';
+import CouponsView from '@/components/admin/CouponsView';
 import PosShiftsView from '@/components/admin/PosShiftsView';
 import CheckinView from '@/components/admin/CheckinView';
 import OrdersFinanceView from '@/components/admin/OrdersFinanceView';
@@ -1432,7 +1433,8 @@ export default function AdminPage() {
           auditoriums: auditoriums.length,
           products: products.length,
           orders: orders.length,
-          refunds: refunds.filter((r) => r.status === 'pending').length
+          refunds: refunds.filter((r) => r.status === 'pending').length,
+          coupons: coupons.length
         }}
       />
 
@@ -1452,9 +1454,11 @@ export default function AdminPage() {
                 : activeTab === 'SHOWTIMES'
                 ? 'Quản lý suất chiếu'
                 : activeTab === 'CONCESSION'
-                ? 'Dịch vụ Bắp & Nước'
+                ? 'Food'
+                : activeTab === 'COUPONS'
+                ? 'Mã Giảm Giá'
                 : activeTab === 'ORDERS_FINANCE'
-                ? 'Mã Giảm Giá & Đặt vé'
+                ? 'Quản lý Vé'
                 : activeTab === 'POS_SHIFTS'
                 ? 'Quầy Vé POS'
                 : activeTab === 'CHECKIN'
@@ -1752,6 +1756,15 @@ export default function AdminPage() {
                   tickets={tickets}
                   operatorName={effectiveOperatorName}
                   onCheckInTicket={handleCheckInTicket}
+                  showToast={showToast}
+                />
+              )}
+
+              {activeTab === 'COUPONS' && (
+                <CouponsView
+                  coupons={coupons}
+                  onSaveCoupon={handleSaveCoupon}
+                  onDeleteCoupon={handleDeleteCoupon}
                   showToast={showToast}
                 />
               )}
