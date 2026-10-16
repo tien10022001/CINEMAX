@@ -348,111 +348,61 @@ export default function ConcessionView({
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
-      {/* Top Bar: Sub Tabs + Action Buttons */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#222B3D] pb-3">
-        {/* Sub Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 custom-scrollbar">
+      {/* Filter & Search Bar + Add Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0E121B] border border-[#20293B] p-2.5 rounded-2xl">
+        {/* Category Pills */}
+        <div className="flex items-center gap-1.5 flex-wrap">
           {[
-            { id: 'MENU', label: 'Thực Đơn Bắp Nước (F&B)', icon: Coffee, count: products.length },
-            { id: 'MODIFIERS', label: 'Tùy Chọn Đổi Vị / Size', icon: Sliders, count: modifiers.length },
-            { id: 'INVENTORY', label: 'Sổ Biến Động Kho', icon: FileText }
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeSubTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveSubTab(tab.id as any)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  isActive
-                    ? 'bg-[#FABF2E] text-black shadow-md shadow-[#FABF2E]/20'
-                    : 'bg-[#141924] text-[#8E9AAF] hover:text-white border border-[#222B3D]'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
-                {typeof tab.count === 'number' && (
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                      isActive ? 'bg-black/20 text-black' : 'bg-[#1F2739] text-[#8E9AAF]'
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+            { id: 'ALL', label: 'Tất Cả', count: products.length },
+            { id: 'COMBO', label: '🍿 Combo Bắp Nước', count: comboCount },
+            { id: 'FOOD', label: '🍿 Bắp Rang (Popcorn)', count: foodCount },
+            { id: 'BEVERAGE', label: '🥤 Nước Uống (Drink)', count: bevCount }
+          ].map((btn) => (
+            <button
+              key={btn.id}
+              onClick={() => setMenuFilter(btn.id as any)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                menuFilter === btn.id
+                  ? 'bg-[#E63845] text-white shadow-md shadow-[#E63845]/25'
+                  : 'bg-[#141924] text-[#8E9AAF] hover:text-white border border-[#222B3D]'
+              }`}
+            >
+              <span>{btn.label}</span>
+              <span className="ml-1.5 text-[10px] opacity-75">({btn.count})</span>
+            </button>
+          ))}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setMovementModalOpen(true)}
-            className="px-3 py-2 rounded-xl bg-[#1F2739] hover:bg-[#28324A] text-white text-xs font-bold border border-[#303B52] flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            <FileText className="w-3.5 h-3.5 text-[#FABF2E]" />
-            <span>Phiếu Kho</span>
-          </button>
+        {/* Search Input & Add Button */}
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-[240px]">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#8E9AAF]" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm món, vị bắp, loại nước..."
+              className="w-full bg-[#141924] border border-[#222B3D] focus:border-[#06B6D4] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-[#5C677D] focus:outline-none"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8E9AAF] hover:text-white"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
 
           <button
             onClick={openAddProductModal}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#E63845] to-[#F43F5E] hover:from-[#D42B38] hover:to-[#E11D48] text-white text-xs font-bold shadow-lg shadow-[#E63845]/25 flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#E63845] to-[#F43F5E] hover:from-[#D42B38] hover:to-[#E11D48] text-white text-xs font-bold shadow-lg shadow-[#E63845]/25 flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Thêm Món / Combo Mới</span>
           </button>
         </div>
       </div>
-
-      {/* TAB 1: MENU PRODUCTS & COMBOS */}
-      {activeSubTab === 'MENU' && (
-        <div className="space-y-4">
-          {/* Filter & Search Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0E121B] border border-[#20293B] p-2.5 rounded-2xl">
-            {/* Category Pills */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {[
-                { id: 'ALL', label: 'Tất Cả', count: products.length },
-                { id: 'COMBO', label: '🍿 Combo Bắp Nước', count: comboCount },
-                { id: 'FOOD', label: '🍿 Bắp Rang (Popcorn)', count: foodCount },
-                { id: 'BEVERAGE', label: '🥤 Nước Uống (Drink)', count: bevCount }
-              ].map((btn) => (
-                <button
-                  key={btn.id}
-                  onClick={() => setMenuFilter(btn.id as any)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    menuFilter === btn.id
-                      ? 'bg-[#E63845] text-white shadow-md shadow-[#E63845]/25'
-                      : 'bg-[#141924] text-[#8E9AAF] hover:text-white border border-[#222B3D]'
-                  }`}
-                >
-                  <span>{btn.label}</span>
-                  <span className="ml-1.5 text-[10px] opacity-75">({btn.count})</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Search Input */}
-            <div className="relative min-w-[240px]">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#8E9AAF]" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Tìm món, vị bắp, loại nước..."
-                className="w-full bg-[#141924] border border-[#222B3D] focus:border-[#06B6D4] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-[#5C677D] focus:outline-none"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8E9AAF] hover:text-white"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          </div>
 
           {/* Product Grid */}
           {filteredProducts.length === 0 ? (
@@ -640,111 +590,6 @@ export default function ConcessionView({
               })}
             </div>
           )}
-        </div>
-      )}
-
-      {/* TAB 2: MODIFIERS (TÙY CHỌN ĐỔI VỊ / SIZE) */}
-      {activeSubTab === 'MODIFIERS' && (
-        <div className="bg-[#121622] border border-[#222B3D] rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between border-b border-[#222B3D] pb-2 text-xs">
-            <span className="font-bold text-white">Danh Sách Biến Thể & Phụ Phí Đổi Vị</span>
-            <span className="text-[#8E9AAF]">{modifiers.length} tùy chọn khả dụng</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {modifiers.map((mod) => (
-              <div
-                key={mod.id}
-                className="p-4 rounded-2xl bg-[#161D2B] border border-[#26324A] flex items-center justify-between gap-3 text-xs"
-              >
-                <div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#1E273A] text-[#FABF2E] border border-[#FABF2E]/30 uppercase">
-                    {mod.modifier_group}
-                  </span>
-                  <div className="font-bold text-white text-sm mt-1.5">{mod.option_name}</div>
-                  <div className="text-[11px] text-[#22C55E] font-mono mt-0.5">
-                    {mod.extra_price > 0 ? `+${mod.extra_price.toLocaleString('vi-VN')} đ` : 'Mặc định (Miễn phí)'}
-                  </div>
-                </div>
-
-                <span
-                  className={`px-2 py-1 rounded-full text-[10px] font-bold ${
-                    mod.active ? 'bg-[#22C55E]/15 text-[#22C55E]' : 'bg-[#EF4444]/15 text-[#EF4444]'
-                  }`}
-                >
-                  {mod.active ? 'Kích hoạt' : 'Tạm ẩn'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: INVENTORY MOVEMENTS (SỔ KHO) */}
-      {activeSubTab === 'INVENTORY' && (
-        <div className="bg-[#121622] border border-[#222B3D] rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between border-b border-[#222B3D] pb-2 text-xs">
-            <span className="font-bold text-white">Sổ Biến Động Kho Hàng</span>
-
-            <button
-              onClick={() => setMovementModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-[#FABF2E] text-black font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Tạo Phiếu Kho</span>
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#222B3D] text-[#8E9AAF]">
-                  <th className="py-2.5 px-3 font-bold">Thời Gian</th>
-                  <th className="py-2.5 px-3 font-bold">Sản Phẩm</th>
-                  <th className="py-2.5 px-3 font-bold">Loại Phiếu</th>
-                  <th className="py-2.5 px-3 font-bold text-right">Biến Động</th>
-                  <th className="py-2.5 px-3 font-bold">Lý Do / Diễn Giải</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1D2536]">
-                {inventoryLogs.map((log) => {
-                  const prod = products.find((p) => p.id === log.product_id);
-                  const isPositive = (log.quantity || 0) > 0;
-
-                  return (
-                    <tr key={log.id} className="hover:bg-[#161C2A]">
-                      <td className="py-3 px-3 text-[#8E9AAF] font-mono">
-                        {new Date(log.created_at || '').toLocaleTimeString('vi-VN')} •{' '}
-                        {new Date(log.created_at || '').toLocaleDateString('vi-VN')}
-                      </td>
-                      <td className="py-3 px-3 font-bold text-white">{prod?.name || 'Nguyên liệu'}</td>
-                      <td className="py-3 px-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                            log.movement_type === 'IMPORT'
-                              ? 'bg-[#22C55E]/15 text-[#22C55E] border border-[#222B3D]'
-                              : log.movement_type === 'SALE'
-                              ? 'bg-[#06B6D4]/15 text-[#06B6D4] border border-[#06B6D4]/30'
-                              : 'bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30'
-                          }`}
-                        >
-                          {log.movement_type}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-sm">
-                        <span className={isPositive ? 'text-[#22C55E]' : 'text-[#EF4444]'}>
-                          {isPositive ? `+${log.quantity}` : log.quantity}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-[#8E9AAF]">{log.reason}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* Modal: Log Inventory Movement */}
       {movementModalOpen && (
