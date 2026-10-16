@@ -874,7 +874,8 @@ export default function StaffWorkspacePage() {
         // Fallback to raw string
       }
     }
-    return trimmed.replace(/^#/, '');
+    let clean = trimmed.replace(/^CINEMAX:TKT:/i, '').replace(/^#/, '');
+    return clean;
   }, []);
 
   const handleInspectTicket = useCallback(
