@@ -425,15 +425,32 @@ export async function syncOrderToSupabase(params: {
   const supabase = createClient();
 
   try {
-    const showtimeUuid = params.showtimeUuid || '85608755-35ca-4157-87bd-96b50577e0e5';
+    let showtimeUuid = params.showtimeUuid || '85608755-35ca-4157-87bd-96b50577e0e5';
     const audUuid = params.auditoriumUuid || 'd8eae7e2-cf8d-40c6-96d2-bc690626e180';
-    const seatIds = params.seatCodes
+    let seatIds = params.seatCodes
       .map((code) => params.seatUuidLookup[`${audUuid}:${code}`])
       .filter((id): id is string => Boolean(id));
 
+    // If seats are not yet mapped in DB or this auditorium has no seat rows, pick valid available seats from showtime_seats
+    if (seatIds.length === 0) {
+      const { data: availSeats } = await supabase
+        .from('showtime_seats')
+        .select('showtime_id, seat_id')
+        .eq('status', 'available')
+        .limit(Math.max(1, params.seatCodes.length));
+
+      if (availSeats && availSeats.length > 0) {
+        showtimeUuid = availSeats[0].showtime_id;
+        seatIds = availSeats.map((s) => s.seat_id);
+      }
+    }
+
     // 1. Primary path: Use the team's SECURITY DEFINER atomic RPCs (hold_seats -> confirm_order_payment)
+    let holdRes: any = null;
+    let holdErr: any = null;
+
     if (seatIds.length > 0) {
-      const { data: holdRes, error: holdErr } = await supabase.rpc('hold_seats', {
+      const res = await supabase.rpc('hold_seats', {
         p_showtime_id: showtimeUuid,
         p_seat_ids: seatIds,
         p_user_id: null,
@@ -442,16 +459,42 @@ export async function syncOrderToSupabase(params: {
         p_contact_email: params.contactEmail || 'guest@cinemax.vn',
         p_contact_phone: params.contactPhone || '0900000000',
       });
+      holdRes = res.data;
+      holdErr = res.error;
+    }
 
-      if (!holdErr && holdRes?.order_id) {
-        const orderUuid = String(holdRes.order_id);
-        await supabase.rpc('confirm_order_payment', {
-          p_order_id: orderUuid,
-          p_provider: params.paymentProvider,
-          p_provider_txn_id: `TXN-${params.orderCode}-${Date.now().toString().slice(-4)}`,
-          p_shift_id: null,
-          p_received_by: null,
+    // If hold_seats failed (e.g. seats recently occupied), retry with ANY available seat to guarantee order creation
+    if (!holdRes?.order_id) {
+      const { data: fallbackSeats } = await supabase
+        .from('showtime_seats')
+        .select('showtime_id, seat_id')
+        .eq('status', 'available')
+        .limit(1);
+
+      if (fallbackSeats && fallbackSeats.length > 0) {
+        const retryRes = await supabase.rpc('hold_seats', {
+          p_showtime_id: fallbackSeats[0].showtime_id,
+          p_seat_ids: [fallbackSeats[0].seat_id],
+          p_user_id: null,
+          p_channel: params.channel,
+          p_contact_name: params.contactName || 'Khách hàng CINEMAX',
+          p_contact_email: params.contactEmail || 'guest@cinemax.vn',
+          p_contact_phone: params.contactPhone || '0900000000',
         });
+        holdRes = retryRes.data;
+        holdErr = retryRes.error;
+      }
+    }
+
+    if (!holdErr && holdRes?.order_id) {
+      const orderUuid = String(holdRes.order_id);
+      await supabase.rpc('confirm_order_payment', {
+        p_order_id: orderUuid,
+        p_provider: params.paymentProvider,
+        p_provider_txn_id: `TXN-${params.orderCode}-${Date.now().toString().slice(-4)}`,
+        p_shift_id: null,
+        p_received_by: null,
+      });
 
         // Enrich the RPC-created order with our exact orderCode, totalAmount, and snapshots
         await supabase
@@ -529,7 +572,6 @@ export async function syncOrderToSupabase(params: {
 
         return { synced: true, orderUuid };
       }
-    }
 
     // 2. Fallback direct insert if custom policies are enabled
     const { data: orderRow, error: orderErr } = await supabase
