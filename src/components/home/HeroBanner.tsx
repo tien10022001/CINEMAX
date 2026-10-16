@@ -58,7 +58,7 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
             {/* 2 Buttons: Đặt vé ngay & Xem trailer (Figma Screen 1) */}
             <div className="pt-2 flex items-center gap-3">
               <Link
-                href={`/booking?movie=${featured.id}`}
+                href={`/movie/${featured.slug}#schedule-section`}
                 className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-7 py-3 rounded-lg font-bold text-xs sm:text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
               >
                 Đặt vé ngay

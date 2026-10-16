@@ -75,7 +75,7 @@ export default function MovieCard({ movie, isUpcoming = false }: MovieCardProps)
           </button>
         ) : (
           <Link
-            href={`/booking?movie=${movie.id}`}
+            href={`/movie/${movie.slug}#schedule-section`}
             className="w-full bg-[#E63845] hover:bg-[#CC2B37] text-white py-2.5 rounded-lg font-bold text-xs sm:text-sm flex items-center justify-center shadow-md shadow-[#E63845]/25 transition-all transform hover:scale-[1.02] cursor-pointer"
           >
             Đặt vé

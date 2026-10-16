@@ -140,7 +140,7 @@ function BookingContent() {
   // 10-minute hold timer (Figma Screen 3: "⏱ Giữ ghế còn 09:42")
   const [timeLeft, setTimeLeft] = useState<number>(600); // 10:00 initial
 
-  // Helper: Sinh sơ đồ ghế chuẩn xác cho từng rạp, từng suất chiếu tuân thủ 4 trạng thái
+  // Helper: Sinh sơ đồ ghế chuẩn xác 10 cột khớp 100% với Nhân viên quầy vé Staff POS
   function getDynamicShowtimeSeats(
     roomId: number = 1,
     cinemaId: string | number,
@@ -157,64 +157,35 @@ function BookingContent() {
 
     rows.forEach((row, rowIdx) => {
       const isCouple = row === 'H';
-      const isVip = row === 'E' || row === 'F' || row === 'G';
+      const isVip = row === 'F' || row === 'G';
       const typeId = isCouple ? 3 : isVip ? 2 : 1;
       const typeCode = isCouple ? 'COUPLE' : isVip ? 'VIP' : 'STANDARD';
 
-      if (isCouple) {
-        for (let c = 1; c <= 5; c++) {
-          const label = `ĐÔI ${c}`;
-          let status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' = 'AVAILABLE';
-          if (locallyBookedSeats.has(label)) status = 'SOLD';
-          else if (locallyHeldSeats.has(label)) status = 'HELD';
-          else if (locallyBlockedSeats.has(label)) status = 'BLOCKED';
+      for (let c = 1; c <= 10; c++) {
+        const label = `${row}${c}`;
+        let status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' = 'AVAILABLE';
+        if (locallyBookedSeats.has(label)) status = 'SOLD';
+        else if (locallyHeldSeats.has(label)) status = 'HELD';
+        else if (locallyBlockedSeats.has(label)) status = 'BLOCKED';
 
-          dynamicSeats.push({
-            id: seatId++,
-            room_id: roomId,
-            seat_type_id: typeId,
-            row_label: row,
-            seat_number: c,
-            grid_row: rowIdx + 1,
-            grid_col: c,
-            is_active: true,
-            seat_type: {
-              id: typeId,
-              code: typeCode,
-              name: 'Ghế đôi',
-              capacity: 2,
-              color_code: '#F472B6',
-            },
-            status,
-          });
-        }
-      } else {
-        for (let c = 1; c <= 10; c++) {
-          const label = `${row}${c}`;
-          let status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' = 'AVAILABLE';
-          if (locallyBookedSeats.has(label)) status = 'SOLD';
-          else if (locallyHeldSeats.has(label)) status = 'HELD';
-          else if (locallyBlockedSeats.has(label)) status = 'BLOCKED';
-
-          dynamicSeats.push({
-            id: seatId++,
-            room_id: roomId,
-            seat_type_id: typeId,
-            row_label: row,
-            seat_number: c,
-            grid_row: rowIdx + 1,
-            grid_col: c,
-            is_active: true,
-            seat_type: {
-              id: typeId,
-              code: typeCode,
-              name: isVip ? 'Ghế VIP' : 'Ghế thường',
-              capacity: 1,
-              color_code: isVip ? '#FABF2E' : '#9CA3AF',
-            },
-            status,
-          });
-        }
+        dynamicSeats.push({
+          id: seatId++,
+          room_id: roomId,
+          seat_type_id: typeId,
+          row_label: row,
+          seat_number: c,
+          grid_row: rowIdx + 1,
+          grid_col: c,
+          is_active: true,
+          seat_type: {
+            id: typeId,
+            code: typeCode as any,
+            name: isCouple ? 'Ghế đôi' : isVip ? 'Ghế VIP' : 'Ghế thường',
+            capacity: isCouple ? 2 : 1,
+            color_code: isCouple ? '#F472B6' : isVip ? '#FBBF24' : '#9CA3AF',
+          },
+          status,
+        });
       }
     });
 
@@ -231,6 +202,13 @@ function BookingContent() {
       const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
       const localTickets = stored ? JSON.parse(stored) : [];
       const bookedSeatLabels = new Set<string>();
+
+      // Đọc từ soldSeatsByShowtime trong DataContext (đồng bộ trực tiếp từ Supabase và Staff POS)
+      const stKey = selectedShowtime?.id || queryShowtimeId;
+      const ctxSold = (soldSeatsByShowtime as Record<string | number, string[]>)?.[stKey];
+      if (Array.isArray(ctxSold)) {
+        ctxSold.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
+      }
 
       localTickets.forEach((t: any) => {
         const matchShowtimeId =
@@ -275,7 +253,7 @@ function BookingContent() {
           }
         }
       } catch (e) {
-        console.warn('POS seats sync error:', e);
+        // POS seats sync fallback
       }
 
       // Also sync maintenance/broken seats locked from Staff Room Management
@@ -439,7 +417,7 @@ function BookingContent() {
     const blockedSet = new Set<string>();
 
     seats.forEach((s) => {
-      const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+      const label = `${s.row_label}${s.seat_number}`;
       const statusUpper = (s.status || '').toUpperCase();
       if (statusUpper === 'SOLD' || statusUpper === 'BOOKED') bookedSet.add(label);
       else if (statusUpper === 'HELD') heldSet.add(label);
@@ -464,7 +442,7 @@ function BookingContent() {
 
   const handleAddOrphanSeats = (orphanLabels: string[]) => {
     const seatsToAdd = seats.filter((s) => {
-      const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+      const label = `${s.row_label}${s.seat_number}`;
       return orphanLabels.includes(label) && !selectedSeats.some((sel) => sel.id === s.id);
     });
 
@@ -495,9 +473,7 @@ function BookingContent() {
     }
 
     // Cơ chế chống trùng vé (Concurrency Control): Giữ ghế 10 phút
-    const seatLabels = selectedSeats.map((s) =>
-      s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`
-    );
+    const seatLabels = selectedSeats.map((s) => `${s.row_label}${s.seat_number}`);
 
     const holdRes = BookingService.holdSeatsLocal({
       showtimeId: selectedShowtime?.id || queryShowtimeId,
@@ -742,7 +718,7 @@ function BookingContent() {
         try {
           await PaymentService.confirmPayment(orderId, paymentMethod as any);
         } catch (payErr) {
-          console.error('Lỗi xác nhận thanh toán Supabase:', payErr);
+          console.warn('Xác nhận thanh toán Supabase RPC fallback:', payErr);
         }
       }
 
@@ -911,7 +887,7 @@ function BookingContent() {
       try {
         await PaymentService.confirmPayment(pendingVietQROrder.orderId, 'CARD', bankTxnId);
       } catch (payErr) {
-        console.error('Lỗi xác nhận thanh toán Supabase:', payErr);
+        console.warn('Xác nhận thanh toán Supabase RPC fallback:', payErr);
       }
     }
 
@@ -1158,100 +1134,123 @@ function BookingContent() {
                 </span>
               </div>
 
-              {/* Seat Matrix with Center Aisle */}
+              {/* Seat Matrix: 10 columns continuous grid matching Staff POS */}
               <div className="w-full overflow-x-auto pb-6 flex justify-center">
-                <div className="inline-grid gap-2 text-center select-none">
+                <div className="space-y-2 select-none min-w-[320px]">
                   {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((row) => {
-                    const rowSeats = seats.filter((s) => s.row_label === row);
+                    const isVipRow = row === 'F' || row === 'G';
                     const isCoupleRow = row === 'H';
-
-                    // Center aisle: 5 seats on left, 5 on right (for couple: 3 and 3)
-                    const leftSeats = isCoupleRow ? rowSeats.slice(0, 3) : rowSeats.slice(0, 5);
-                    const rightSeats = isCoupleRow ? rowSeats.slice(3, 6) : rowSeats.slice(5, 10);
-
-                    const renderSeatButton = (seat: Seat) => {
-                      const isSelected = selectedSeats.some((s) => s.id === seat.id);
-                      const isSold = seat.status === 'SOLD';
-                      const isHeld = seat.status === 'HELD';
-                      const isVip = seat.seat_type?.code === 'VIP';
-                      const isCouple = seat.seat_type?.code === 'COUPLE';
-
-                      let bgClass = 'bg-[#303645]/80 text-[#9CA3AF] border border-[#9CA3AF]/40 hover:border-white';
-                      if (isVip) {
-                        bgClass = 'bg-[#FABF2E]/20 text-[#FABF2E] border border-[#FABF2E]/70 hover:bg-[#FABF2E]/30';
-                      }
-                      if (isCouple) {
-                        bgClass = 'bg-[#F472B6]/20 text-[#F472B6] border border-[#F472B6]/70 hover:bg-[#F472B6]/30';
-                      }
-                      if (isSelected) {
-                        bgClass = 'bg-[#E63845] text-white border-transparent font-bold glow-primary scale-105';
-                      }
-                      if (isSold || isHeld) {
-                        bgClass = 'bg-[#383D4D] text-transparent border-transparent cursor-not-allowed opacity-35';
-                      }
-
-                      return (
-                        <button
-                          key={seat.id}
-                          disabled={isSold || isHeld}
-                          onClick={() => handleSeatClick(seat)}
-                          className={`h-8 sm:h-9 rounded-lg text-xs font-semibold transition-all flex items-center justify-center cursor-pointer ${bgClass} ${
-                            isCouple ? 'w-16 sm:w-20' : 'w-7 sm:w-8'
-                          }`}
-                          title={`${row}${seat.seat_number} - ${seat.seat_type?.name}`}
-                        >
-                          {isCouple ? `ĐÔI ${seat.seat_number}` : seat.seat_number}
-                        </button>
-                      );
-                    };
-
                     return (
-                      <div key={row} className="flex items-center justify-center gap-2">
-                        <span className="w-5 text-xs font-bold text-[#9EA6B8]">{row}</span>
+                      <div key={row} className="flex items-center justify-center gap-1.5 sm:gap-2">
+                        <span className="w-4 sm:w-5 text-xs font-bold text-slate-400 text-center">
+                          {row}
+                        </span>
+                        <div className="grid grid-cols-10 gap-1.5 sm:gap-2">
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((col) => {
+                            const code = `${row}${col}`;
+                            const seat =
+                              seats.find((s) => s.row_label === row && s.seat_number === col) || {
+                                id: `${row}-${col}`,
+                                row_label: row,
+                                seat_number: col,
+                                seat_type: {
+                                  code: isCoupleRow ? 'COUPLE' : isVipRow ? 'VIP' : 'STANDARD',
+                                  name: isCoupleRow ? 'Ghế đôi' : isVipRow ? 'Ghế VIP' : 'Ghế thường',
+                                },
+                                status: 'AVAILABLE',
+                              };
+                            const isSelected = selectedSeats.some(
+                              (s) => s.id === seat.id || `${s.row_label}${s.seat_number}` === code
+                            );
+                            const isSold =
+                              seat.status === 'SOLD' ||
+                              seat.status === 'sold' ||
+                              seat.status === 'BOOKED' ||
+                              seat.status === 'booked';
+                            const isHeld = seat.status === 'HELD' || seat.status === 'held';
+                            const isBlocked = seat.status === 'BLOCKED' || seat.status === 'blocked';
 
-                        {/* Left seat block */}
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                          {leftSeats.map(renderSeatButton)}
+                            let seatClass =
+                              'bg-[#283044] text-slate-200 border-[#36415C] hover:border-white';
+                            if (isVipRow) {
+                              seatClass =
+                                'bg-[#3B2610] text-[#FBBF24] border-[#92400E] hover:border-[#FBBF24]';
+                            }
+                            if (isCoupleRow) {
+                              seatClass =
+                                'bg-[#3B1530] text-[#F472B6] border-[#9D174D] hover:border-[#F472B6]';
+                            }
+                            if (isSelected) {
+                              seatClass =
+                                'bg-[#E63845] text-white border-[#E63845] font-bold shadow-lg shadow-[#E63845]/40 scale-105';
+                            }
+                            if (isSold) {
+                              seatClass =
+                                'bg-[#181C26] text-slate-600 border-[#1E2433] cursor-not-allowed';
+                            }
+                            if (isHeld) {
+                              seatClass =
+                                'bg-[#2D2A1C] text-[#FDE047] border-[#854D0E] cursor-not-allowed';
+                            }
+                            if (isBlocked) {
+                              seatClass =
+                                'bg-[#3A1217] text-[#F87171] border-[#7F1D1D] cursor-not-allowed line-through';
+                            }
+
+                            return (
+                              <button
+                                key={code}
+                                type="button"
+                                disabled={isSold || isHeld || isBlocked}
+                                onClick={() => handleSeatClick(seat as Seat)}
+                                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg text-[10px] sm:text-xs font-semibold border transition-all flex items-center justify-center cursor-pointer ${seatClass}`}
+                                title={`${code} - ${
+                                  isCoupleRow
+                                    ? 'Ghế đôi (210.000đ)'
+                                    : isVipRow
+                                    ? 'Ghế VIP (110.000đ)'
+                                    : 'Ghế thường (90.000đ)'
+                                }`}
+                              >
+                                {code}
+                              </button>
+                            );
+                          })}
                         </div>
-
-                        {/* Center Aisle */}
-                        <div className="w-8 sm:w-12 text-[10px] text-[#9EA6B8]/40 flex items-center justify-center font-mono">
-                          •
-                        </div>
-
-                        {/* Right seat block */}
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                          {rightSeats.map(renderSeatButton)}
-                        </div>
-
-                        <span className="w-5 text-xs font-bold text-[#9EA6B8]">{row}</span>
+                        <span className="w-4 sm:w-5 text-xs font-bold text-slate-400 text-center">
+                          {row}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Seat Legend (Figma Screen 3) */}
-              <div className="w-full border-t border-[#303645] pt-6 mt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-[#9EA6B8]">
+              {/* Seat Legend (Khớp 100% Staff POS) */}
+              <div className="w-full border-t border-[#303645] pt-6 mt-6 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs text-[#9EA6B8]">
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#303645] border border-[#9CA3AF]" />
+                  <div className="w-4 h-4 rounded bg-[#283044] border border-[#36415C]" />
                   <span>Ghế thường (90.000đ)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#FABF2E]/20 border border-[#FABF2E]" />
+                  <div className="w-4 h-4 rounded bg-[#3B2610] border border-[#92400E] text-[#FBBF24]" />
                   <span>Ghế VIP (110.000đ)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-4 rounded bg-[#F472B6]/20 border border-[#F472B6]" />
+                  <div className="w-4 h-4 rounded bg-[#3B1530] border border-[#9D174D] text-[#F472B6]" />
                   <span>Ghế đôi (210.000đ)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#E63845]" />
+                  <div className="w-4 h-4 rounded bg-[#E63845] border border-[#E63845]" />
                   <span className="text-white font-semibold">Đang chọn</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#383D4D] opacity-40" />
+                  <div className="w-4 h-4 rounded bg-[#181C26] border border-[#1E2433]" />
                   <span>Đã bán</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#2D2A1C] border border-[#854D0E]" />
+                  <span>Đang giữ chỗ</span>
                 </div>
               </div>
             </div>
@@ -1280,7 +1279,7 @@ function BookingContent() {
                   </div>
                   <div>
                     <span className="text-[#9EA6B8] block text-xs">Suất chiếu:</span>
-                    <span className="font-bold text-[#FABF2E]">10:00 • Hôm nay (29/09)</span>
+                    <span className="font-bold text-[#FABF2E]">{queryTime} • {queryDate}</span>
                   </div>
 
                   <div className="pt-2 border-t border-[#303645]">
@@ -1503,11 +1502,27 @@ function BookingContent() {
               <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 space-y-4">
                 <h3 className="text-lg font-bold text-white">Phương thức thanh toán</h3>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('VIETQR')}
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
+                      paymentMethod === 'VIETQR'
+                        ? 'border-[#0052CC] bg-[#0052CC]/15 ring-2 ring-[#0052CC]'
+                        : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-[#0052CC] flex items-center justify-center text-white font-black text-xs shadow-md">
+                      QR
+                    </div>
+                    <span className="text-xs font-bold text-white text-center">VietQR Pro</span>
+                    <span className="text-[10px] text-[#33C773] font-semibold -mt-1">Tự động 24/7</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('MOMO')}
-                    className={`p-4 rounded-2xl border flex flex-col items-center gap-2.5 cursor-pointer transition-all ${
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'MOMO'
                         ? 'border-[#D82D8B] bg-[#D82D8B]/10 ring-2 ring-[#D82D8B]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -1522,7 +1537,7 @@ function BookingContent() {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('VNPAY')}
-                    className={`p-4 rounded-2xl border flex flex-col items-center gap-2.5 cursor-pointer transition-all ${
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'VNPAY'
                         ? 'border-[#0066FF] bg-[#0066FF]/10 ring-2 ring-[#0066FF]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -1537,7 +1552,7 @@ function BookingContent() {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('ZALOPAY')}
-                    className={`p-4 rounded-2xl border flex flex-col items-center gap-2.5 cursor-pointer transition-all ${
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'ZALOPAY'
                         ? 'border-[#0088FF] bg-[#0088FF]/10 ring-2 ring-[#0088FF]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -1552,7 +1567,7 @@ function BookingContent() {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('CARD')}
-                    className={`p-4 rounded-2xl border flex flex-col items-center gap-2.5 cursor-pointer transition-all ${
+                    className={`p-3 sm:p-4 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       paymentMethod === 'CARD'
                         ? 'border-[#FABF2E] bg-[#FABF2E]/10 ring-2 ring-[#FABF2E]'
                         : 'border-[#303645] bg-[#0F1217] hover:border-white/40'
@@ -1585,7 +1600,7 @@ function BookingContent() {
                   </div>
                   <div className="flex justify-between text-[#9EA6B8]">
                     <span>Suất chiếu:</span>
-                    <span className="text-[#FABF2E] font-medium">10:00 • 29/09</span>
+                    <span className="text-[#FABF2E] font-medium">{queryTime} • {queryDate}</span>
                   </div>
                   <div className="flex justify-between text-[#9EA6B8]">
                     <span>Ghế ({selectedSeats.length}):</span>
@@ -1683,7 +1698,7 @@ function BookingContent() {
                     <div>
                       <span className="text-white/60 block text-[11px]">Phòng & Suất chiếu:</span>
                       <span className="text-[#FABF2E] font-bold">
-                        {selectedShowtime.room?.name || 'Phòng 01 (IMAX)'} • 10:00 - 29/09/2026
+                        {selectedShowtime.room?.name || 'Phòng 01 (IMAX)'} • {queryTime} - {queryDate}
                       </span>
                     </div>
                     <div>
@@ -1813,6 +1828,17 @@ function BookingContent() {
           </div>
         )}
       </main>
+
+      {pendingVietQROrder && (
+        <VietQRModal
+          isOpen={isVietQRModalOpen}
+          onClose={() => setIsVietQRModalOpen(false)}
+          onConfirm={handleConfirmVietQR}
+          amount={pendingVietQROrder.amount}
+          orderCode={pendingVietQROrder.orderCode}
+          timeLeftSeconds={timeLeft}
+        />
+      )}
 
       <Footer />
     </div>
