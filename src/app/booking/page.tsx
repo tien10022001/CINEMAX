@@ -34,6 +34,7 @@ import {
 import VietQRModal from '@/components/booking/VietQRModal';
 import ShowtimeModal from '@/components/common/ShowtimeModal';
 import { BookingService } from '@/services/booking.service';
+import { TicketScannerService } from '@/services/ticket-scanner.service';
 import { checkAllSelectedSeatsForOrphans, OrphanSeatCheckResult } from '@/lib/seat-rules';
 
 function BookingContent() {
@@ -1682,14 +1683,25 @@ function getDynamicShowtimeSeats(
                   <div className="w-6 h-6 rounded-full bg-[#0F1217] -mb-7 border-t border-[#303645]" />
                 </div>
 
-                {/* Right QR Section */}
-                <div className="w-full md:w-56 bg-[#14161F] p-6 sm:p-8 flex flex-col items-center justify-center text-center space-y-3 border-t md:border-t-0 md:border-l border-[#303645]/50">
-                  <div className="bg-white p-3 rounded-2xl shadow-xl">
-                    <QrCode className="w-32 h-32 text-black" />
+                {/* Right QR Section (Dành cho máy quét Kiosk in vé & nhân viên soát vé) */}
+                <div className="w-full md:w-56 bg-[#14161F] p-6 sm:p-7 flex flex-col items-center justify-center text-center space-y-2.5 border-t md:border-t-0 md:border-l border-[#303645]/50">
+                  <div className="bg-white p-2.5 rounded-2xl shadow-xl flex flex-col items-center justify-center">
+                    <img
+                      src={TicketScannerService.generateTicketQrUrl(completedBooking.bookingCode, 240)}
+                      alt={`Mã QR vé ${completedBooking.bookingCode}`}
+                      className="w-32 h-32 object-contain"
+                    />
                   </div>
-                  <div className="text-[11px] text-[#9EA6B8]">Quét tại quầy soát vé</div>
-                  <div className="font-mono text-xs font-bold text-white tracking-widest">
-                    {completedBooking.bookingCode}
+                  <div className="space-y-1">
+                    <div className="text-[10px] text-[#FABF2E] font-bold uppercase tracking-wider">
+                      MÃ QUÉT SOÁT VÉ / IN KIOSK
+                    </div>
+                    <div className="font-mono text-xs font-black text-white tracking-widest bg-[#0F1217] py-0.5 px-2 rounded border border-[#303645]">
+                      {completedBooking.bookingCode}
+                    </div>
+                    <div className="text-[9px] text-[#9EA6B8]">
+                      Đưa mã vào đầu đọc Kiosk hoặc cửa soát vé
+                    </div>
                   </div>
                 </div>
               </div>

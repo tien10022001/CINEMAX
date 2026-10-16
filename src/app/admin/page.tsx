@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { BankTransferService, BankTransaction } from '@/services/bank-transfer.service';
 import { VietQRService, BankAccountInfo, POPULAR_VIETQR_BANKS } from '@/services/vietqr.service';
+import { TicketScannerService, TicketValidationResult } from '@/services/ticket-scanner.service';
 
 export default function AdminDashboardPage() {
   const { currentUser, login, logout } = useAuth();
@@ -244,6 +245,27 @@ export default function AdminDashboardPage() {
     }
     VietQRService.saveBankInfo(bankConfig);
     showToast(`Đã lưu cấu hình tài khoản ${bankConfig.bankShortName} - ${bankConfig.accountNumber} thành công!`);
+  };
+
+  // Quản lý Soát vé và In vé Kiosk bằng máy quét barcode 2D
+  const [isTicketScannerOpen, setIsTicketScannerOpen] = useState(false);
+  const [scanInputCode, setScanInputCode] = useState('');
+  const [scanResult, setScanResult] = useState<TicketValidationResult | null>(null);
+
+  const handleScanTicket = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scanInputCode.trim()) return;
+    const res = TicketScannerService.checkInTicket(scanInputCode.trim());
+    setScanResult(res);
+    if (res.valid) {
+      showToast('Đã soát vé thành công!');
+    }
+  };
+
+  const handlePrintTicketAtKiosk = (code: string) => {
+    TicketScannerService.markAsPrinted(code);
+    showToast(`Đã in vé Kiosk cho mã ${code}!`);
+    window.print();
   };
 
   const handleManualApproveTicket = (ticket: any, idx: number) => {
@@ -1098,6 +1120,19 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScanInputCode('');
+                    setScanResult(null);
+                    setIsTicketScannerOpen(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#E63845] hover:bg-[#CC2B37] text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Quét Soát Vé / In Kiosk</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -2350,6 +2385,160 @@ export default function AdminDashboardPage() {
                 className="px-5 py-2 rounded-full bg-[#303645] hover:bg-[#3E4557] text-white text-xs font-semibold cursor-pointer"
               >
                 Đóng Cửa Sổ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* MODAL 8: MÁY QUÉT SOÁT VÉ VÀO CỬA & IN VÉ KIOSK (Ticket Scanner) */}
+      {/* ================================================================= */}
+      {isTicketScannerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 max-w-2xl w-full space-y-5 shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsTicketScannerOpen(false)}
+              className="absolute top-5 right-5 text-[#9EA6B8] hover:text-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#E63845]/15 border border-[#E63845]/40 text-[#E63845]">
+                <QrCode className="w-3.5 h-3.5" />
+                <span>HỆ THỐNG SOÁT VÉ TỰ ĐỘNG & KIOSK IN VÉ CINEMAX</span>
+              </div>
+              <h3 className="text-xl font-bold text-white">Đầu Đọc Quét Mã Vé Điện Tử</h3>
+              <p className="text-xs text-[#9EA6B8]">
+                Bắn mã QR trên điện thoại khách hàng bằng máy quét barcode 2D hoặc camera Kiosk
+              </p>
+            </div>
+
+            {/* Form máy quét */}
+            <form onSubmit={handleScanTicket} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  autoFocus
+                  value={scanInputCode}
+                  onChange={(e) => setScanInputCode(e.target.value)}
+                  placeholder="Quét mã QR hoặc nhập mã vé (VD: CNM261016-A8F2K)"
+                  className="flex-1 bg-[#0F1217] border border-[#303645] focus:border-[#E63845] rounded-2xl px-4 py-3 text-sm text-white font-mono focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-5 py-3 rounded-2xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>Quét Mã</span>
+                </button>
+              </div>
+
+              {/* Nút test nhanh từ danh sách vé */}
+              {systemTickets.length > 0 && (
+                <div className="flex items-center gap-2 text-[11px] text-[#9EA6B8] flex-wrap">
+                  <span>Mã vé mẫu sẵn có:</span>
+                  {systemTickets.slice(0, 3).map((t, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setScanInputCode(t.bookingCode);
+                        const res = TicketScannerService.checkInTicket(t.bookingCode);
+                        setScanResult(res);
+                      }}
+                      className="text-[#FABF2E] hover:underline font-mono font-bold bg-[#0F1217] px-2 py-0.5 rounded border border-[#303645] cursor-pointer"
+                    >
+                      {t.bookingCode}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </form>
+
+            {/* Kết quả quét vé */}
+            {scanResult && (
+              <div
+                className={`p-5 rounded-2xl border space-y-3 animate-in zoom-in-95 ${
+                  scanResult.action === 'ALLOW_ENTRY'
+                    ? 'bg-[#33C773]/10 border-[#33C773]/50 text-white'
+                    : scanResult.action === 'ALREADY_CHECKED_IN'
+                    ? 'bg-[#E63845]/15 border-[#E63845] text-white'
+                    : 'bg-[#FABF2E]/10 border-[#FABF2E]/50 text-white'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {scanResult.action === 'ALLOW_ENTRY' ? (
+                    <div className="w-10 h-10 rounded-xl bg-[#33C773] text-white flex items-center justify-center shrink-0">
+                      <Check className="w-6 h-6 stroke-[3]" />
+                    </div>
+                  ) : scanResult.action === 'ALREADY_CHECKED_IN' ? (
+                    <div className="w-10 h-10 rounded-xl bg-[#E63845] text-white flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-6 h-6 stroke-[2.5]" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-[#FABF2E] text-black flex items-center justify-center shrink-0 font-bold">
+                      !
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-1">
+                    <h4 className="text-base font-bold">
+                      {scanResult.action === 'ALLOW_ENTRY' && '✓ VÉ HỢP LỆ — MỜI KHÁCH VÀO PHÒNG CHIẾU'}
+                      {scanResult.action === 'ALREADY_CHECKED_IN' && '⚠️ CẢNH BÁO: VÉ NÀY ĐÃ ĐƯỢC SOÁT VÀO CỬA RỒI!'}
+                      {scanResult.action === 'NOT_PAID' && '❌ VÉ CHƯA HOÀN TẤT THANH TOÁN'}
+                      {scanResult.action === 'NOT_FOUND' && '❌ KHÔNG TÌM THẤY VÉ TRÊN HỆ THỐNG'}
+                    </h4>
+                    <p className="text-xs text-white/90">{scanResult.message}</p>
+                  </div>
+                </div>
+
+                {/* Chi tiết vé nếu tìm thấy */}
+                {scanResult.ticket && (
+                  <div className="bg-[#0F1217] p-3.5 rounded-xl border border-[#303645] grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[#9EA6B8] block text-[11px]">Tên phim:</span>
+                      <strong className="text-white">{scanResult.ticket.movieTitle}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#9EA6B8] block text-[11px]">Phòng & Suất:</span>
+                      <strong className="text-[#FABF2E]">{scanResult.ticket.roomName} • {scanResult.ticket.showtime || scanResult.ticket.showtimeDate}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#9EA6B8] block text-[11px]">Số ghế:</span>
+                      <strong className="text-white">{scanResult.ticket.seatsStr || scanResult.ticket.seats}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#9EA6B8] block text-[11px]">Khách hàng:</span>
+                      <strong className="text-white">{scanResult.ticket.customerName || 'Khách vãng lai'}</strong>
+                    </div>
+                  </div>
+                )}
+
+                {/* Nút in vé Kiosk */}
+                {scanResult.ticket && (
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handlePrintTicketAtKiosk(scanResult.ticket.bookingCode)}
+                      className="bg-[#FABF2E] hover:bg-[#E5AC26] text-black px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <Receipt className="w-3.5 h-3.5" />
+                      <span>In Vé Giấy Tại Kiosk (Print Ticket)</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setIsTicketScannerOpen(false)}
+                className="px-5 py-2 rounded-full bg-[#303645] hover:bg-[#3E4557] text-white text-xs font-semibold cursor-pointer"
+              >
+                Đóng Máy Quét
               </button>
             </div>
           </div>
