@@ -212,6 +212,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (savedSession) {
         const user = JSON.parse(savedSession);
         setCurrentUser(user);
+
+        // Tự động đồng bộ tài khoản cũ từ local sang Supabase nếu chưa có UUID Supabase
+        if (user && user.id && user.id.startsWith('usr-') && user.email) {
+          const supabase = createClient();
+          supabase.auth
+            .signUp({
+              email: user.email.toLowerCase(),
+              password: 'password123',
+              options: {
+                data: {
+                  full_name: user.full_name || 'Khách hàng CINEMAX',
+                  phone: user.phone || '0900000000',
+                },
+              },
+            })
+            .then((res: any) => {
+              if (res.data?.user?.id) {
+                const updatedUser = { ...user, id: res.data.user.id };
+                setCurrentUser(updatedUser);
+                localStorage.setItem('cinemax_session_user', JSON.stringify(updatedUser));
+              }
+            })
+            .catch(() => {});
+        }
       } else {
         // GUEST by default - No hardcoded user!
         setCurrentUser(null);
