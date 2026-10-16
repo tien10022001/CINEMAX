@@ -269,6 +269,14 @@ function getDynamicShowtimeSeats(
     // 2. Đọc danh sách ghế đang bị giữ tạm (HELD) bởi phiên khác còn hạn
     const currentShowtimeKey = selectedShowtime?.id || queryShowtimeId;
     const heldMap = BookingService.getLocalHeldSeats(currentShowtimeKey);
+
+    try {
+      const serverHeldMap = await BookingService.syncServerHeldSeats(currentShowtimeKey);
+      serverHeldMap.forEach((info, label) => {
+        heldMap.set(label, info);
+      });
+    } catch {}
+
     const heldSeatLabels = new Set<string>();
     heldMap.forEach((info, label) => {
       if (info.sessionId !== sessionId) {
@@ -364,6 +372,11 @@ function getDynamicShowtimeSeats(
       }
     } catch {}
 
+    // Polling tự động mỗi 2.5s để cập nhật tức thời ghế khi có khách khác vào từ trình duyệt/thiết bị khác
+    const pollInterval = setInterval(() => {
+      loadSeats();
+    }, 2500);
+
     const handleBeforeUnload = () => {
       if (currentStep !== 3) {
         BookingService.releaseSessionHold(sessionId);
@@ -375,6 +388,7 @@ function getDynamicShowtimeSeats(
       window.removeEventListener('cinemax_data_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      clearInterval(pollInterval);
       bc?.close();
       if (currentStep !== 3) {
         BookingService.releaseSessionHold(sessionId);

@@ -311,6 +311,20 @@ export class BookingService {
         }
       } catch {}
 
+      // Đồng bộ đồng thời lên Server API (hỗ trợ Incognito, trình duyệt khác, thiết bị khác)
+      try {
+        fetch('/api/seats/hold', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            showtimeId: params.showtimeId,
+            sessionId: params.sessionId,
+            seatLabels: params.seatLabels,
+            holdMinutes,
+          }),
+        }).catch(() => {});
+      } catch {}
+
       return { success: true, expiresAt };
     } catch (e: any) {
       return { success: false, error: e?.message || 'Lỗi khi giữ ghế', expiresAt: 0 };
@@ -339,9 +353,44 @@ export class BookingService {
           }
         } catch {}
       }
+
+      // Xóa trên Server API
+      try {
+        fetch(`/api/seats/hold?sessionId=${encodeURIComponent(sessionId)}`, {
+          method: 'DELETE',
+        }).catch(() => {});
+      } catch {}
     } catch (e) {
       console.error(e);
     }
+  }
+
+  /**
+   * Đồng bộ ghế đang giữ từ Server API để liên thông giữa Tab thường & Tab ẩn danh/Thiết bị khác
+   */
+  static async syncServerHeldSeats(showtimeId: string | number): Promise<Map<string, { expiresAt: number; sessionId: string }>> {
+    const map = new Map<string, { expiresAt: number; sessionId: string }>();
+    if (typeof window === 'undefined') return map;
+
+    try {
+      const res = await fetch(`/api/seats/hold?showtimeId=${encodeURIComponent(showtimeId.toString())}`, {
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.heldSeats)) {
+          const now = Date.now();
+          const valid = json.heldSeats.filter((h: any) => h.expiresAt > now);
+          valid.forEach((h: any) => {
+            (h.seats || []).forEach((seatLabel: string) => {
+              map.set(seatLabel, { expiresAt: h.expiresAt, sessionId: h.sessionId });
+            });
+          });
+        }
+      }
+    } catch {}
+
+    return map;
   }
 
   /**
