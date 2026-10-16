@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { OtpService } from '@/services/otp.service';
 import { TicketScannerService } from '@/services/ticket-scanner.service';
-import { Search, ShieldCheck, Ticket, QrCode, AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Search, ShieldCheck, Ticket, QrCode, AlertCircle, ArrowLeft, CheckCircle2, Coffee } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LookupPage() {
@@ -65,7 +65,27 @@ export default function LookupPage() {
     try {
       const res = await OtpService.verifyLookupOtp(challengeId, otpInput);
       if (res.success && res.order) {
-        setOrderData(res.order);
+        let foodsStr = '';
+        try {
+          const stored = localStorage.getItem('cinemax_user_tickets');
+          if (stored) {
+            const list = JSON.parse(stored);
+            const matched = list.find(
+              (t: any) =>
+                t.bookingCode?.toUpperCase() === orderCode.trim().toUpperCase() ||
+                t.id === orderCode.trim() ||
+                t.bookingCode?.toUpperCase() === res.order.order_code?.toUpperCase()
+            );
+            if (matched) {
+              foodsStr = matched.foodsStr || (matched.foods ? matched.foods.map((f: any) => `${f.quantity}x ${f.name}`).join(', ') : '');
+            }
+          }
+        } catch {}
+
+        setOrderData({
+          ...res.order,
+          foodsStr,
+        });
         setTicketsData(res.tickets || []);
         setStep('RESULT');
       } else {
@@ -293,6 +313,27 @@ export default function LookupPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Danh sách Bắp Nước & Combo Đi Kèm Nếu Có */}
+              {orderData.foodsStr && (
+                <div className="bg-gradient-to-r from-[#1E2230] to-[#141722] border border-[#FABF2E]/40 rounded-2xl p-5 space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-[#303645] pb-2">
+                    <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                      <Coffee className="w-4 h-4 text-[#FABF2E]" />
+                      <span>Bắp Nước & Combo Đi Kèm</span>
+                    </h3>
+                    <span className="text-[10px] font-bold bg-[#FABF2E]/20 text-[#FABF2E] px-2.5 py-0.5 rounded-full uppercase border border-[#FABF2E]/30">
+                      NHẬN TẠI QUẦY CONCESSION
+                    </span>
+                  </div>
+                  <div className="text-sm font-bold text-white pl-6">
+                    {orderData.foodsStr}
+                  </div>
+                  <p className="text-[11px] text-[#9EA6B8] pl-6">
+                    Khách hàng vui lòng xuất trình mã đơn <strong className="text-[#FABF2E] font-mono">{orderData.order_code}</strong> hoặc mã QR vé bên trên tại Quầy Bắp Nước để nhận đồ ăn.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

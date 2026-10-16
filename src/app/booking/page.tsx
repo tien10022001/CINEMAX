@@ -103,12 +103,14 @@ function BookingContent() {
     payerEmail: string;
     payerPhone: string;
     seatsStr: string;
+    foodsStr?: string;
   } | null>(null);
   const [completedBooking, setCompletedBooking] = useState<{
     bookingCode: string;
     paidAt: string;
     totalAmount: number;
     seatsStr: string;
+    foodsStr?: string;
     customerName: string;
     customerEmail: string;
     customerPhone: string;
@@ -696,6 +698,21 @@ function getDynamicShowtimeSeats(
       const generatedCode = orderRes.order_code;
       const seatsStr = selectedSeats.map((s) => `${s.row_label}${s.seat_number}`).join(', ');
 
+      // Lưu chi tiết các món Bắp Nước & Combo khách đã mua
+      const purchasedFoods = Object.entries(foodQuantities)
+        .filter(([_, qty]) => qty > 0)
+        .map(([id, qty]) => {
+          const food = foods.find((f) => f.id === parseInt(id));
+          return {
+            id: parseInt(id),
+            name: food?.name || `Món #${id}`,
+            price: food?.price || 0,
+            quantity: qty,
+            total: (food?.price || 0) * qty,
+          };
+        });
+      const foodsStr = purchasedFoods.map((f) => `${f.quantity}x ${f.name}`).join(', ');
+
       // Nếu phương thức thanh toán là VIETQR -> Mở Modal VietQR để khách quét mã chuyển tiền
       if (paymentMethod === 'VIETQR') {
         setPendingVietQROrder({
@@ -706,6 +723,7 @@ function getDynamicShowtimeSeats(
           payerEmail,
           payerPhone,
           seatsStr,
+          foodsStr: foodsStr || undefined,
         });
         setIsVietQRModalOpen(true);
         setIsProcessingPayment(false);
@@ -731,6 +749,7 @@ function getDynamicShowtimeSeats(
         paidAt: paidTime,
         totalAmount: finalTotal,
         seatsStr: seatsStr,
+        foodsStr: foodsStr || undefined,
         customerName: payerName,
         customerEmail: payerEmail,
         customerPhone: payerPhone,
@@ -760,6 +779,8 @@ function getDynamicShowtimeSeats(
           showtimeTime: queryTime,
           showtime: `${queryTime} • ${queryDate}`,
           seats: seatsStr,
+          foods: purchasedFoods,
+          foodsStr: foodsStr || undefined,
           totalAmount: finalTotal,
           createdAt: paidTime,
           status: 'ĐÃ THANH TOÁN',
@@ -835,6 +856,7 @@ function getDynamicShowtimeSeats(
       paidAt: paidTime,
       totalAmount: pendingVietQROrder.amount,
       seatsStr: pendingVietQROrder.seatsStr,
+      foodsStr: pendingVietQROrder.foodsStr,
       customerName: pendingVietQROrder.payerName,
       customerEmail: pendingVietQROrder.payerEmail,
       customerPhone: pendingVietQROrder.payerPhone,
@@ -864,6 +886,7 @@ function getDynamicShowtimeSeats(
         showtime: `${queryTime} • ${queryDate}`,
         seats: selectedSeats.map((s) => `${s.row_label}${s.seat_number}`),
         seatsStr: pendingVietQROrder.seatsStr,
+        foodsStr: pendingVietQROrder.foodsStr,
         totalAmount: pendingVietQROrder.amount,
         status: 'ĐÃ THANH TOÁN',
         paymentMethod: `VIETQR (TPBank) • ${bankTxnId}`,
@@ -1670,6 +1693,14 @@ function getDynamicShowtimeSeats(
                       <span className="text-white/60 block text-[11px]">Ghế:</span>
                       <span className="text-white font-bold">{completedBooking.seatsStr}</span>
                     </div>
+                    {completedBooking.foodsStr && (
+                      <div className="bg-[#141722] p-2.5 rounded-xl border border-[#FABF2E]/30 space-y-0.5">
+                        <span className="text-[#FABF2E] font-bold block text-[10px] uppercase tracking-wide">
+                          🍿 Bắp Nước & Combo Đi Kèm:
+                        </span>
+                        <span className="text-white font-bold text-xs">{completedBooking.foodsStr}</span>
+                      </div>
+                    )}
                     <div>
                       <span className="text-white/60 block text-[11px]">Mã đặt vé:</span>
                       <span className="font-mono font-black text-[#FABF2E] text-base tracking-wider">

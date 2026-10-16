@@ -24,6 +24,8 @@ interface StoredTicket {
   totalAmount: number;
   createdAt: string;
   status: string;
+  foodsStr?: string;
+  foods?: any[];
 }
 
 export default function MyTicketsPage() {
@@ -355,6 +357,12 @@ export default function MyTicketsPage() {
                               </span>
                             )}
                           </div>
+                          {ticket.foodsStr && (
+                            <div className="bg-[#141722] px-2.5 py-1.5 rounded-xl border border-[#FABF2E]/30 text-xs">
+                              <span className="text-[#FABF2E] font-bold">🍿 Bắp nước: </span>
+                              <span className="text-white font-medium">{ticket.foodsStr}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -427,6 +435,12 @@ export default function MyTicketsPage() {
               <div className="text-xs text-white/90">
                 {selectedQrTicket.cinemaName} • Ghế {selectedQrTicket.seats}
               </div>
+              {selectedQrTicket.foodsStr && (
+                <div className="p-2 rounded-xl bg-[#0F1217] border border-[#FABF2E]/30 text-xs text-left">
+                  <span className="text-[10px] text-[#FABF2E] font-bold uppercase block">🍿 Combo Bắp Nước:</span>
+                  <span className="text-white font-bold">{selectedQrTicket.foodsStr}</span>
+                </div>
+              )}
               <div className="text-[11px] text-[#9EA6B8]">
                 Người đặt: <span className="text-white font-medium">{selectedQrTicket.customerName || 'Khách vãng lai'}</span>
               </div>

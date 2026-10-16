@@ -12,7 +12,8 @@ import {
   Armchair,
   Film,
   Building2,
-  Search
+  Search,
+  Coffee
 } from 'lucide-react';
 import { Ticket } from '@/lib/types-redesign';
 
@@ -40,6 +41,7 @@ export default function CheckinView({
     status: 'issued' | 'used' | 'cancelled';
     checked_in_at?: string;
     checked_in_by?: string;
+    foods_str?: string;
   } | null>({
     qr_token_hash: 'CMX-QR-89102-DUNE2',
     movie_title: 'Dune: Hành Tinh Cát - Phần 2',
@@ -47,7 +49,8 @@ export default function CheckinView({
     auditorium_name: 'Phòng 2 (IMAX Laser)',
     seat_label: 'F12 (VIP)',
     starts_at_str: 'Hôm nay, 19:30',
-    status: 'issued'
+    status: 'issued',
+    foods_str: '1x Combo Đôi (1 Bắp Lớn Phô Mai + 2 Coca Size L)'
   });
 
   const [ageCheckConfirmed, setAgeCheckConfirmed] = useState(false);
@@ -78,6 +81,32 @@ export default function CheckinView({
       return;
     }
 
+    // Tra cứu vé thực tế từ hệ thống vé cinemax_user_tickets
+    let matchedFoodStr = '';
+    let foundMovie = '';
+    let foundSeat = '';
+    let foundAuditorium = '';
+    let foundShowtime = '';
+    try {
+      const stored = localStorage.getItem('cinemax_user_tickets');
+      if (stored) {
+        const list = JSON.parse(stored);
+        const t = list.find(
+          (item: any) =>
+            item.bookingCode?.toUpperCase() === targetCode.toUpperCase() ||
+            targetCode.toUpperCase().includes(item.bookingCode?.toUpperCase() || '___') ||
+            item.id === targetCode
+        );
+        if (t) {
+          matchedFoodStr = t.foodsStr || (t.foods ? t.foods.map((f: any) => `${f.quantity}x ${f.name}`).join(', ') : '');
+          foundMovie = t.movieTitle;
+          foundSeat = t.seatsStr || (Array.isArray(t.seats) ? t.seats.join(', ') : t.seats);
+          foundAuditorium = t.roomName;
+          foundShowtime = t.showtime || `${t.showtimeTime} • ${t.showtimeDate}`;
+        }
+      }
+    } catch {}
+
     // Check if code matches any known ticket
     if (targetCode.includes('USED') || targetCode.includes('7721')) {
       setActiveTicket({
@@ -89,7 +118,8 @@ export default function CheckinView({
         starts_at_str: 'Hôm nay, 19:00',
         status: 'used',
         checked_in_at: '19:15',
-        checked_in_by: operatorName
+        checked_in_by: operatorName,
+        foods_str: matchedFoodStr || '1x Combo Solo (1 Bắp Ngọt + 1 Coca)'
       });
       setAgeCheckConfirmed(false);
       return;
@@ -98,12 +128,13 @@ export default function CheckinView({
     // Default valid scan
     setActiveTicket({
       qr_token_hash: targetCode,
-      movie_title: 'Dune: Hành Tinh Cát - Phần 2',
+      movie_title: foundMovie || 'Dune: Hành Tinh Cát - Phần 2',
       age_rating: 'T16',
-      auditorium_name: 'Phòng 2 (IMAX Laser)',
-      seat_label: 'F12 (VIP)',
-      starts_at_str: 'Hôm nay, 19:30',
-      status: 'issued'
+      auditorium_name: foundAuditorium || 'Phòng 2 (IMAX Laser)',
+      seat_label: foundSeat || 'F12 (VIP)',
+      starts_at_str: foundShowtime || 'Hôm nay, 19:30',
+      status: 'issued',
+      foods_str: matchedFoodStr || '1x Combo Đôi (1 Bắp Lớn Phô Mai + 2 Coca Size L)'
     });
     setAgeCheckConfirmed(false);
   };
@@ -297,6 +328,24 @@ export default function CheckinView({
                   <div className="text-base font-black text-[#06B6D4] font-mono">{activeTicket.seat_label}</div>
                   <div className="text-[11px] text-[#8E9AAF]">{activeTicket.auditorium_name}</div>
                 </div>
+              </div>
+
+              {/* Concession Food & Drink Info */}
+              <div className="p-4 rounded-2xl bg-[#171D2B] border border-[#222B3D] flex items-center justify-between gap-3 text-xs">
+                <div className="space-y-1">
+                  <span className="text-[#FABF2E] text-[10px] font-bold uppercase flex items-center gap-1.5">
+                    <Coffee className="w-3.5 h-3.5 text-[#FABF2E]" />
+                    <span>Bắp Nước & Combo Đi Kèm Đơn Vé</span>
+                  </span>
+                  <div className="text-sm font-bold text-white">
+                    {activeTicket.foods_str || 'Không kèm bắp nước'}
+                  </div>
+                </div>
+                {activeTicket.foods_str && activeTicket.foods_str !== 'Không kèm bắp nước' && (
+                  <span className="px-2.5 py-1 rounded-lg bg-[#FABF2E]/15 border border-[#FABF2E]/30 text-[#FABF2E] font-bold text-[10px] uppercase shrink-0">
+                    Nhắc khách nhận tại quầy
+                  </span>
+                )}
               </div>
 
               {/* CRITICAL AGE RATING ALERT BOX */}
