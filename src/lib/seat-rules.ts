@@ -26,14 +26,22 @@ export function checkOrphanSeatsInRow(
   currentlyHeldLabels: Set<string>,
   currentlyBlockedLabels: Set<string>
 ): OrphanSeatCheckResult {
-  const isCoupleRow = rowLabel === 'H';
+  const isCoupleRow =
+    rowLabel === 'H' ||
+    rowSeats.some((s) => s.seat_type?.code === 'COUPLE');
+
+  // Quy tắc nghiệp vụ CINEMAX: Cảnh báo ghế trống đơn lẻ KHÔNG ÁP DỤNG với ghế đôi (Couple)
+  if (isCoupleRow) {
+    return {
+      hasOrphanSeats: false,
+      orphanSeats: [],
+      orphanDetails: [],
+    };
+  }
 
   // Chia hàng thành các cụm ghế (Blocks) phân tách bởi lối đi giữa (Center Aisle)
-  // Với ghế thường (1-10): Block 1 = [1, 2, 3, 4, 5], Block 2 = [6, 7, 8, 9, 10]
-  // Với ghế đôi (1-5): Block 1 = [1, 2, 3], Block 2 = [4, 5]
-  const blocks: number[][] = isCoupleRow
-    ? [[1, 2, 3], [4, 5]]
-    : [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]];
+  // Với ghế thường/VIP (1-10): Block 1 = [1, 2, 3, 4, 5], Block 2 = [6, 7, 8, 9, 10]
+  const blocks: number[][] = [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]];
 
   const orphanDetails: OrphanSeatCheckResult['orphanDetails'] = [];
 
@@ -144,6 +152,11 @@ export function checkAllSelectedSeatsForOrphans(
   const allOrphans: OrphanSeatCheckResult['orphanDetails'] = [];
 
   for (const [rowLabel, selSeats] of selectedByRow.entries()) {
+    // Quy tắc nghiệp vụ CINEMAX: Bỏ qua hoàn toàn hàng ghế đôi (H hoặc loại COUPLE)
+    if (rowLabel === 'H' || selSeats.some((s) => s.seat_type?.code === 'COUPLE')) {
+      continue;
+    }
+
     const rowSeats = allSeats.filter((s) => s.row_label === rowLabel);
     const rowResult = checkOrphanSeatsInRow(
       rowLabel,
@@ -159,7 +172,12 @@ export function checkAllSelectedSeatsForOrphans(
     }
   }
 
-  const orphanSeats = Array.from(new Set(allOrphans.map((o) => o.seatLabel)));
+  // Tuyệt đối không áp dụng cảnh báo cho ghế đôi (hàng H hoặc nhãn ĐÔI)
+  const filteredOrphans = allOrphans.filter(
+    (o) => o.rowLabel !== 'H' && !o.seatLabel.includes('ĐÔI')
+  );
+
+  const orphanSeats = Array.from(new Set(filteredOrphans.map((o) => o.seatLabel)));
   let suggestionMessage = '';
   if (orphanSeats.length > 0) {
     suggestionMessage = `Lựa chọn của bạn đang để lại ghế trống đơn lẻ (${orphanSeats.join(', ')}). Bạn có thể chọn thêm ghế này hoặc chọn vị trí liền kề!`;
@@ -168,7 +186,7 @@ export function checkAllSelectedSeatsForOrphans(
   return {
     hasOrphanSeats: orphanSeats.length > 0,
     orphanSeats,
-    orphanDetails: allOrphans,
+    orphanDetails: filteredOrphans,
     suggestionMessage,
   };
 }
