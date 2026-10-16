@@ -8,69 +8,72 @@ export type ShowtimeStatus = 'OPEN' | 'CLOSED' | 'CANCELLED';
 export type DiscountType = 'PERCENT' | 'FIXED';
 export type BookingStatus = 'PENDING' | 'PAID' | 'CANCELLED' | 'EXPIRED';
 export type TicketStatus = 'HELD' | 'SOLD' | 'CANCELLED' | 'USED';
-export type FoodCategory = 'POPCORN' | 'DRINK' | 'SNACK' | 'COMBO';
-export type PaymentMethod = 'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CARD' | 'CASH';
+export type FoodCategory = 'POPCORN' | 'DRINK' | 'SNACK' | 'COMBO' | 'FOOD' | 'BEVERAGE';
+export type PaymentMethod = 'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CARD' | 'CASH' | 'VIETQR' | string;
 export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
 
 export type StaffPermission = 'POS' | 'CHECKIN' | 'CONCESSION' | 'SUPERVISOR';
 
 export interface Role {
-  id: number;
-  code: 'CUSTOMER' | 'STAFF' | 'ADMIN';
+  id: number | string;
+  code: 'CUSTOMER' | 'STAFF' | 'ADMIN' | 'user' | 'staff' | 'admin';
   name: string;
 }
 
 export interface User {
   id: string; // uuid
-  role_id: number;
-  role_code?: 'CUSTOMER' | 'STAFF' | 'ADMIN';
+  role_id?: number | string;
+  role_code?: 'CUSTOMER' | 'STAFF' | 'ADMIN' | 'user' | 'staff' | 'admin';
   staff_permissions?: StaffPermission[];
   staff_position?: string;
+  role?: string;
   full_name: string;
   email: string;
-  phone?: string;
+  phone?: string | null;
   gender?: Gender;
   birth_date?: string;
   avatar_url?: string;
   loyalty_points: number;
   email_verified_at?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Genre {
-  id: number;
+  id: number | string;
   name: string;
   slug: string;
 }
 
 export interface Movie {
-  id: number;
+  id: number | string;
   supabase_id?: string;
   title: string;
   original_title?: string;
   slug: string;
   synopsis?: string;
   duration_min: number;
+  duration_minutes?: number;
   release_date?: string;
   end_date?: string;
   age_rating: AgeRating;
   country?: string;
   director?: string;
   cast_list?: string;
+  language?: string | null;
   poster_url?: string;
   banner_url?: string;
   trailer_url?: string;
   imdb_score?: number;
   status: MovieStatus;
-  is_deleted: boolean;
+  is_deleted?: boolean;
   genres?: Genre[];
   created_at?: string;
 }
 
 export interface Cinema {
-  id: number;
+  id: number | string;
   supabase_id?: string;
   name: string;
   address: string;
@@ -84,48 +87,55 @@ export interface Cinema {
 }
 
 export interface Room {
-  id: number;
+  id: number | string;
   supabase_id?: string;
-  cinema_id: number;
+  cinema_id?: number | string;
   name: string;
   screen_type: ScreenType;
-  total_rows: number;
-  total_cols: number;
+  total_rows?: number;
+  total_cols?: number;
+  total_seats?: number;
   status: RoomStatus;
   cinema?: Cinema;
 }
 
 export interface SeatType {
-  id: number;
-  code: 'STANDARD' | 'VIP' | 'COUPLE';
+  id: number | string;
+  code: 'STANDARD' | 'VIP' | 'COUPLE' | 'WHEELCHAIR' | string;
   name: string;
-  capacity: number;
+  capacity?: number;
   color_code?: string;
 }
 
 export interface Seat {
-  id: number;
+  id: number | string;
   supabase_id?: string;
-  room_id: number;
-  seat_type_id: number;
+  room_id?: number | string;
+  auditorium_id?: string;
+  seat_type_id?: number | string;
   row_label: string;
   seat_number: number;
   grid_row: number;
   grid_col: number;
-  is_active: boolean;
+  is_active?: boolean;
   seat_type?: SeatType;
-  status?: 'AVAILABLE' | 'SELECTED' | 'HELD' | 'SOLD';
+  seat_group?: string | null;
+  status?: 'AVAILABLE' | 'SELECTED' | 'HELD' | 'SOLD' | 'BOOKED' | 'BLOCKED' | 'available' | 'held' | 'sold' | 'booked' | 'blocked';
 }
 
 export interface Showtime {
-  id: number;
+  id: number | string;
   supabase_id?: string;
   auditorium_id?: string;
-  movie_id: number;
-  room_id: number;
+  movie_id: number | string;
+  room_id?: number | string;
   start_time: string;
   end_time: string;
-  language_type: LanguageType;
+  starts_at?: string;
+  ends_at?: string;
+  format?: string;
+  language_type?: LanguageType;
+  language_version?: string;
   status: ShowtimeStatus;
   movie?: Movie;
   room?: Room;
@@ -134,8 +144,8 @@ export interface Showtime {
 }
 
 export interface ShowtimePrice {
-  showtime_id: number;
-  seat_type_id: number;
+  showtime_id: number | string;
+  seat_type_id: number | string;
   price: number;
   seat_type?: SeatType;
 }

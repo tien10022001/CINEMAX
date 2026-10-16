@@ -7,6 +7,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth-context';
 import { Ticket, QrCode, Download, Calendar, MapPin, X, Lock, Search, ShieldCheck } from 'lucide-react';
+import { TicketScannerService } from '@/services/ticket-scanner.service';
 
 interface StoredTicket {
   id: number;
@@ -425,27 +426,28 @@ export default function MyTicketsPage() {
             <p className="text-xs text-[#9EA6B8]">{selectedQrTicket.movieTitle}</p>
 
             <div className="bg-white p-3 rounded-2xl inline-block shadow-lg">
-              {qrDataUrl ? (
-                <img
-                  src={qrDataUrl}
-                  alt={`QR ${selectedQrTicket.bookingCode}`}
-                  className="w-48 h-48 object-contain"
-                />
-              ) : (
-                <QrCode className="w-48 h-48 text-black" />
-              )}
+              <img
+                src={qrDataUrl || TicketScannerService.generateTicketQrUrl(selectedQrTicket.bookingCode, 240)}
+                alt={`Mã QR vé ${selectedQrTicket.bookingCode}`}
+                className="w-48 h-48 object-contain"
+              />
             </div>
 
-            <div className="space-y-1">
-              <div className="text-[11px] text-[#9EA6B8]">Mã đặt vé</div>
-              <div className="font-mono text-base font-black text-[#FABF2E] tracking-widest">
+            <div className="space-y-1.5">
+              <div className="text-[10px] text-[#FABF2E] font-bold uppercase tracking-wider">
+                MÃ QUÉT SOÁT VÉ / IN KIOSK
+              </div>
+              <div className="font-mono text-base font-black text-white bg-[#0F1217] py-1 px-3 rounded-lg border border-[#303645] inline-block tracking-widest">
                 {selectedQrTicket.bookingCode}
               </div>
-              <div className="text-xs text-white/80">
+              <div className="text-xs text-white/90">
                 {selectedQrTicket.cinemaName} • Ghế {selectedQrTicket.seats}
               </div>
-              <div className="text-[11px] text-[#9EA6B8] pt-1">
-                Người đặt: {selectedQrTicket.customerName || 'Khách vãng lai'}
+              <div className="text-[11px] text-[#9EA6B8]">
+                Người đặt: <span className="text-white font-medium">{selectedQrTicket.customerName || 'Khách vãng lai'}</span>
+              </div>
+              <div className="text-[10px] text-gray-400 italic pt-0.5">
+                Đưa mã này vào đầu đọc Kiosk để in vé giấy hoặc cửa soát vé
               </div>
             </div>
 

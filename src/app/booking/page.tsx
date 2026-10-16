@@ -28,13 +28,19 @@ import {
   User as UserIcon,
   Phone,
   Mail,
-  Lock,
+  AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
+import VietQRModal from '@/components/booking/VietQRModal';
+import ShowtimeModal from '@/components/common/ShowtimeModal';
+import { BookingService } from '@/services/booking.service';
+import { TicketScannerService } from '@/services/ticket-scanner.service';
+import { checkAllSelectedSeatsForOrphans, OrphanSeatCheckResult } from '@/lib/seat-rules';
 
 function BookingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, openAuthModal, register } = useAuth();
   const {
     movies,
     cinemas,
@@ -51,6 +57,9 @@ function BookingContent() {
   const queryCinemaId = searchParams.get('cinema') || '1';
   const queryShowtimeId = searchParams.get('showtime') || '1001';
   const queryPromoCode = searchParams.get('promo') || '';
+  const queryTime = searchParams.get('time') || '15:30';
+  const queryDate = searchParams.get('date') || '15/10/2026';
+  const [isShowtimeChangeOpen, setIsShowtimeChangeOpen] = useState<boolean>(false);
 
   // Steps: 1 = Chọn ghế (Screen 3), 2 = Bắp nước & Thanh toán (Screen 4), 3 = Vé điện tử (Screen 5)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -71,7 +80,7 @@ function BookingContent() {
   const [guestError, setGuestError] = useState<string>('');
 
   // Food Items State: { [foodId]: quantity }
-  const [foodQuantities, setFoodQuantities] = useState<{ [id: number]: number }>({
+  const [foodQuantities, setFoodQuantities] = useState<{ [id: string | number]: number }>({
     1: 0,
     2: 0,
     3: 0,
@@ -83,8 +92,18 @@ function BookingContent() {
   const [promoError, setPromoError] = useState<string>('');
 
   // Payment State
-  const [paymentMethod, setPaymentMethod] = useState<'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CARD'>('MOMO');
+  const [paymentMethod, setPaymentMethod] = useState<'VIETQR' | 'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CARD'>('VIETQR');
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
+  const [isVietQRModalOpen, setIsVietQRModalOpen] = useState<boolean>(false);
+  const [pendingVietQROrder, setPendingVietQROrder] = useState<{
+    orderId: string;
+    orderCode: string;
+    amount: number;
+    payerName: string;
+    payerEmail: string;
+    payerPhone: string;
+    seatsStr: string;
+  } | null>(null);
   const [completedBooking, setCompletedBooking] = useState<{
     bookingCode: string;
     paidAt: string;
@@ -95,54 +114,177 @@ function BookingContent() {
     customerPhone: string;
   } | null>(null);
 
+  // Chuyển đổi Guest thành Member (Post-payment conversion)
+  const [memberPassword, setMemberPassword] = useState<string>('');
+  const [memberCreated, setMemberCreated] = useState<boolean>(false);
+  const [memberError, setMemberError] = useState<string>('');
+  const [isRegisteringMember, setIsRegisteringMember] = useState<boolean>(false);
+
+  // Mã phiên giữ ghế độc lập cho tab trình duyệt này (Session ID)
+  const [sessionId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      let s = sessionStorage.getItem('cinemax_booking_session');
+      if (!s) {
+        s = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+        sessionStorage.setItem('cinemax_booking_session', s);
+      }
+      return s;
+    }
+    return 'sess_' + Date.now();
+  });
+
+  // Trạng thái cảnh báo ghế trống đơn lẻ (Orphan Seat Warning)
+  const [orphanWarning, setOrphanWarning] = useState<OrphanSeatCheckResult | null>(null);
+  const [acknowledgedOrphan, setAcknowledgedOrphan] = useState<boolean>(false);
+
   // 10-minute hold timer (Figma Screen 3: "⏱ Giữ ghế còn 09:42")
-  const [timeLeft, setTimeLeft] = useState<number>(582); // 09:42 initial
+  const [timeLeft, setTimeLeft] = useState<number>(600); // 10:00 initial
+
+  // Helper: Sinh sơ đồ ghế chuẩn xác cho từng rạp, từng suất chiếu tuân thủ 4 trạng thái
+  function getDynamicShowtimeSeats(
+    roomId: number = 1,
+    cinemaId: string | number,
+    showtimeId: string | number,
+    date: string,
+    time: string,
+    locallyBookedSeats: Set<string>,
+    locallyHeldSeats: Set<string>,
+    locallyBlockedSeats: Set<string>
+  ): Seat[] {
+    const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const dynamicSeats: Seat[] = [];
+    let seatId = 1;
+
+    rows.forEach((row, rowIdx) => {
+      const isCouple = row === 'H';
+      const isVip = row === 'E' || row === 'F' || row === 'G';
+      const typeId = isCouple ? 3 : isVip ? 2 : 1;
+      const typeCode = isCouple ? 'COUPLE' : isVip ? 'VIP' : 'STANDARD';
+
+      if (isCouple) {
+        for (let c = 1; c <= 5; c++) {
+          const label = `ĐÔI ${c}`;
+          let status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' = 'AVAILABLE';
+          if (locallyBookedSeats.has(label)) status = 'SOLD';
+          else if (locallyHeldSeats.has(label)) status = 'HELD';
+          else if (locallyBlockedSeats.has(label)) status = 'BLOCKED';
+
+          dynamicSeats.push({
+            id: seatId++,
+            room_id: roomId,
+            seat_type_id: typeId,
+            row_label: row,
+            seat_number: c,
+            grid_row: rowIdx + 1,
+            grid_col: c,
+            is_active: true,
+            seat_type: {
+              id: typeId,
+              code: typeCode,
+              name: 'Ghế đôi',
+              capacity: 2,
+              color_code: '#F472B6',
+            },
+            status,
+          });
+        }
+      } else {
+        for (let c = 1; c <= 10; c++) {
+          const label = `${row}${c}`;
+          let status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' = 'AVAILABLE';
+          if (locallyBookedSeats.has(label)) status = 'SOLD';
+          else if (locallyHeldSeats.has(label)) status = 'HELD';
+          else if (locallyBlockedSeats.has(label)) status = 'BLOCKED';
+
+          dynamicSeats.push({
+            id: seatId++,
+            room_id: roomId,
+            seat_type_id: typeId,
+            row_label: row,
+            seat_number: c,
+            grid_row: rowIdx + 1,
+            grid_col: c,
+            is_active: true,
+            seat_type: {
+              id: typeId,
+              code: typeCode,
+              name: isVip ? 'Ghế VIP' : 'Ghế thường',
+              capacity: 1,
+              color_code: isVip ? '#FABF2E' : '#9CA3AF',
+            },
+            status,
+          });
+        }
+      }
+    });
+
+    return dynamicSeats;
+  }
 
   useEffect(() => {
-    const syncSeats = () => {
-      const baseSeats = generateMockSeats(selectedShowtime.room_id);
-      const occupiedLabels = new Set<string>(
-        (soldSeatsByShowtime[selectedShowtime.id] || []).map((s) => s.toUpperCase())
-      );
+    let isMounted = true;
+    async function loadSeats() {
+      // Tự động giải phóng các ghế giữ tạm đã hết hạn
+      await BookingService.releaseExpiredHolds();
+
+      // 1. Đọc danh sách vé đã đặt từ localStorage CHỈ cho đúng rạp, phim và suất chiếu này
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
+      const localTickets = stored ? JSON.parse(stored) : [];
+      const bookedSeatLabels = new Set<string>();
+
+      localTickets.forEach((t: any) => {
+        const matchShowtimeId =
+          t.showtimeId &&
+          selectedShowtime?.id &&
+          t.showtimeId.toString() === selectedShowtime.id.toString();
+
+        const matchCinema =
+          t.cinemaName === selectedCinema?.name ||
+          (t.cinemaId && t.cinemaId.toString() === queryCinemaId.toString());
+
+        const matchMovie =
+          (t.movieId && selectedMovie?.id && t.movieId.toString() === selectedMovie.id.toString()) ||
+          t.movieTitle === selectedMovie?.title;
+
+        const matchDate =
+          t.showtimeDate === queryDate ||
+          t.date === queryDate ||
+          (t.showtime && t.showtime.includes(queryDate));
+
+        const matchTime =
+          t.showtimeTime === queryTime ||
+          (t.showtime && t.showtime.includes(queryTime));
+
+        if (matchShowtimeId || (matchCinema && matchMovie && matchDate && matchTime)) {
+          if (Array.isArray(t.seats)) {
+            t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
+          } else if (typeof t.seats === 'string') {
+            t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(s.trim()));
+          }
+        }
+      });
+
+      // Also sync seats sold from Staff POS (cinemax_booked_seats_v2)
       try {
-        const stored = localStorage.getItem('cinemax_user_tickets');
-        if (stored) {
-          const list = JSON.parse(stored);
-          if (Array.isArray(list)) {
-            list.forEach((t: { showtimeId?: number; movieTitle?: string; status?: string; seats?: string }) => {
-              const isSameMovie = t.movieTitle === selectedMovie.title;
-              const isSameShowtime =
-                !t.showtimeId || t.showtimeId === selectedShowtime.id;
-              if (
-                isSameMovie &&
-                isSameShowtime &&
-                t.status !== 'ĐÃ HỦY' &&
-                t.status !== 'ĐÃ HOÀN TIỀN' &&
-                t.seats
-              ) {
-                t.seats.split(',').forEach((s) => occupiedLabels.add(s.trim().toUpperCase()));
-              }
-            });
+        const posSeatsRaw = localStorage.getItem('cinemax_booked_seats_v2');
+        if (posSeatsRaw) {
+          const posSeatsMap = JSON.parse(posSeatsRaw);
+          const stSeats = posSeatsMap?.[selectedShowtime?.id || queryShowtimeId];
+          if (Array.isArray(stSeats)) {
+            stSeats.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
           }
         }
+      } catch (e) {
+        console.warn('POS seats sync error:', e);
+      }
 
-        // Also sync seats sold from Staff POS (cinemax_booked_seats_v2) only when showtime belongs to this movie
-        if (selectedShowtime.movie_id === selectedMovie.id) {
-          const posSeatsRaw = localStorage.getItem('cinemax_booked_seats_v2');
-          if (posSeatsRaw) {
-            const posSeatsMap = JSON.parse(posSeatsRaw);
-            const stSeats = posSeatsMap?.[selectedShowtime.id];
-            if (Array.isArray(stSeats)) {
-              stSeats.forEach((s: string) => occupiedLabels.add(String(s).trim().toUpperCase()));
-            }
-          }
-        }
-
-        // Also sync maintenance/broken seats locked from Staff Room Management (cinemax_maintenance_seats_v2)
+      // Also sync maintenance/broken seats locked from Staff Room Management
+      const blockedSeatLabels = new Set<string>();
+      try {
         const maintRaw = localStorage.getItem('cinemax_maintenance_seats_v2');
         if (maintRaw) {
           const maintMap = JSON.parse(maintRaw);
-          const roomName = selectedShowtime.room?.name || 'Phòng 1';
+          const roomName = selectedShowtime?.room?.name || 'Phòng 1';
           const roomKey = roomName.includes('2')
             ? 'room-q1-2'
             : roomName.includes('3')
@@ -150,25 +292,94 @@ function BookingContent() {
             : 'room-q1-1';
           const roomBrokenSeats = maintMap?.[roomKey];
           if (Array.isArray(roomBrokenSeats)) {
-            roomBrokenSeats.forEach((s: string) => occupiedLabels.add(String(s).trim().toUpperCase()));
+            roomBrokenSeats.forEach((s: string) => blockedSeatLabels.add(String(s).trim().toUpperCase()));
           }
         }
       } catch (e) {
-        console.error(e);
+        console.warn('Maintenance seats sync error:', e);
       }
-      setSeats(
-        baseSeats.map((s) =>
-          occupiedLabels.has(`${s.row_label}${s.seat_number}`.toUpperCase())
-            ? { ...s, status: 'SOLD' }
-            : s
-        )
-      );
-    };
 
-    syncSeats();
-    window.addEventListener('storage', syncSeats);
-    return () => window.removeEventListener('storage', syncSeats);
-  }, [selectedShowtime, selectedMovie, soldSeatsByShowtime]);
+      // 2. Đọc danh sách ghế đang bị giữ tạm (HELD) bởi phiên khác còn hạn
+      const currentShowtimeKey = selectedShowtime?.id || queryShowtimeId;
+      const heldMap = BookingService.getLocalHeldSeats(currentShowtimeKey);
+      const heldSeatLabels = new Set<string>();
+      heldMap.forEach((info, label) => {
+        if (info.sessionId !== sessionId) {
+          heldSeatLabels.add(label);
+        }
+      });
+
+      // 3. Nếu là suất chiếu thật của rạp Hà Nội Centre trong DB Supabase
+      const stId = selectedShowtime?.id?.toString();
+      const isRealDbShowtime =
+        stId &&
+        stId === '85608755-35ca-4157-87bd-96b50577e0e5' &&
+        (selectedCinema?.id === 1 || selectedCinema?.name?.includes('Hà Nội'));
+
+      if (isRealDbShowtime) {
+        try {
+          const dbSeats = await BookingService.getShowtimeSeats(stId);
+          if (dbSeats && dbSeats.length > 0) {
+            const mapped: Seat[] = dbSeats.map((s) => {
+              const seatLabel = `${s.row_label}${s.seat_number}`;
+              const isBookedLocally = bookedSeatLabels.has(seatLabel);
+              const isHeldLocally = heldSeatLabels.has(seatLabel);
+              const isBlockedLocally = blockedSeatLabels.has(seatLabel);
+
+              let seatStatus: any = s.status;
+              if (isBookedLocally) seatStatus = 'sold';
+              else if (isHeldLocally) seatStatus = 'held';
+              else if (isBlockedLocally) seatStatus = 'blocked';
+
+              return {
+                id: s.id,
+                row_label: s.row_label,
+                seat_number: s.seat_number,
+                grid_row: s.grid_row,
+                grid_col: s.grid_col,
+                seat_type: {
+                  id: s.seat_type || 'standard',
+                  code: (s.seat_type || 'STANDARD').toUpperCase() as any,
+                  name: (s.seat_type || 'STANDARD').toUpperCase(),
+                },
+                seat_group: s.seat_group,
+                status: seatStatus,
+              };
+            });
+            if (isMounted) setSeats(mapped);
+            return;
+          }
+        } catch (err) {
+          console.warn('Lỗi tải ghế Supabase, dùng sơ đồ riêng cho rạp:', err);
+        }
+      }
+
+      // 4. Với các rạp khác (Landmark 81, Cầu Giấy...) hoặc các suất chiếu khác:
+      const dynamicSeats = getDynamicShowtimeSeats(
+        Number(selectedShowtime?.room_id) || 1,
+        selectedCinema?.id || queryCinemaId,
+        selectedShowtime?.id || queryShowtimeId,
+        queryDate,
+        queryTime,
+        bookedSeatLabels,
+        heldSeatLabels,
+        blockedSeatLabels
+      );
+
+      if (isMounted) setSeats(dynamicSeats);
+    }
+
+    loadSeats();
+    const handleUpdate = () => loadSeats();
+    window.addEventListener('cinemax_data_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('cinemax_data_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [selectedShowtime, queryCinemaId, queryDate, queryTime, selectedCinema, sessionId]);
 
   useEffect(() => {
     if (currentStep === 1 || currentStep === 2) {
@@ -176,8 +387,10 @@ function BookingContent() {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
+            BookingService.releaseSessionHold(sessionId);
             alert('Đã hết thời gian giữ ghế! Hệ thống đã giải phóng ghế của bạn.');
             setSelectedSeats([]);
+            setOrphanWarning(null);
             setCurrentStep(1);
             return 600;
           }
@@ -186,7 +399,7 @@ function BookingContent() {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [currentStep]);
+  }, [currentStep, sessionId]);
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -195,18 +408,111 @@ function BookingContent() {
   };
 
   const handleSeatClick = (seat: Seat) => {
-    if (seat.status === 'SOLD' || seat.status === 'HELD') return;
+    const isUnavailable =
+      seat.status === 'SOLD' ||
+      seat.status === 'sold' ||
+      seat.status === 'BOOKED' ||
+      seat.status === 'booked' ||
+      seat.status === 'HELD' ||
+      seat.status === 'held' ||
+      seat.status === 'BLOCKED' ||
+      seat.status === 'blocked';
+    if (isUnavailable) return;
 
     const isSelected = selectedSeats.some((s) => s.id === seat.id);
+    let nextSelected: Seat[];
     if (isSelected) {
-      setSelectedSeats(selectedSeats.filter((s) => s.id !== seat.id));
+      nextSelected = selectedSeats.filter((s) => s.id !== seat.id);
     } else {
       if (selectedSeats.length >= 8) {
         alert('Bạn chỉ có thể chọn tối đa 8 ghế trong một đơn đặt');
         return;
       }
-      setSelectedSeats([...selectedSeats, seat]);
+      nextSelected = [...selectedSeats, seat];
     }
+
+    setSelectedSeats(nextSelected);
+
+    // Kiểm tra quy tắc ghế trống đơn lẻ (Orphan / Single Seat Rule)
+    const bookedSet = new Set<string>();
+    const heldSet = new Set<string>();
+    const blockedSet = new Set<string>();
+
+    seats.forEach((s) => {
+      const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+      const statusUpper = (s.status || '').toUpperCase();
+      if (statusUpper === 'SOLD' || statusUpper === 'BOOKED') bookedSet.add(label);
+      else if (statusUpper === 'HELD') heldSet.add(label);
+      else if (statusUpper === 'BLOCKED') blockedSet.add(label);
+    });
+
+    const orphanCheck = checkAllSelectedSeatsForOrphans(
+      seats,
+      nextSelected,
+      bookedSet,
+      heldSet,
+      blockedSet
+    );
+
+    if (orphanCheck.hasOrphanSeats) {
+      setOrphanWarning(orphanCheck);
+      setAcknowledgedOrphan(false);
+    } else {
+      setOrphanWarning(null);
+    }
+  };
+
+  const handleAddOrphanSeats = (orphanLabels: string[]) => {
+    const seatsToAdd = seats.filter((s) => {
+      const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+      return orphanLabels.includes(label) && !selectedSeats.some((sel) => sel.id === s.id);
+    });
+
+    if (seatsToAdd.length > 0) {
+      if (selectedSeats.length + seatsToAdd.length > 8) {
+        alert('Tổng số ghế vượt quá 8 ghế tối đa. Vui lòng điều chỉnh lại.');
+        return;
+      }
+      const updated = [...selectedSeats, ...seatsToAdd];
+      setSelectedSeats(updated);
+      setOrphanWarning(null);
+      setAcknowledgedOrphan(true);
+    }
+  };
+
+  const handleProceedToStep2 = () => {
+    if (selectedSeats.length === 0) {
+      alert('Vui lòng chọn ít nhất một ghế');
+      return;
+    }
+
+    // Nếu phát hiện ghế trống đơn lẻ mà khách chưa xác nhận bỏ qua, hiển thị nhắc nhở
+    if (orphanWarning && orphanWarning.hasOrphanSeats && !acknowledgedOrphan) {
+      const userConfirm = confirm(
+        `${orphanWarning.suggestionMessage}\n\nBạn có chắc chắn muốn tiếp tục giữ các ghế này không?`
+      );
+      if (!userConfirm) return;
+    }
+
+    // Cơ chế chống trùng vé (Concurrency Control): Giữ ghế 10 phút
+    const seatLabels = selectedSeats.map((s) =>
+      s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`
+    );
+
+    const holdRes = BookingService.holdSeatsLocal({
+      showtimeId: selectedShowtime?.id || queryShowtimeId,
+      sessionId,
+      seatLabels,
+      holdMinutes: 10,
+    });
+
+    if (!holdRes.success) {
+      alert(holdRes.error || 'Ghế vừa được người khác giữ chỗ. Vui lòng chọn ghế khác!');
+      return;
+    }
+
+    setTimeLeft(600);
+    setCurrentStep(2);
   };
 
   const getSeatPrice = (seat: Seat) => {
@@ -259,7 +565,81 @@ function BookingContent() {
     setAppliedPromo(promo);
   };
 
-  const handleCheckout = () => {
+  // P0.2: Xử lý Đổi Suất Chiếu chuẩn logic nghiệp vụ
+  const handleSelectShowtimeInBooking = async (
+    slot: any,
+    newCinemaId: string | number,
+    newDate: string
+  ) => {
+    setIsShowtimeChangeOpen(false);
+
+    // 1. Xóa sạch danh sách ghế cũ của suất trước (P0.2)
+    BookingService.releaseSessionHold(sessionId);
+    setSelectedSeats([]);
+    setOrphanWarning(null);
+
+    // 2. Reset combo bắp nước và chiết khấu (tính lại giá)
+    setFoodQuantities({ 1: 0, 2: 0, 3: 0 });
+    setAppliedPromo(null);
+    setPromoInput('');
+    setPromoError('');
+
+    // 3. Cập nhật URL router.replace mà không reload trang để đồng bộ query
+    router.replace(
+      `/booking?movie=${selectedMovie?.id}&cinema=${newCinemaId}&date=${newDate}&showtime=${slot.id}&time=${slot.time}`
+    );
+
+    // 4. Reset timer giữ chỗ 10 phút
+    setTimeLeft(10 * 60);
+
+    // 5. Tải lại sơ đồ ghế của suất chiếu mới
+    const isRealDb =
+      slot.id === '85608755-35ca-4157-87bd-96b50577e0e5' &&
+      (newCinemaId === 1 || newCinemaId === '1');
+
+    if (isRealDb) {
+      try {
+        const { BookingService } = await import('@/services/booking.service');
+        const dbSeats = await BookingService.getShowtimeSeats(slot.id);
+        if (dbSeats && dbSeats.length > 0) {
+          setSeats(
+            dbSeats.map((s) => ({
+              id: s.id,
+              row_label: s.row_label,
+              seat_number: s.seat_number,
+              grid_row: s.grid_row,
+              grid_col: s.grid_col,
+              seat_type: {
+                id: s.seat_type || 'standard',
+                code: (s.seat_type || 'STANDARD').toUpperCase() as any,
+                name: (s.seat_type || 'STANDARD').toUpperCase(),
+              },
+              seat_group: s.seat_group,
+              status: s.status as any,
+            }))
+          );
+          return;
+        }
+      } catch (err) {
+        console.error('Lỗi tải lại ghế khi đổi suất:', err);
+      }
+    }
+
+    // Tải sơ đồ ghế riêng biệt theo rạp và suất mới (không trùng lặp với rạp/suất khác)
+    const newSeats = getDynamicShowtimeSeats(
+      1,
+      newCinemaId,
+      slot.id,
+      newDate,
+      slot.time,
+      new Set(),
+      new Set(),
+      new Set()
+    );
+    setSeats(newSeats);
+  };
+
+  const handleCheckout = async () => {
     if (selectedSeats.length === 0) {
       alert('Vui lòng chọn ít nhất một ghế');
       return;
@@ -281,11 +661,91 @@ function BookingContent() {
     }
 
     setIsProcessingPayment(true);
+    setGuestError('');
 
-    setTimeout(() => {
-      setIsProcessingPayment(false);
-      const generatedCode = 'CMX-20260930-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    try {
+      const { BookingService } = await import('@/services/booking.service');
+      const { PaymentService } = await import('@/services/payment.service');
+
+      const seatIds = selectedSeats.map((s) => s.id.toString());
+      const showtimeId = selectedShowtime?.id?.toString() || '85608755-35ca-4157-87bd-96b50577e0e5';
+      const validShowtimeId = showtimeId.length === 36 ? showtimeId : '85608755-35ca-4157-87bd-96b50577e0e5';
+
+      // P0.3: Kiểm tra xung đột ghế thời gian thực (Atomic seat availability verification)
+      const freshSeats = await BookingService.getShowtimeSeats(validShowtimeId);
+      if (freshSeats && freshSeats.length > 0) {
+        const conflictedSeat = freshSeats.find((fs) => {
+          const isSelected = seatIds.includes(fs.id.toString());
+          if (!isSelected) return false;
+          // Nếu ghế đã bị bán hoặc đang giữ bởi người khác còn hạn
+          const isSold = (fs.status as string) === 'booked' || fs.status === 'sold';
+          const isHeldValid = fs.status === 'held' && fs.held_until && new Date(fs.held_until) > new Date();
+          return isSold || isHeldValid;
+        });
+
+        if (conflictedSeat) {
+          setIsProcessingPayment(false);
+          const label = `${conflictedSeat.row_label}${conflictedSeat.seat_number}`;
+          alert(`Ghế ${label} vừa được khách hàng khác giữ hoặc mua. Vui lòng chọn ghế khác!`);
+          // Làm mới lại sơ đồ ghế
+          setSeats((prev) =>
+            prev.map((s) => (s.id.toString() === conflictedSeat.id.toString() ? { ...s, status: 'sold' as any } : s))
+          );
+          setSelectedSeats((prev) => prev.filter((s) => s.id.toString() !== conflictedSeat.id.toString()));
+          return;
+        }
+      }
+
+      // 1. Tạo đơn hàng và giữ ghế trên Supabase (RPC hold_seats)
+      let orderRes;
+      try {
+        orderRes = await BookingService.holdSeats({
+          showtimeId: showtimeId,
+          seatIds: seatIds,
+          userId: currentUser?.id || null,
+          channel: 'online',
+          contactName: payerName,
+          contactEmail: payerEmail,
+          contactPhone: payerPhone,
+        });
+      } catch (err: any) {
+        console.warn('hold_seats RPC fallback to direct flow:', err);
+        // Nếu mock showtime ID không tồn tại trong DB, tạo mock order_id an toàn
+        orderRes = {
+          order_id: 'mock-' + Date.now(),
+          order_code: 'CNM' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
+        };
+      }
+
+      const orderId = orderRes.order_id;
+      const generatedCode = orderRes.order_code;
       const seatsStr = selectedSeats.map((s) => `${s.row_label}${s.seat_number}`).join(', ');
+
+      // Nếu phương thức thanh toán là VIETQR -> Mở Modal VietQR để khách quét mã chuyển tiền
+      if (paymentMethod === 'VIETQR') {
+        setPendingVietQROrder({
+          orderId,
+          orderCode: generatedCode,
+          amount: finalTotal,
+          payerName,
+          payerEmail,
+          payerPhone,
+          seatsStr,
+        });
+        setIsVietQRModalOpen(true);
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      // 2. Xác nhận thanh toán qua Supabase (RPC confirm_order_payment)
+      if (!orderId.startsWith('mock-')) {
+        try {
+          await PaymentService.confirmPayment(orderId, paymentMethod as any);
+        } catch (payErr) {
+          console.error('Lỗi xác nhận thanh toán Supabase:', payErr);
+        }
+      }
+
       const paidTime =
         new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
         ' • ' +
@@ -312,28 +772,78 @@ function BookingContent() {
 
       setCompletedBooking(newBooking);
 
-      // Save to localStorage linked specifically to this user or guest
+      // 3. Đồng bộ vào Supabase database qua syncOrderToSupabase
+      const foodItemsList = Object.entries(foodQuantities)
+        .filter(([, qty]) => qty > 0)
+        .map(([id, qty]) => {
+          const item = foods.find((f) => f.id === parseInt(id));
+          return item
+            ? {
+                productUuid: item.supabase_id,
+                name: item.name,
+                quantity: qty,
+                unitPrice: item.price,
+              }
+            : null;
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+
+      try {
+        await syncOrderToSupabase({
+          orderCode: generatedCode,
+          channel: 'online',
+          contactName: payerName,
+          contactEmail: payerEmail,
+          contactPhone: payerPhone,
+          subtotal: subtotalBeforeDiscount,
+          discountAmount,
+          totalAmount: finalTotal,
+          paymentProvider: paymentMethod,
+          showtimeUuid: selectedShowtime?.supabase_id,
+          auditoriumUuid: selectedShowtime?.auditorium_id,
+          seatCodes: selectedSeats.map((s) => `${s.row_label}${s.seat_number}`),
+          seatUuidLookup,
+          audienceType: 'ADULT',
+          unitTicketPrice: Math.round(ticketSubtotal / Math.max(1, selectedSeats.length)),
+          movieSnapshot: {
+            movieTitle: selectedMovie.title,
+            cinemaName: selectedCinema.name,
+            roomName: selectedShowtime?.room?.name || 'Phòng 1 (2D Tiêu Chuẩn)',
+            showTime: selectedShowtime?.start_time
+              ? new Date(selectedShowtime.start_time).toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : queryTime,
+            showDate: queryDate || '14/10/2026',
+            format: selectedShowtime?.room?.screen_type || '2D',
+            ageRating: selectedMovie.age_rating,
+          },
+          foodItems: foodItemsList,
+        });
+        refreshFromSupabase();
+      } catch (syncErr) {
+        console.warn('Sync to Supabase error:', syncErr);
+      }
+
+      // 4. Lưu vào localStorage dự phòng cho client
       try {
         const stored = localStorage.getItem('cinemax_user_tickets');
         const list = stored ? JSON.parse(stored) : [];
         const ticketRecord = {
-          id: Date.now(),
+          id: orderId,
           userId: currentUser ? currentUser.id : 'guest',
           customerName: payerName,
           customerEmail: payerEmail,
           customerPhone: payerPhone,
           bookingCode: generatedCode,
-          showtimeId: selectedShowtime.id,
+          showtimeId: selectedShowtime?.id || queryShowtimeId,
           movieTitle: selectedMovie.title,
           ageRating: selectedMovie.age_rating,
           posterUrl: selectedMovie.poster_url,
           cinemaName: selectedCinema.name,
-          roomName: selectedShowtime.room?.name || 'Phòng 01 (IMAX)',
-          showtime:
-            new Date(selectedShowtime.start_time).toLocaleTimeString('vi-VN', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }) + ' • 14/10/2026',
+          roomName: selectedShowtime?.room?.name || 'Phòng 01 (IMAX)',
+          showtime: `${queryTime} • ${queryDate || '14/10/2026'}`,
           seats: seatsStr,
           audienceLabel: 'Người lớn (Đặt Online)',
           foodSummary: chosenFoodsStr || 'Không kèm bắp nước',
@@ -347,62 +857,258 @@ function BookingContent() {
 
         list.unshift(ticketRecord);
         localStorage.setItem('cinemax_user_tickets', JSON.stringify(list));
-
-        // Also save last booked ticket for the current guest session
         localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
 
-        // Sync order, tickets, seats & F&B to Supabase
-        const foodItemsList = Object.entries(foodQuantities)
-          .filter(([, qty]) => qty > 0)
-          .map(([id, qty]) => {
-            const item = foods.find((f) => f.id === parseInt(id));
-            return item
-              ? {
-                  productUuid: item.supabase_id,
-                  name: item.name,
-                  quantity: qty,
-                  unitPrice: item.price,
-                }
-              : null;
-          })
-          .filter((x): x is NonNullable<typeof x> => x !== null);
+        // Cập nhật số ghế trống khả dụng của suất chiếu trong cinemax_showtimes_v2
+        const showtimesStored = localStorage.getItem('cinemax_showtimes_v2');
+        if (showtimesStored) {
+          const showtimesList = JSON.parse(showtimesStored);
+          const targetShowtimeId = selectedShowtime?.id || queryShowtimeId;
+          const updatedShowtimes = showtimesList.map((st: any) => {
+            if (st.id?.toString() === targetShowtimeId?.toString()) {
+              const curSeats = st.available_seats ?? 75;
+              return {
+                ...st,
+                available_seats: Math.max(0, curSeats - selectedSeats.length),
+              };
+            }
+            return st;
+          });
+          localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(updatedShowtimes));
+        }
 
-        syncOrderToSupabase({
-          orderCode: generatedCode,
-          channel: 'online',
-          contactName: payerName,
-          contactEmail: payerEmail,
-          contactPhone: payerPhone,
-          subtotal: subtotalBeforeDiscount,
-          discountAmount,
-          totalAmount: finalTotal,
-          paymentProvider: paymentMethod,
-          showtimeUuid: selectedShowtime.supabase_id,
-          auditoriumUuid: selectedShowtime.auditorium_id,
-          seatCodes: selectedSeats.map((s) => `${s.row_label}${s.seat_number}`),
-          seatUuidLookup,
-          audienceType: 'ADULT',
-          unitTicketPrice: Math.round(ticketSubtotal / Math.max(1, selectedSeats.length)),
-          movieSnapshot: {
-            movieTitle: selectedMovie.title,
-            cinemaName: selectedCinema.name,
-            roomName: selectedShowtime.room?.name || 'Phòng 1 (2D Tiêu Chuẩn)',
-            showTime: new Date(selectedShowtime.start_time).toLocaleTimeString('vi-VN', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            showDate: '14/10/2026',
-            format: selectedShowtime.room?.screen_type || '2D',
-            ageRating: selectedMovie.age_rating,
-          },
-          foodItems: foodItemsList,
-        }).then(() => refreshFromSupabase());
+        BookingService.releaseSessionHold(sessionId);
+        window.dispatchEvent(new Event('cinemax_data_updated'));
+        window.dispatchEvent(new Event('storage'));
       } catch (e) {
-        console.error('Error storing ticket', e);
+        console.error('Error storing local ticket', e);
       }
 
+      // Đánh dấu các ghế vừa mua thành đã bán ngay lập tức
+      setSeats((prev) =>
+        prev.map((s) =>
+          selectedSeats.some((sel) => sel.id === s.id) ? { ...s, status: 'sold' as any } : s
+        )
+      );
+
       setCurrentStep(3);
-    }, 1200);
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      alert('Có lỗi xảy ra trong quá trình đặt vé: ' + (error?.message || 'Vui lòng thử lại!'));
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handleConfirmVietQR = async (txDetails?: any) => {
+    if (!pendingVietQROrder) return;
+    const { PaymentService } = await import('@/services/payment.service');
+
+    const bankTxnId = txDetails?.transactionId || `FT-${Date.now()}`;
+    const senderBank = txDetails?.senderBank || 'TPBank';
+
+    if (!pendingVietQROrder.orderId.startsWith('mock-')) {
+      try {
+        await PaymentService.confirmPayment(pendingVietQROrder.orderId, 'CARD', bankTxnId);
+      } catch (payErr) {
+        console.error('Lỗi xác nhận thanh toán Supabase:', payErr);
+      }
+    }
+
+    const paidTime =
+      new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
+      ' • ' +
+      new Date().toLocaleDateString('vi-VN');
+
+    const chosenFoodsStr = Object.entries(foodQuantities)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, qty]) => {
+        const item = foods.find((f) => f.id === parseInt(id));
+        return item ? `${qty}x ${item.name}` : '';
+      })
+      .filter(Boolean)
+      .join(', ');
+
+    const newBooking = {
+      bookingCode: pendingVietQROrder.orderCode,
+      paidAt: paidTime,
+      totalAmount: pendingVietQROrder.amount,
+      seatsStr: pendingVietQROrder.seatsStr,
+      customerName: pendingVietQROrder.payerName,
+      customerEmail: pendingVietQROrder.payerEmail,
+      customerPhone: pendingVietQROrder.payerPhone,
+    };
+
+    setCompletedBooking(newBooking);
+
+    // Đồng bộ vào Supabase database
+    const foodItemsList = Object.entries(foodQuantities)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, qty]) => {
+        const item = foods.find((f) => f.id === parseInt(id));
+        return item
+          ? {
+              productUuid: item.supabase_id,
+              name: item.name,
+              quantity: qty,
+              unitPrice: item.price,
+            }
+          : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    try {
+      await syncOrderToSupabase({
+        orderCode: pendingVietQROrder.orderCode,
+        channel: 'online',
+        contactName: pendingVietQROrder.payerName,
+        contactEmail: pendingVietQROrder.payerEmail,
+        contactPhone: pendingVietQROrder.payerPhone,
+        subtotal: subtotalBeforeDiscount,
+        discountAmount,
+        totalAmount: pendingVietQROrder.amount,
+        paymentProvider: `VIETQR (${senderBank})`,
+        showtimeUuid: selectedShowtime?.supabase_id,
+        auditoriumUuid: selectedShowtime?.auditorium_id,
+        seatCodes: selectedSeats.map((s) => `${s.row_label}${s.seat_number}`),
+        seatUuidLookup,
+        audienceType: 'ADULT',
+        unitTicketPrice: Math.round(ticketSubtotal / Math.max(1, selectedSeats.length)),
+        movieSnapshot: {
+          movieTitle: selectedMovie.title,
+          cinemaName: selectedCinema.name,
+          roomName: selectedShowtime?.room?.name || 'Phòng 1 (2D Tiêu Chuẩn)',
+          showTime: selectedShowtime?.start_time
+            ? new Date(selectedShowtime.start_time).toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : queryTime,
+          showDate: queryDate || '14/10/2026',
+          format: selectedShowtime?.room?.screen_type || '2D',
+          ageRating: selectedMovie.age_rating,
+        },
+        foodItems: foodItemsList,
+      });
+      refreshFromSupabase();
+    } catch (syncErr) {
+      console.warn('Sync VietQR order to Supabase error:', syncErr);
+    }
+
+    try {
+      const stored = localStorage.getItem('cinemax_user_tickets');
+      const list = stored ? JSON.parse(stored) : [];
+      const ticketRecord = {
+        id: pendingVietQROrder.orderId,
+        userId: currentUser ? currentUser.id : 'guest',
+        customerName: pendingVietQROrder.payerName,
+        customerPhone: pendingVietQROrder.payerPhone,
+        customerEmail: pendingVietQROrder.payerEmail,
+        bookingCode: pendingVietQROrder.orderCode,
+        movieTitle: selectedMovie.title,
+        movieId: selectedMovie.id,
+        ageRating: selectedMovie.age_rating,
+        posterUrl: selectedMovie.poster_url,
+        cinemaName: selectedCinema.name,
+        cinemaId: selectedCinema.id,
+        roomName: selectedShowtime?.room?.name || 'Phòng 01 (IMAX)',
+        showtimeId: selectedShowtime?.id || queryShowtimeId,
+        showtimeDate: queryDate,
+        showtimeTime: queryTime,
+        showtime: `${queryTime} • ${queryDate || '14/10/2026'}`,
+        seats: pendingVietQROrder.seatsStr,
+        audienceLabel: 'Người lớn (Đặt Online)',
+        foodSummary: chosenFoodsStr || 'Không kèm bắp nước',
+        foodFulfilled: !chosenFoodsStr,
+        totalAmount: pendingVietQROrder.amount,
+        status: 'ĐÃ THANH TOÁN',
+        paymentMethod: `VIETQR (${senderBank}) • ${bankTxnId}`,
+        bankTxnId,
+        senderBank,
+        paidAt: paidTime,
+      };
+
+      list.unshift(ticketRecord);
+      localStorage.setItem('cinemax_user_tickets', JSON.stringify(list));
+      localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
+
+      // Cập nhật số ghế trống khả dụng của suất chiếu trong cinemax_showtimes_v2
+      const showtimesStored = localStorage.getItem('cinemax_showtimes_v2');
+      if (showtimesStored) {
+        const showtimesList = JSON.parse(showtimesStored);
+        const targetShowtimeId = selectedShowtime?.id || queryShowtimeId;
+        const updatedShowtimes = showtimesList.map((st: any) => {
+          if (st.id?.toString() === targetShowtimeId?.toString()) {
+            const curSeats = st.available_seats ?? 75;
+            return {
+              ...st,
+              available_seats: Math.max(0, curSeats - selectedSeats.length),
+            };
+          }
+          return st;
+        });
+        localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(updatedShowtimes));
+      }
+
+      BookingService.releaseSessionHold(sessionId);
+      window.dispatchEvent(new Event('cinemax_data_updated'));
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.warn('Lỗi lưu ticket localStorage:', e);
+    }
+
+    // Đánh dấu các ghế vừa mua thành đã bán ngay lập tức
+    setSeats((prev) =>
+      prev.map((s) =>
+        selectedSeats.some((sel) => sel.id === s.id) ? { ...s, status: 'sold' as any } : s
+      )
+    );
+
+    setIsVietQRModalOpen(false);
+    setCurrentStep(3);
+  };
+
+  const handleQuickRegisterMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!completedBooking || !completedBooking.customerEmail) return;
+    if (!memberPassword || memberPassword.length < 6) {
+      setMemberError('Mật khẩu tối thiểu 6 ký tự');
+      return;
+    }
+    setIsRegisteringMember(true);
+    setMemberError('');
+    try {
+      const res = await register(
+        completedBooking.customerName || 'Khách hàng',
+        completedBooking.customerEmail,
+        completedBooking.customerPhone || '0900000000',
+        memberPassword
+      );
+      if (res.success) {
+        setMemberCreated(true);
+        // Cập nhật các vé trong localStorage sang user_id mới
+        try {
+          const stored = localStorage.getItem('cinemax_user_tickets');
+          if (stored) {
+            const list = JSON.parse(stored);
+            const userStr = localStorage.getItem('cinemax_session_user');
+            const newUid = userStr ? JSON.parse(userStr).id : 'member';
+            const updated = list.map((t: any) =>
+              t.bookingCode === completedBooking.bookingCode ? { ...t, userId: newUid } : t
+            );
+            localStorage.setItem('cinemax_user_tickets', JSON.stringify(updated));
+            window.dispatchEvent(new Event('cinemax_data_updated'));
+            window.dispatchEvent(new Event('storage'));
+          }
+        } catch (e) {
+          // ignore
+        }
+      } else {
+        setMemberError(res.error || 'Đăng ký thất bại');
+      }
+    } finally {
+      setIsRegisteringMember(false);
+    }
   };
 
   return (
@@ -1006,18 +1712,83 @@ function BookingContent() {
                   <div className="w-6 h-6 rounded-full bg-[#0F1217] -mb-7 border-t border-[#303645]" />
                 </div>
 
-                {/* Right QR Section */}
-                <div className="w-full md:w-56 bg-[#14161F] p-6 sm:p-8 flex flex-col items-center justify-center text-center space-y-3 border-t md:border-t-0 md:border-l border-[#303645]/50">
-                  <div className="bg-white p-3 rounded-2xl shadow-xl">
-                    <QrCode className="w-32 h-32 text-black" />
+                {/* Right QR Section (Dành cho máy quét Kiosk in vé & nhân viên soát vé) */}
+                <div className="w-full md:w-56 bg-[#14161F] p-6 sm:p-7 flex flex-col items-center justify-center text-center space-y-2.5 border-t md:border-t-0 md:border-l border-[#303645]/50">
+                  <div className="bg-white p-2.5 rounded-2xl shadow-xl flex flex-col items-center justify-center">
+                    <img
+                      src={TicketScannerService.generateTicketQrUrl(completedBooking.bookingCode, 240)}
+                      alt={`Mã QR vé ${completedBooking.bookingCode}`}
+                      className="w-32 h-32 object-contain"
+                    />
                   </div>
-                  <div className="text-[11px] text-[#9EA6B8]">Quét tại quầy soát vé</div>
-                  <div className="font-mono text-xs font-bold text-white tracking-widest">
-                    {completedBooking.bookingCode}
+                  <div className="space-y-1">
+                    <div className="text-[10px] text-[#FABF2E] font-bold uppercase tracking-wider">
+                      MÃ QUÉT SOÁT VÉ / IN KIOSK
+                    </div>
+                    <div className="font-mono text-xs font-black text-white tracking-widest bg-[#0F1217] py-0.5 px-2 rounded border border-[#303645]">
+                      {completedBooking.bookingCode}
+                    </div>
+                    <div className="text-[9px] text-[#9EA6B8]">
+                      Đưa mã vào đầu đọc Kiosk hoặc cửa soát vé
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Gợi ý chuyển đổi Guest sang Member nhận 50 điểm thưởng (Kế hoạch thanh toán Guest) */}
+            {!currentUser && (
+              <div className="bg-gradient-to-r from-[#1A1C26] via-[#241B2E] to-[#1A1C26] border border-[#FABF2E]/40 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-[#FABF2E]/20 text-[#FABF2E] flex items-center justify-center shrink-0 mt-0.5">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-base font-bold text-white">
+                        Tặng 50 Điểm Thưởng Hội Viên (~25.000đ)
+                      </h4>
+                      <span className="text-[10px] bg-[#FABF2E] text-black font-black px-2 py-0.5 rounded-full">
+                        QUÀ TẶNG
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#9EA6B8]">
+                      Đăng ký tài khoản thành viên CINEMAX bằng email <strong className="text-[#FABF2E]">{completedBooking.customerEmail}</strong> để nhận ngay 50 điểm thưởng đổi bắp nước và quản lý vé trọn đời.
+                    </p>
+                  </div>
+                </div>
+
+                {memberCreated ? (
+                  <div className="p-3 bg-[#33C773]/15 border border-[#33C773]/40 rounded-2xl flex items-center gap-2.5 text-xs text-[#33C773] font-semibold">
+                    <CheckCircle className="w-4 h-4 shrink-0" />
+                    <span>Chúc mừng! Bạn đã đăng ký tài khoản thành công và nhận 50 điểm thưởng. Vé vừa mua đã được đồng bộ vào tài khoản của bạn.</span>
+                  </div>
+                ) : (
+                  <form onSubmit={handleQuickRegisterMember} className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                    <input
+                      type="password"
+                      value={memberPassword}
+                      onChange={(e) => {
+                        setMemberPassword(e.target.value);
+                        setMemberError('');
+                      }}
+                      placeholder="Thiết lập mật khẩu (tối thiểu 6 ký tự)"
+                      className="flex-1 bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#FABF2E]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isRegisteringMember}
+                      className="bg-[#FABF2E] hover:bg-[#E5AC26] text-black px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer shrink-0"
+                    >
+                      {isRegisteringMember ? 'Đang tạo...' : 'Kích Hoạt Tài Khoản & Nhận Quà'}
+                    </button>
+                  </form>
+                )}
+                {memberError && (
+                  <p className="text-xs text-[#E63845] font-medium">{memberError}</p>
+                )}
+              </div>
+            )}
 
             {/* Action Buttons: Tải vé PDF (Red) & Xem vé của tôi (Outline) (Figma Screen 5) */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4">

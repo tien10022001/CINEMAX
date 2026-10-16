@@ -80,33 +80,33 @@ interface DataContextType {
 
   // Movies CRUD
   addMovie: (movieData: Partial<Movie>) => Movie;
-  updateMovie: (id: number, movieData: Partial<Movie>) => void;
-  deleteMovie: (id: number) => void;
+  updateMovie: (id: number | string, movieData: Partial<Movie>) => void;
+  deleteMovie: (id: number | string) => void;
 
   // Cinemas CRUD
   addCinema: (cinemaData: Partial<Cinema>) => Cinema;
-  updateCinema: (id: number, cinemaData: Partial<Cinema>) => void;
-  deleteCinema: (id: number) => void;
+  updateCinema: (id: number | string, cinemaData: Partial<Cinema>) => void;
+  deleteCinema: (id: number | string) => void;
 
   // Showtimes CRUD
   addShowtime: (showtimeData: Partial<Showtime>) => Showtime;
-  updateShowtime: (id: number, showtimeData: Partial<Showtime>) => void;
-  deleteShowtime: (id: number) => void;
+  updateShowtime: (id: number | string, showtimeData: Partial<Showtime>) => void;
+  deleteShowtime: (id: number | string) => void;
 
   // Promotions CRUD
   addPromotion: (promoData: Partial<Promotion>) => Promotion;
-  updatePromotion: (id: number, promoData: Partial<Promotion>) => void;
-  deletePromotion: (id: number) => void;
+  updatePromotion: (id: number | string, promoData: Partial<Promotion>) => void;
+  deletePromotion: (id: number | string) => void;
 
   // Food Items CRUD
   addFoodItem: (foodData: Partial<FoodItem>) => FoodItem;
-  updateFoodItem: (id: number, foodData: Partial<FoodItem>) => void;
-  deleteFoodItem: (id: number) => void;
+  updateFoodItem: (id: number | string, foodData: Partial<FoodItem>) => void;
+  deleteFoodItem: (id: number | string) => void;
 
   // News CRUD
   addNewsArticle: (newsData: Partial<NewsArticle>) => NewsArticle;
-  updateNewsArticle: (id: number, newsData: Partial<NewsArticle>) => void;
-  deleteNewsArticle: (id: number) => void;
+  updateNewsArticle: (id: number | string, newsData: Partial<NewsArticle>) => void;
+  deleteNewsArticle: (id: number | string) => void;
 
   // Site Settings
   updateSiteSettings: (settings: Partial<SiteSettings>) => void;
@@ -303,9 +303,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return movie;
   };
 
-  const updateMovie = (id: number, movieData: Partial<Movie>) => {
-    const target = movies.find((m) => m.id === id);
-    const updated = movies.map((m) => (m.id === id ? { ...m, ...movieData } : m));
+  const updateMovie = (id: number | string, movieData: Partial<Movie>) => {
+    const target = movies.find((m) => String(m.id) === String(id));
+    const updated = movies.map((m) => (String(m.id) === String(id) ? { ...m, ...movieData } : m));
     saveMovies(updated);
 
     if (target?.supabase_id) {
@@ -325,9 +325,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteMovie = (id: number) => {
-    const target = movies.find((m) => m.id === id);
-    const updated = movies.filter((m) => m.id !== id);
+  const deleteMovie = (id: number | string) => {
+    const target = movies.find((m) => String(m.id) === String(id));
+    const updated = movies.filter((m) => String(m.id) !== String(id));
     saveMovies(updated);
 
     if (target?.supabase_id) {
@@ -355,13 +355,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return cinema;
   };
 
-  const updateCinema = (id: number, cinemaData: Partial<Cinema>) => {
-    const updated = cinemas.map((c) => (c.id === id ? { ...c, ...cinemaData } : c));
+  const updateCinema = (id: number | string, cinemaData: Partial<Cinema>) => {
+    const updated = cinemas.map((c) => (String(c.id) === String(id) ? { ...c, ...cinemaData } : c));
     saveCinemas(updated);
   };
 
-  const deleteCinema = (id: number) => {
-    const updated = cinemas.filter((c) => c.id !== id);
+  const deleteCinema = (id: number | string) => {
+    const updated = cinemas.filter((c) => String(c.id) !== String(id));
     saveCinemas(updated);
   };
 
@@ -399,9 +399,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return showtime;
   };
 
-  const updateShowtime = (id: number, showtimeData: Partial<Showtime>) => {
-    const target = showtimes.find((s) => s.id === id);
-    const updated = showtimes.map((s) => (s.id === id ? { ...s, ...showtimeData } : s));
+  const updateShowtime = (id: number | string, showtimeData: Partial<Showtime>) => {
+    const target = showtimes.find((s) => String(s.id) === String(id));
+    const updated = showtimes.map((s) => (String(s.id) === String(id) ? { ...s, ...showtimeData } : s));
     saveShowtimes(updated);
 
     if (target?.supabase_id && showtimeData.status) {
@@ -414,9 +414,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteShowtime = (id: number) => {
-    const target = showtimes.find((s) => s.id === id);
-    const updated = showtimes.filter((s) => s.id !== id);
+  const deleteShowtime = (id: number | string) => {
+    const target = showtimes.find((s) => String(s.id) === String(id));
+    const updated = showtimes.filter((s) => String(s.id) !== String(id));
     saveShowtimes(updated);
 
     if (target?.supabase_id) {
@@ -464,9 +464,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return promo;
   };
 
-  const updatePromotion = (id: number, promoData: Partial<Promotion>) => {
-    const target = promotions.find((p) => p.id === id);
-    const updated = promotions.map((p) => (p.id === id ? { ...p, ...promoData } : p));
+  const updatePromotion = (id: number | string, promoData: Partial<Promotion>) => {
+    const target = promotions.find((p) => String(p.id) === String(id));
+    const updated = promotions.map((p) => (String(p.id) === String(id) ? { ...p, ...promoData } : p));
     savePromotions(updated);
 
     if (target?.supabase_id) {
@@ -483,9 +483,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deletePromotion = (id: number) => {
-    const target = promotions.find((p) => p.id === id);
-    const updated = promotions.filter((p) => p.id !== id);
+  const deletePromotion = (id: number | string) => {
+    const target = promotions.find((p) => String(p.id) === String(id));
+    const updated = promotions.filter((p) => String(p.id) !== String(id));
     savePromotions(updated);
 
     if (target?.supabase_id) {
@@ -528,9 +528,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return food;
   };
 
-  const updateFoodItem = (id: number, foodData: Partial<FoodItem>) => {
-    const target = foods.find((f) => f.id === id);
-    const updated = foods.map((f) => (f.id === id ? { ...f, ...foodData } : f));
+  const updateFoodItem = (id: number | string, foodData: Partial<FoodItem>) => {
+    const target = foods.find((f) => String(f.id) === String(id));
+    const updated = foods.map((f) => (String(f.id) === String(id) ? { ...f, ...foodData } : f));
     saveFoods(updated);
 
     if (target?.supabase_id) {
@@ -548,9 +548,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteFoodItem = (id: number) => {
-    const target = foods.find((f) => f.id === id);
-    const updated = foods.filter((f) => f.id !== id);
+  const deleteFoodItem = (id: number | string) => {
+    const target = foods.find((f) => String(f.id) === String(id));
+    const updated = foods.filter((f) => String(f.id) !== String(id));
     saveFoods(updated);
 
     if (target?.supabase_id) {
@@ -579,13 +579,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return article;
   };
 
-  const updateNewsArticle = (id: number, newsData: Partial<NewsArticle>) => {
-    const updated = news.map((n) => (n.id === id ? { ...n, ...newsData } : n));
+  const updateNewsArticle = (id: number | string, newsData: Partial<NewsArticle>) => {
+    const updated = news.map((n) => (String(n.id) === String(id) ? { ...n, ...newsData } : n));
     saveNews(updated);
   };
 
-  const deleteNewsArticle = (id: number) => {
-    const updated = news.filter((n) => n.id !== id);
+  const deleteNewsArticle = (id: number | string) => {
+    const updated = news.filter((n) => String(n.id) !== String(id));
     saveNews(updated);
   };
 

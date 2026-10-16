@@ -398,7 +398,7 @@ export async function syncOrderToSupabase(params: {
   subtotal: number;
   discountAmount: number;
   totalAmount: number;
-  paymentProvider: 'CASH' | 'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CARD';
+  paymentProvider: 'CASH' | 'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CARD' | 'VIETQR' | string;
   showtimeUuid?: string;
   auditoriumUuid?: string;
   seatCodes: string[];

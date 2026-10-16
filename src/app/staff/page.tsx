@@ -1161,13 +1161,13 @@ export default function StaffWorkspacePage() {
   // ==========================================================================
   const [posDateFilter, setPosDateFilter] = useState<'today' | 'tomorrow' | 'all'>('today');
   const [posAudienceType, setPosAudienceType] = useState<AudienceType>('ADULT');
-  const [posSelectedMovieId, setPosSelectedMovieId] = useState<number>(movies[0]?.id || 1);
+  const [posSelectedMovieId, setPosSelectedMovieId] = useState<number>(Number(movies[0]?.id) || 1);
 
   const movieShowtimes = useMemo(() => {
     const byMovie = showtimes.filter(
-      (s) => s.movie_id === posSelectedMovieId && s.status === 'OPEN'
+      (s) => Number(s.movie_id) === posSelectedMovieId && s.status === 'OPEN'
     );
-    const selectedMovieObj = movies.find((m) => m.id === posSelectedMovieId) || movies[0];
+    const selectedMovieObj = movies.find((m) => Number(m.id) === posSelectedMovieId) || movies[0];
 
     // If this movie does not have dedicated showtime rows yet, generate distinct showtime IDs per movie
     // so seats booked for Movie A never appear on Movie B
@@ -1215,27 +1215,27 @@ export default function StaffWorkspacePage() {
     });
   }, [showtimes, movies, posSelectedMovieId, posDateFilter]);
 
-  const [posSelectedShowtimeId, setPosSelectedShowtimeId] = useState<number>(
+  const [posSelectedShowtimeId, setPosSelectedShowtimeId] = useState<number | string>(
     movieShowtimes[0]?.id || showtimes[0]?.id || 1
   );
 
   useEffect(() => {
-    if (movieShowtimes.length > 0 && !movieShowtimes.some((s) => s.id === posSelectedShowtimeId)) {
+    if (movieShowtimes.length > 0 && !movieShowtimes.some((s) => String(s.id) === String(posSelectedShowtimeId))) {
       setPosSelectedShowtimeId(movieShowtimes[0].id);
     }
   }, [movieShowtimes, posSelectedShowtimeId]);
 
   const activeShowtime = useMemo(
     () =>
-      movieShowtimes.find((s) => s.id === posSelectedShowtimeId) ||
-      showtimes.find((s) => s.id === posSelectedShowtimeId) ||
+      movieShowtimes.find((s) => String(s.id) === String(posSelectedShowtimeId)) ||
+      showtimes.find((s) => String(s.id) === String(posSelectedShowtimeId)) ||
       movieShowtimes[0] ||
       showtimes[0],
     [movieShowtimes, showtimes, posSelectedShowtimeId]
   );
 
   const activeMovie = useMemo(
-    () => movies.find((m) => m.id === posSelectedMovieId) || movies[0],
+    () => movies.find((m) => Number(m.id) === posSelectedMovieId) || movies[0],
     [movies, posSelectedMovieId]
   );
 
@@ -1255,7 +1255,7 @@ export default function StaffWorkspacePage() {
   }, [activeShowtime]);
 
   const currentShowtimeSoldSeats = useMemo(() => {
-    const stId = activeShowtime?.id || 1;
+    const stId = Number(activeShowtime?.id) || 1;
     return Array.from(
       new Set([...(bookedSeatsMap[stId] || []), ...(soldSeatsByShowtime[stId] || [])])
     );
@@ -1414,16 +1414,17 @@ export default function StaffWorkspacePage() {
         age_check_passed: false,
         created_at: nowStr,
         channel: 'POS',
-        showtime_id: activeShowtime?.id || 1,
+        showtime_id: Number(activeShowtime?.id) || 1,
       };
 
       saveOrders([newOrder, ...orders]);
 
       if (posSelectedSeats.length > 0 && activeShowtime) {
+        const activeStId = Number(activeShowtime.id) || 1;
         const nextBooked = {
           ...bookedSeatsMap,
-          [activeShowtime.id]: [
-            ...(bookedSeatsMap[activeShowtime.id] || []),
+          [activeStId]: [
+            ...(bookedSeatsMap[activeStId] || []),
             ...posSelectedSeats,
           ],
         };

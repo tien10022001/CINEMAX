@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { OtpService } from '@/services/otp.service';
+import { TicketScannerService } from '@/services/ticket-scanner.service';
 import { Search, ShieldCheck, Ticket, QrCode, AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -280,9 +281,13 @@ export default function LookupPage() {
                         </span>
                       </div>
 
-                      <div className="w-20 h-20 bg-white rounded-xl p-1.5 flex flex-col items-center justify-center shrink-0 shadow-lg">
-                        <QrCode className="w-14 h-14 text-black" />
-                        <span className="text-[8px] text-black font-mono font-bold">SOÁT VÉ</span>
+                      <div className="w-20 h-20 bg-white rounded-xl p-1 flex flex-col items-center justify-center shrink-0 shadow-lg">
+                        <img
+                          src={TicketScannerService.generateTicketQrUrl(orderData.order_code, 180)}
+                          alt="QR Soát vé"
+                          className="w-16 h-16 object-contain"
+                        />
+                        <span className="text-[7px] text-gray-700 font-mono font-bold">SOÁT VÉ</span>
                       </div>
                     </div>
                   ))}
