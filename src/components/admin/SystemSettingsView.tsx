@@ -15,6 +15,7 @@ import {
   Search
 } from 'lucide-react';
 import { CinemaSetting, AuditLog, StaffPerm } from '@/lib/types-redesign';
+import { createClient } from '@/lib/supabase/client';
 
 interface SystemSettingsViewProps {
   settings: CinemaSetting[];
@@ -33,6 +34,7 @@ export default function SystemSettingsView({
 }: SystemSettingsViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<'SETTINGS' | 'STAFF' | 'AUDIT'>(initialSubTab);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingStaff, setIsLoadingStaff] = useState(false);
 
   useEffect(() => {
     if (initialSubTab) {
@@ -55,47 +57,140 @@ export default function SystemSettingsView({
     loyalty_rate: policiesSetting.loyalty_rate ?? 0.05
   });
 
-  // Staff Permissions Mock list for Demo
+  // Dynamic Staff List from Supabase Profiles & Local Database
   const [staffList, setStaffList] = useState<
     { id: string; name: string; email: string; permissions: StaffPerm[] }[]
-  >([
-    {
-      id: 'st-1',
-      name: 'Trương Công Tiến',
-      email: 'tientc@cinemax.vn',
-      permissions: ['POS', 'CHECKIN', 'CONCESSION', 'SUPERVISOR']
-    },
-    {
-      id: 'st-2',
-      name: 'Nguyễn Văn Thu Ngân',
-      email: 'pos.cashier@cinemax.vn',
-      permissions: ['POS']
-    },
-    {
-      id: 'st-3',
-      name: 'Lê Soát Vé',
-      email: 'usher@cinemax.vn',
-      permissions: ['CHECKIN']
-    },
-    {
-      id: 'st-4',
-      name: 'Phạm Bắp Nước',
-      email: 'concession@cinemax.vn',
-      permissions: ['CONCESSION']
-    }
-  ]);
+  >([]);
 
-  const handleTogglePermission = (staffId: string, perm: StaffPerm) => {
+  const fetchStaffData = async () => {
+    setIsLoadingStaff(true);
+    let mergedStaff: { id: string; name: string; email: string; permissions: StaffPerm[] }[] = [];
+
+    // 1. Đọc danh sách nhân viên từ local database (cinemax_users_db)
+    try {
+      const stored = localStorage.getItem('cinemax_users_db');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        parsed
+          .filter((u: any) => u.role_code === 'STAFF' || u.role_id === 2)
+          .forEach((u: any) => {
+            mergedStaff.push({
+              id: u.id,
+              name: u.full_name,
+              email: u.email,
+              permissions: (u.staff_permissions && u.staff_permissions.length > 0
+                ? u.staff_permissions
+                : ['POS']) as StaffPerm[],
+            });
+          });
+      }
+    } catch (e) {
+      console.warn('Lỗi đọc nhân viên local:', e);
+    }
+
+    // 2. Truy vấn trực tiếp từ bảng profiles trên Supabase nơi role = 'staff'
+    try {
+      const supabase = createClient();
+      const [profilesRes, permsRes] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, role, phone').eq('role', 'staff'),
+        supabase.from('staff_permissions').select('staff_id, permission, active'),
+      ]);
+
+      const dbStaff = profilesRes.data || [];
+      const dbPerms = permsRes.data || [];
+
+      dbStaff.forEach((sp: any) => {
+        const activePerms = dbPerms
+          .filter((p: any) => p.staff_id === sp.id && p.active)
+          .map((p: any) => p.permission as StaffPerm);
+
+        const existingIdx = mergedStaff.findIndex((s) => s.id === sp.id || (sp.phone && s.email.includes(sp.phone)));
+        if (existingIdx !== -1) {
+          mergedStaff[existingIdx].id = sp.id;
+          mergedStaff[existingIdx].name = sp.full_name;
+          if (activePerms.length > 0) {
+            mergedStaff[existingIdx].permissions = Array.from(new Set([...mergedStaff[existingIdx].permissions, ...activePerms]));
+          }
+        } else {
+          mergedStaff.push({
+            id: sp.id,
+            name: sp.full_name,
+            email: sp.phone ? `${sp.phone}@cinemax.vn` : `staff_${sp.id.slice(0, 6)}@cinemax.vn`,
+            permissions: activePerms.length > 0 ? activePerms : ['POS', 'CHECKIN'],
+          });
+        }
+      });
+    } catch (err) {
+      console.warn('Lỗi tải nhân viên từ Supabase:', err);
+    }
+
+    // Đảm bảo luôn có các nhân viên mẫu mặc định nếu database trống
+    if (mergedStaff.length === 0) {
+      mergedStaff = [
+        { id: 'st-1', name: 'Trương Công Tiến', email: 'tientc@cinemax.vn', permissions: ['POS', 'CHECKIN', 'CONCESSION', 'SUPERVISOR'] },
+        { id: 'st-2', name: 'Nguyễn Văn Thu Ngân', email: 'pos.cashier@cinemax.vn', permissions: ['POS'] },
+        { id: 'st-3', name: 'Lê Soát Vé', email: 'usher@cinemax.vn', permissions: ['CHECKIN'] },
+        { id: 'st-4', name: 'Phạm Bắp Nước', email: 'concession@cinemax.vn', permissions: ['CONCESSION'] },
+      ];
+    }
+
+    setStaffList(mergedStaff);
+    setIsLoadingStaff(false);
+  };
+
+  useEffect(() => {
+    fetchStaffData();
+  }, []);
+
+  const handleTogglePermission = async (staffId: string, perm: StaffPerm) => {
+    let willHavePerm = false;
     setStaffList((prev) =>
       prev.map((staff) => {
         if (staff.id !== staffId) return staff;
         const exists = staff.permissions.includes(perm);
+        willHavePerm = !exists;
         const updated = exists
           ? staff.permissions.filter((p) => p !== perm)
           : [...staff.permissions, perm];
         return { ...staff, permissions: updated };
       })
     );
+
+    // 1. Cập nhật local storage
+    try {
+      const stored = localStorage.getItem('cinemax_users_db');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const idx = parsed.findIndex((u: any) => u.id === staffId);
+        if (idx !== -1) {
+          const current = parsed[idx].staff_permissions || [];
+          parsed[idx].staff_permissions = willHavePerm
+            ? Array.from(new Set([...current, perm]))
+            : current.filter((p: string) => p !== perm);
+          localStorage.setItem('cinemax_users_db', JSON.stringify(parsed));
+        }
+      }
+    } catch (e) {
+      console.warn('Lỗi lưu quyền local:', e);
+    }
+
+    // 2. Ghi nhận trực tiếp vào bảng staff_permissions trên Supabase nếu có UUID
+    if (staffId.length === 36) {
+      try {
+        const supabase = createClient();
+        await supabase.from('staff_permissions').upsert(
+          {
+            staff_id: staffId,
+            permission: perm,
+            active: willHavePerm,
+          },
+          { onConflict: 'staff_id,permission' }
+        );
+      } catch (err) {
+        console.warn('Lỗi đồng bộ staff_permissions lên Supabase:', err);
+      }
+    }
+
     showToast('Đã cập nhật ma trận quyền nhân sự!');
   };
 
@@ -315,7 +410,18 @@ export default function SystemSettingsView({
         <div className="bg-[#121622] border border-[#222B3D] rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between border-b border-[#222B3D] pb-2 text-xs">
             <span className="font-bold text-white">Ma Trận Phân Quyền Nhân Viên</span>
-            <span className="text-[#8E9AAF]">{staffList.length} tài khoản</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[#8E9AAF]">{staffList.length} tài khoản</span>
+              <button
+                type="button"
+                onClick={fetchStaffData}
+                disabled={isLoadingStaff}
+                className="px-2.5 py-1 rounded-lg bg-[#1F2739] hover:bg-[#28324A] text-[#06B6D4] text-[11px] font-bold cursor-pointer transition-colors flex items-center gap-1.5"
+                title="Đồng bộ danh sách nhân viên từ Supabase"
+              >
+                <span>{isLoadingStaff ? 'Đang tải...' : '↻ Đồng Bộ Từ Supabase'}</span>
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
