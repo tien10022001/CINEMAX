@@ -17,7 +17,8 @@ import {
   LogOut,
   Eye,
   Bookmark,
-  Bell
+  Bell,
+  QrCode
 } from 'lucide-react';
 
 export type AdminTab =
@@ -29,6 +30,7 @@ export type AdminTab =
   | 'COUPONS'
   | 'ORDERS_FINANCE'
   | 'POS_SHIFTS'
+  | 'FOOD_CHECKIN'
   | 'CHECKIN'
   | 'SETTINGS'
   | 'AUDIT_LOGS';
@@ -113,6 +115,11 @@ export default function AdminSidebar({
       id: 'POS_SHIFTS',
       label: 'Quầy Vé POS',
       icon: CreditCard
+    },
+    {
+      id: 'FOOD_CHECKIN',
+      label: 'QR trả món',
+      icon: QrCode
     },
     {
       id: 'CHECKIN',

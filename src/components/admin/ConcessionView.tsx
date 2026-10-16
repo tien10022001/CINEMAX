@@ -14,7 +14,6 @@ import {
   Search,
   FileText,
   X,
-  ScanLine,
   Sliders,
   Sparkles,
   Check,
@@ -85,7 +84,7 @@ export default function ConcessionView({
   onLogMovement,
   showToast
 }: ConcessionViewProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'MENU' | 'MODIFIERS' | 'INVENTORY' | 'KDS'>('MENU');
+  const [activeSubTab, setActiveSubTab] = useState<'MENU' | 'MODIFIERS' | 'INVENTORY'>('MENU');
   const [menuFilter, setMenuFilter] = useState<'ALL' | 'COMBO' | 'FOOD' | 'BEVERAGE'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -356,8 +355,7 @@ export default function ConcessionView({
           {[
             { id: 'MENU', label: 'Thực Đơn Bắp Nước (F&B)', icon: Coffee, count: products.length },
             { id: 'MODIFIERS', label: 'Tùy Chọn Đổi Vị / Size', icon: Sliders, count: modifiers.length },
-            { id: 'INVENTORY', label: 'Sổ Biến Động Kho', icon: FileText },
-            { id: 'KDS', label: 'Màn Hình Trả Món (KDS)', icon: ScanLine }
+            { id: 'INVENTORY', label: 'Sổ Biến Động Kho', icon: FileText }
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeSubTab === tab.id;
@@ -744,44 +742,6 @@ export default function ConcessionView({
                 })}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: KDS FULFILLMENT SCREEN */}
-      {activeSubTab === 'KDS' && (
-        <div className="bg-[#121622] border border-[#222B3D] rounded-2xl p-4 space-y-4">
-          <div className="flex items-center justify-between border-b border-[#222B3D] pb-2 text-xs">
-            <span className="font-bold text-white flex items-center gap-2">
-              <ScanLine className="w-3.5 h-3.5 text-[#FABF2E]" />
-              <span>Màn Hình Trả Bắp Nước Tại Quầy (KDS)</span>
-            </span>
-            <span className="text-[#22C55E] flex items-center gap-1.5 font-bold text-[11px]">
-              <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
-              <span>Đang kết nối thời gian thực</span>
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl bg-[#161D2B] border border-[#26324A] space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-mono font-bold text-white">ĐƠN #CMX-8921</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FABF2E] text-black">
-                  CHỜ GIAO
-                </span>
-              </div>
-              <div className="space-y-1.5 text-xs text-[#8E9AAF]">
-                <div className="text-white font-bold text-sm">1x Combo Solo Bắp Nước</div>
-                <div>• Vị bắp: <strong className="text-[#FABF2E]">Phô Mai Lắc (+10k)</strong></div>
-                <div>• Loại nước: <strong className="text-[#06B6D4]">Coca-Cola Tươi (L)</strong></div>
-              </div>
-              <button
-                onClick={() => showToast('Đã xác nhận bàn giao combo đơn #CMX-8921 cho khách!')}
-                className="w-full py-2.5 rounded-xl bg-[#22C55E] hover:bg-[#1CA34D] text-black font-black text-xs transition-all cursor-pointer shadow-md"
-              >
-                Xác Nhận Đã Trả Hàng
-              </button>
-            </div>
           </div>
         </div>
       )}

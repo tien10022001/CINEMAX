@@ -32,6 +32,7 @@ import ConcessionView from '@/components/admin/ConcessionView';
 import CouponsView from '@/components/admin/CouponsView';
 import PosShiftsView from '@/components/admin/PosShiftsView';
 import CheckinView from '@/components/admin/CheckinView';
+import FoodCheckinView from '@/components/admin/FoodCheckinView';
 import OrdersFinanceView from '@/components/admin/OrdersFinanceView';
 import SystemSettingsView from '@/components/admin/SystemSettingsView';
 import {
@@ -1499,6 +1500,8 @@ export default function AdminPage() {
                 ? 'Quản lý Vé'
                 : activeTab === 'POS_SHIFTS'
                 ? 'Quầy Vé POS'
+                : activeTab === 'FOOD_CHECKIN'
+                ? 'QR trả món'
                 : activeTab === 'CHECKIN'
                 ? 'Soát Vé QR'
                 : 'Cài đặt hệ thống'}
@@ -1787,6 +1790,15 @@ export default function AdminPage() {
                   onCloseShift={handleCloseShift}
                   onApproveShift={handleApproveShift}
                   onSaleComplete={handlePosSaleComplete}
+                  showToast={showToast}
+                />
+              )}
+
+              {activeTab === 'FOOD_CHECKIN' && (
+                <FoodCheckinView
+                  products={products}
+                  orders={orders}
+                  operatorName={effectiveOperatorName}
                   showToast={showToast}
                 />
               )}
