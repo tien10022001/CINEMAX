@@ -291,8 +291,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'Email này đã được sử dụng. Vui lòng đăng nhập.' };
       }
 
+      let supabaseUserId = 'usr-' + Date.now();
+
+      // Đồng bộ trực tiếp tài khoản lên Supabase Auth
+      try {
+        const supabase = createClient();
+        const { data: suData } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: password || '123456',
+          options: {
+            data: {
+              full_name: name.trim(),
+              phone: phone.trim() || '0900000000',
+            },
+          },
+        });
+        if (suData?.user?.id) {
+          supabaseUserId = suData.user.id;
+        }
+      } catch (err) {
+        console.warn('Supabase auth signup sync notice:', err);
+      }
+
       const newUser: User & { password?: string } = {
-        id: 'usr-' + Date.now(),
+        id: supabaseUserId,
         role_id: 1,
         role_code: 'CUSTOMER',
         full_name: name.trim(),
