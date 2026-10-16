@@ -173,6 +173,18 @@ export interface ShowtimeSeat {
 }
 
 // 11. products (F&B)
+export interface ComboDetails {
+  has_popcorn?: boolean;
+  popcorn_quantity?: number;
+  popcorn_size?: string;
+  popcorn_flavors?: string[];
+  has_drink?: boolean;
+  drink_quantity?: number;
+  drink_size?: string;
+  drink_types?: string[];
+  extra_items?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -182,6 +194,18 @@ export interface Product {
   available_stock: number;
   active: boolean;
   image_url?: string | null;
+  description?: string | null;
+
+  // Thuộc tính chi tiết quản lý Bắp & Nước đơn lẻ
+  sub_category?: string | null; // Vd: 'POPCORN', 'SNACK', 'HOT_FOOD', 'CARBONATED_DRINK', 'TEA_JUICE', 'BOTTLED'
+  size?: string | null; // Vd: 'Nhỏ (45oz)', 'Vừa (64oz)', 'Lớn (85oz)', 'Khổng lồ (120oz)' hoặc '22oz', '32oz'
+  volume_oz?: number | null; // Vd: 22, 32, 64, 85, 120
+  flavors?: string[]; // Vd: ['Bơ', 'Phô Mai', 'Caramel'] hoặc ['Coca Original', 'Coca Zero', 'Sprite', 'Fanta']
+  default_flavor?: string | null;
+
+  // Cấu hình chi tiết cho Combo
+  combo_details?: ComboDetails;
+
   components?: ProductComponent[];
   modifiers?: ProductModifier[];
 }

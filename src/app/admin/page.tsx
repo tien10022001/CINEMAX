@@ -924,7 +924,7 @@ export default function AdminPage() {
           nextList = [...prev];
           nextList[idx] = { ...nextList[idx], ...saved, ...productData };
         } else {
-          nextList = [saved, ...prev];
+          nextList = [{ ...saved, ...productData } as Product, ...prev];
         }
         syncProductsToCustomer(nextList);
         return nextList;
