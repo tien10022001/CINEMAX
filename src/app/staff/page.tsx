@@ -1180,31 +1180,38 @@ export default function StaffWorkspacePage() {
             movie: selectedMovieObj,
           }));
 
-    if (posDateFilter === 'all') {
-      return baseList;
-    }
-
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
     const tomorrowDate = new Date(now);
     tomorrowDate.setDate(now.getDate() + 1);
     const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
 
-    // Check if showtimes have real today/tomorrow dates from Admin
     const hasRealTodayOrTomorrow = baseList.some((s) => {
       const d = s.start_time.slice(0, 10);
       return d === todayStr || d === tomorrowStr;
     });
 
-    if (hasRealTodayOrTomorrow) {
-      const targetDate = posDateFilter === 'today' ? todayStr : tomorrowStr;
-      return baseList.filter((s) => s.start_time.slice(0, 10) === targetDate);
-    }
+    const resultList =
+      posDateFilter === 'all'
+        ? baseList
+        : hasRealTodayOrTomorrow
+        ? baseList.filter(
+            (s) =>
+              s.start_time.slice(0, 10) ===
+              (posDateFilter === 'today' ? todayStr : tomorrowStr)
+          )
+        : baseList.filter((_, idx) =>
+            posDateFilter === 'today' ? idx % 2 === 0 : idx % 2 === 1
+          );
 
-    // Otherwise partition schedule cleanly between Today and Tomorrow
-    return baseList.filter((_, idx) =>
-      posDateFilter === 'today' ? idx % 2 === 0 : idx % 2 === 1
-    );
+    // Sort chronologically from morning to night
+    return [...resultList].sort((a, b) => {
+      const da = new Date(a.start_time);
+      const db = new Date(b.start_time);
+      const timeA = da.getHours() * 60 + da.getMinutes();
+      const timeB = db.getHours() * 60 + db.getMinutes();
+      return timeA - timeB;
+    });
   }, [showtimes, movies, posSelectedMovieId, posDateFilter]);
 
   const [posSelectedShowtimeId, setPosSelectedShowtimeId] = useState<number>(
