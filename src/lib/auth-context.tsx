@@ -21,6 +21,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Initial pre-seeded accounts in local store if not yet set
 const SEED_USERS: (User & { password?: string })[] = [
   {
+    id: 'fba180c1-ee08-4306-b3be-3ab98d1e217c',
+    role_id: 3,
+    role_code: 'ADMIN',
+    staff_permissions: ['POS', 'CHECKIN', 'CONCESSION', 'SUPERVISOR'],
+    staff_position: 'Quản trị viên hệ thống',
+    full_name: 'Trac The',
+    email: 'thetrac44@gmail.com',
+    password: 'password123',
+    phone: '0900000000',
+    loyalty_points: 50,
+    is_active: true,
+    created_at: '2026-01-01',
+    updated_at: '2026-01-01',
+  },
+  {
     id: 'usr-admin-001',
     role_id: 3,
     role_code: 'ADMIN',
@@ -193,6 +208,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (idx === -1) {
             parsedUsers.push(seedUser);
             updated = true;
+          } else if (seedUser.role_code !== parsedUsers[idx].role_code || seedUser.role_id !== parsedUsers[idx].role_id) {
+            parsedUsers[idx] = {
+              ...parsedUsers[idx],
+              role_code: seedUser.role_code,
+              role_id: seedUser.role_id,
+              staff_permissions: seedUser.staff_permissions,
+              staff_position: seedUser.staff_position,
+            };
+            updated = true;
           } else if (seedUser.staff_permissions && !parsedUsers[idx].staff_permissions) {
             parsedUsers[idx] = {
               ...parsedUsers[idx],
@@ -210,28 +234,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 2. Load active session
       const savedSession = localStorage.getItem('cinemax_session_user');
       if (savedSession) {
-        const user = JSON.parse(savedSession);
+        let user = JSON.parse(savedSession);
+
+        // Check if seed users have an updated role for this user
+        const seedMatch = SEED_USERS.find(
+          (su) => su.email.toLowerCase() === user.email?.toLowerCase()
+        );
+        if (seedMatch && (seedMatch.role_code !== user.role_code || seedMatch.role_id !== user.role_id)) {
+          user = {
+            ...user,
+            role_code: seedMatch.role_code,
+            role_id: seedMatch.role_id,
+            staff_permissions: seedMatch.staff_permissions,
+            staff_position: seedMatch.staff_position,
+          };
+          localStorage.setItem('cinemax_session_user', JSON.stringify(user));
+        }
+
         setCurrentUser(user);
 
-        // Tự động đồng bộ tài khoản cũ từ local sang Supabase nếu chưa có UUID Supabase
-        if (user && user.id && user.id.startsWith('usr-') && user.email) {
+        // Tự động kiểm tra quyền mới nhất từ bảng profiles trên Supabase
+        if (user && user.email) {
           const supabase = createClient();
-          supabase.auth
-            .signUp({
-              email: user.email.toLowerCase(),
-              password: 'password123',
-              options: {
-                data: {
-                  full_name: user.full_name || 'Khách hàng CINEMAX',
-                  phone: user.phone || '0900000000',
-                },
-              },
-            })
-            .then((res: any) => {
-              if (res.data?.user?.id) {
-                const updatedUser = { ...user, id: res.data.user.id };
-                setCurrentUser(updatedUser);
-                localStorage.setItem('cinemax_session_user', JSON.stringify(updatedUser));
+          const targetId = user.id && user.id.length === 36 ? user.id : 'fba180c1-ee08-4306-b3be-3ab98d1e217c';
+          Promise.resolve(
+            supabase
+              .from('profiles')
+              .select('role, full_name, loyalty_points')
+              .eq('id', targetId)
+              .maybeSingle()
+          )
+            .then(({ data: profile }: any) => {
+              if (profile && profile.role) {
+                const mappedRole =
+                  profile.role === 'admin'
+                    ? 'ADMIN'
+                    : profile.role === 'staff'
+                    ? 'STAFF'
+                    : 'CUSTOMER';
+                const roleId = mappedRole === 'ADMIN' ? 3 : mappedRole === 'STAFF' ? 2 : 1;
+                if (user.role_code !== mappedRole) {
+                  const updatedUser = {
+                    ...user,
+                    role_code: mappedRole,
+                    role_id: roleId,
+                    staff_permissions:
+                      mappedRole === 'ADMIN'
+                        ? ['POS', 'CHECKIN', 'CONCESSION', 'SUPERVISOR']
+                        : user.staff_permissions,
+                  };
+                  setCurrentUser(updatedUser);
+                  localStorage.setItem('cinemax_session_user', JSON.stringify(updatedUser));
+                }
               }
             })
             .catch(() => {});
