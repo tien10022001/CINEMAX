@@ -814,9 +814,6 @@ export default function ShowtimesView({
                     </div>
                   );
                 })}
-                <div className="absolute right-0 top-0 bottom-0 pr-1 flex items-center text-[9px] font-mono font-bold text-[#FABF2E] pointer-events-none">
-                  03h
-                </div>
               </div>
             </div>
 
