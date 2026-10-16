@@ -797,6 +797,57 @@ export default function AdminPage() {
     }
   };
 
+  const handleBulkSaveShowtimes = async (
+    items: { showtime: Partial<Showtime>; prices?: Partial<ShowtimePrice>[] }[]
+  ) => {
+    if (!items || items.length === 0) return;
+
+    let savedShowtimes: Showtime[] = [];
+    try {
+      savedShowtimes = await AdminDataService.bulkUpsertShowtimes(items);
+    } catch (err) {
+      console.warn('Bulk upsert error, proceeding with local fallback:', err);
+    }
+
+    // Map each item with movie & auditorium details for UI
+    const processedItems: Showtime[] = items.map((it, idx) => {
+      const saved = savedShowtimes[idx];
+      const movie = movies.find((m) => m.id === it.showtime.movie_id);
+      const auditorium = auditoriums.find((a) => a.id === it.showtime.auditorium_id);
+      return {
+        ...saved,
+        id: saved?.id || it.showtime.id || crypto.randomUUID(),
+        movie_id: saved?.movie_id || it.showtime.movie_id || '',
+        auditorium_id: saved?.auditorium_id || it.showtime.auditorium_id || '',
+        format: saved?.format || it.showtime.format || '2D',
+        language_version: saved?.language_version || it.showtime.language_version || 'Phụ đề Tiếng Việt',
+        starts_at: saved?.starts_at || it.showtime.starts_at || new Date().toISOString(),
+        ends_at: saved?.ends_at || it.showtime.ends_at || new Date().toISOString(),
+        status: saved?.status || it.showtime.status || 'open',
+        movie: saved?.movie || movie,
+        auditorium: saved?.auditorium || auditorium
+      } as Showtime;
+    });
+
+    let nextList: Showtime[] = [];
+    setShowtimes((prev) => {
+      const existingIds = new Set(processedItems.map((p) => p.id));
+      const filteredPrev = prev.filter((p) => !existingIds.has(p.id));
+      nextList = [...processedItems, ...filteredPrev];
+      return nextList;
+    });
+
+    // Single sync to customer view & cinema-store.json (1 disk write instead of N)
+    await syncShowtimesToCustomer(nextList);
+    addNotification(
+      'Tạo nhanh suất chiếu hàng loạt',
+      `Đã lên lịch thành công ${items.length} suất chiếu theo Rule quy tắc rạp.`,
+      'SUCCESS',
+      'MOVIES',
+      'SHOWTIMES'
+    );
+  };
+
   const handleDeleteShowtime = async (id: string) => {
     let nextList: Showtime[] = [];
     setShowtimes((prev) => {
@@ -1745,6 +1796,7 @@ export default function AdminPage() {
                   auditoriums={auditoriums}
                   prices={prices}
                   onSaveShowtime={handleSaveShowtime}
+                  onBulkSaveShowtimes={handleBulkSaveShowtimes}
                   onDeleteShowtime={handleDeleteShowtime}
                   onBulkDeleteShowtimes={handleBulkDeleteShowtimes}
                   onBulkUpdateShowtimes={handleBulkUpdateShowtimes}

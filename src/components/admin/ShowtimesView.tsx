@@ -48,6 +48,7 @@ interface ShowtimesViewProps {
   auditoriums: Auditorium[];
   prices: ShowtimePrice[];
   onSaveShowtime: (showtime: Partial<Showtime>, prices?: Partial<ShowtimePrice>[]) => Promise<void>;
+  onBulkSaveShowtimes?: (items: { showtime: Partial<Showtime>; prices?: Partial<ShowtimePrice>[] }[]) => Promise<void>;
   onDeleteShowtime: (id: string) => Promise<void>;
   onBulkDeleteShowtimes?: (ids: string[]) => Promise<void>;
   onBulkUpdateShowtimes?: (updatedShowtimes: Showtime[]) => Promise<void>;
@@ -60,6 +61,7 @@ export default function ShowtimesView({
   auditoriums,
   prices,
   onSaveShowtime,
+  onBulkSaveShowtimes,
   onDeleteShowtime,
   onBulkDeleteShowtimes,
   onBulkUpdateShowtimes,
@@ -1060,20 +1062,39 @@ export default function ShowtimesView({
         }
       }
 
-      for (const slot of validQuickSlots) {
-        const movieObj = movies.find((m) => m.id === slot.movieId);
-        await onSaveShowtime(
-          {
-            movie_id: slot.movieId,
-            auditorium_id: slot.auditoriumId,
-            format: slot.movieFormat,
-            language_version: movieObj?.language || 'Phụ đề Tiếng Việt',
-            starts_at: slot.startsAt.toISOString(),
-            ends_at: slot.endsAt.toISOString(),
-            status: publishStatus // 'open' hoặc 'draft' theo rule
-          },
-          defaultPrices
-        );
+      if (onBulkSaveShowtimes) {
+        const batchPayload = validQuickSlots.map((slot) => {
+          const movieObj = movies.find((m) => m.id === slot.movieId);
+          return {
+            showtime: {
+              movie_id: slot.movieId,
+              auditorium_id: slot.auditoriumId,
+              format: slot.movieFormat,
+              language_version: movieObj?.language || 'Phụ đề Tiếng Việt',
+              starts_at: slot.startsAt.toISOString(),
+              ends_at: slot.endsAt.toISOString(),
+              status: publishStatus // 'open' hoặc 'draft' theo rule
+            },
+            prices: defaultPrices
+          };
+        });
+        await onBulkSaveShowtimes(batchPayload);
+      } else {
+        for (const slot of validQuickSlots) {
+          const movieObj = movies.find((m) => m.id === slot.movieId);
+          await onSaveShowtime(
+            {
+              movie_id: slot.movieId,
+              auditorium_id: slot.auditoriumId,
+              format: slot.movieFormat,
+              language_version: movieObj?.language || 'Phụ đề Tiếng Việt',
+              starts_at: slot.startsAt.toISOString(),
+              ends_at: slot.endsAt.toISOString(),
+              status: publishStatus // 'open' hoặc 'draft' theo rule
+            },
+            defaultPrices
+          );
+        }
       }
 
       const statusText = publishStatus === 'open' ? 'Mở bán ngay' : 'Bản nháp';
