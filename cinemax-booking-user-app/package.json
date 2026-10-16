@@ -1,0 +1,27 @@
+{
+  "name": "cinemax-booking-user-app",
+  "version": "1.0.0",
+  "description": "Hệ thống đặt vé xem phim CINEMAX - Phân hệ User & Khách hàng với Giữ ghế Real-time 10 phút chống Race Condition",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node tests/test_realtime_hold.js",
+    "test:flow": "node tests/test_user_flow.js"
+  },
+  "keywords": [
+    "cinemax",
+    "cinema-booking",
+    "realtime-seat-holding",
+    "websocket",
+    "supabase",
+    "postgresql",
+    "nextjs",
+    "tailwind"
+  ],
+  "author": "HK2T Team",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.13.0"
+  }
+}
