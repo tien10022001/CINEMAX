@@ -23,7 +23,9 @@ import {
   Edit3,
   Zap,
   Copy,
-  Sparkles
+  Sparkles,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import {
   Showtime,
@@ -203,16 +205,14 @@ export default function ShowtimesView({
     }
   };
 
-  // Timeline Zoom & Room Filter State
-  const [zoomFit, setZoomFit] = useState(true); // true = vừa khít màn hình không cuộn ngang
+  // Timeline Fullscreen & Room Filter State
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [roomFilter, setRoomFilter] = useState<'ALL' | '2D' | 'IMAX' | 'CONFLICT'>('ALL');
 
-  // Timeline hours from 08:00 to 24:00 (16 hours total)
-  const timelineHours = Array.from({ length: 17 }, (_, i) => 8 + i);
+  // Timeline hours from 08:00 to 24:00 (16 hours total: 8, 9, ..., 23)
   const TIMELINE_START_HOUR = 8;
   const TIMELINE_TOTAL_HOURS = 16;
-  const HOUR_WIDTH_PX = zoomFit ? 68 : 95; // 68px = vừa vặn màn hình 1536px
-  const TIMELINE_CANVAS_WIDTH = TIMELINE_TOTAL_HOURS * HOUR_WIDTH_PX;
+  const timelineHours = Array.from({ length: 16 }, (_, i) => 8 + i);
 
   // Filtered auditoriums for timeline view
   const displayedAuditoriums = React.useMemo(() => {
@@ -631,17 +631,21 @@ export default function ShowtimesView({
   };
 
   return (
-    <div className="space-y-2 animate-in fade-in duration-200">
-      {/* Top Action Bar & Date Selector (Gọn gàng 1 dòng duy nhất, không lặp ngày, thao tác nhanh) */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#222B3D] pb-2 text-xs">
-        {/* Nhóm Trái: Ribbon chọn ngày + Ô chọn ngày tự do */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar">
+    <div
+      className={`space-y-2 animate-in fade-in duration-200 ${
+        isFullscreen ? 'fixed inset-0 z-50 bg-[#0A0D14] p-4 flex flex-col' : ''
+      }`}
+    >
+      {/* Top Action Bar & Date Selector: Cố định trên 1 hàng duy nhất, các nút không bao giờ nhảy vị trí */}
+      <div className="flex items-center justify-between gap-2.5 border-b border-[#222B3D] pb-2 text-xs shrink-0 w-full">
+        {/* Nhóm Trái: Ribbon chọn ngày - Tự co giãn và cuộn nội bộ khi không gian hẹp */}
+        <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto py-0.5 custom-scrollbar pr-1">
           <CalendarDays className="w-3.5 h-3.5 text-[#8E9AAF] mr-0.5 shrink-0" />
           {nextDays.map((d) => (
             <button
               key={d.dateStr}
               onClick={() => setSelectedDate(d.dateStr)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 selectedDate === d.dateStr
                   ? 'bg-[#E63845] text-white shadow-md'
                   : 'bg-[#141924] text-[#8E9AAF] hover:text-white hover:bg-[#1D2536]'
@@ -654,262 +658,282 @@ export default function ShowtimesView({
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="bg-[#141924] border border-[#222B3D] rounded-lg px-2 py-0.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
+            className="bg-[#141924] border border-[#222B3D] rounded-lg px-2 py-0.5 text-xs text-white focus:outline-none focus:border-[#E63845] shrink-0"
           />
         </div>
 
-        {/* Nhóm Giữa: Bộ Lọc Nhanh Phòng & Trạng Thái Xung Đột */}
-        <div className="flex items-center gap-1.5 shrink-0 bg-[#0E121B] p-0.5 rounded-lg border border-[#1E2638]">
-          <button
-            onClick={() => setRoomFilter('ALL')}
-            className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-              roomFilter === 'ALL' ? 'bg-[#1E2638] text-white shadow-sm' : 'text-[#8E9AAF] hover:text-white'
-            }`}
-          >
-            Tất cả ({auditoriums.length})
-          </button>
-          <button
-            onClick={() => setRoomFilter('2D')}
-            className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-              roomFilter === '2D' ? 'bg-[#06B6D4]/20 text-[#06B6D4] border border-[#06B6D4]/30' : 'text-[#8E9AAF] hover:text-white'
-            }`}
-          >
-            2D
-          </button>
-          <button
-            onClick={() => setRoomFilter('IMAX')}
-            className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-              roomFilter === 'IMAX' ? 'bg-[#FABF2E]/20 text-[#FABF2E] border border-[#FABF2E]/30' : 'text-[#8E9AAF] hover:text-white'
-            }`}
-          >
-            IMAX
-          </button>
-          {conflictCount > 0 && (
-            <button
-              onClick={() => setRoomFilter(roomFilter === 'CONFLICT' ? 'ALL' : 'CONFLICT')}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 animate-pulse ${
-                roomFilter === 'CONFLICT'
-                  ? 'bg-[#EF4444] text-white shadow'
-                  : 'bg-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444]/30'
-              }`}
-              title="Click để lọc ngay các phòng có suất chiếu bị trùng"
-            >
-              <AlertTriangle className="w-3 h-3" />
-              <span>{conflictCount} Xung đột</span>
-            </button>
-          )}
-        </div>
-
-        {/* Nhóm Phải: Zoom Vừa Màn Hình + Nút Tạo Suất Chiếu Nhanh */}
+        {/* Nhóm Phải: Bộ Lọc Phòng + Nút Mở Rộng / Toàn Màn Hình + Tạo Suất Chiếu Nhanh (LUÔN CỐ ĐỊNH GÓC PHẢI) */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Bộ Lọc Nhanh Phòng & Trạng Thái Xung Đột */}
+          <div className="flex items-center gap-1 shrink-0 bg-[#0E121B] p-0.5 rounded-lg border border-[#1E2638]">
+            <button
+              onClick={() => setRoomFilter('ALL')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                roomFilter === 'ALL' ? 'bg-[#1E2638] text-white shadow-sm' : 'text-[#8E9AAF] hover:text-white'
+              }`}
+            >
+              Tất cả ({auditoriums.length})
+            </button>
+            <button
+              onClick={() => setRoomFilter('2D')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                roomFilter === '2D' ? 'bg-[#06B6D4]/20 text-[#06B6D4] border border-[#06B6D4]/30' : 'text-[#8E9AAF] hover:text-white'
+              }`}
+            >
+              2D
+            </button>
+            <button
+              onClick={() => setRoomFilter('IMAX')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                roomFilter === 'IMAX' ? 'bg-[#FABF2E]/20 text-[#FABF2E] border border-[#FABF2E]/30' : 'text-[#8E9AAF] hover:text-white'
+              }`}
+            >
+              IMAX
+            </button>
+            {conflictCount > 0 && (
+              <button
+                onClick={() => setRoomFilter(roomFilter === 'CONFLICT' ? 'ALL' : 'CONFLICT')}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 animate-pulse ${
+                  roomFilter === 'CONFLICT'
+                    ? 'bg-[#EF4444] text-white shadow'
+                    : 'bg-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444]/30'
+                }`}
+                title="Click để lọc ngay các phòng có suất chiếu bị trùng"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                <span>{conflictCount} Xung đột</span>
+              </button>
+            )}
+          </div>
+
+          {/* Nút Mở Rộng / Thu Gọn (Cố định vị trí không nhảy khi bấm) */}
           <button
             type="button"
-            onClick={() => setZoomFit(!zoomFit)}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1 ${
-              zoomFit
-                ? 'bg-[#06B6D4]/15 border-[#06B6D4]/40 text-[#06B6D4]'
-                : 'bg-[#141924] border-[#222B3D] text-[#8E9AAF] hover:text-white'
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
+              isFullscreen
+                ? 'bg-[#06B6D4]/20 border-[#06B6D4] text-[#06B6D4] shadow-md shadow-[#06B6D4]/20'
+                : 'bg-[#141924] border-[#222B3D] text-[#8E9AAF] hover:text-white hover:border-[#384663]'
             }`}
-            title={zoomFit ? 'Đang ở chế độ vừa màn hình (không cuộn ngang)' : 'Bấm để co vừa màn hình'}
+            title={isFullscreen ? 'Thu nhỏ về giao diện quản trị bình thường' : 'Mở rộng toàn màn hình bảng suất chiếu (không vướng sidebar)'}
           >
-            <span>{zoomFit ? 'Vừa Màn Hình' : 'Mở Rộng'}</span>
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="whitespace-nowrap">Thu Gọn</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="whitespace-nowrap">Mở Rộng</span>
+              </>
+            )}
           </button>
 
+          {/* Nút Tạo Suất Chiếu Nhanh */}
           <button
             type="button"
             onClick={handleOpenQuickBatchModal}
             className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#E63845] to-[#F43F5E] hover:from-[#D42B38] hover:to-[#E11D48] text-white text-xs font-bold shadow-md shadow-[#E63845]/25 flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
             title="Tự động xếp chuỗi suất chiếu trong ngày hoặc sao chép lịch từ ngày khác"
           >
-            <Zap className="w-3.5 h-3.5 fill-current text-white" />
-            <span>Tạo Suất Chiếu Nhanh</span>
+            <Zap className="w-3.5 h-3.5 fill-current text-white shrink-0" />
+            <span className="whitespace-nowrap">Tạo Suất Chiếu Nhanh</span>
           </button>
         </div>
       </div>
 
-      {/* VISUAL TIMELINE MATRIX (GIAO DIỆN MA TRẬN CHÍNH DUY NHẤT) */}
-      <div className="bg-[#121622] border border-[#222B3D] rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[calc(100vh-140px)] min-h-[460px]">
-          {/* Timeline Scroll Container có thanh cuộn nội bộ mượt mà */}
-          <div className="overflow-auto flex-1 custom-scrollbar">
-            <div style={{ minWidth: `${TIMELINE_CANVAS_WIDTH + 176}px` }}>
-              {/* Timeline Header (Time slots: 08:00 - 24:00) - Ghim cố định ở đỉnh khi cuộn dọc */}
-              <div className="flex border-b border-[#222B3D] bg-[#0E121B] sticky top-0 z-20 shadow-md">
-                {/* Giao điểm góc trên bên trái: Ghim cả 2 chiều */}
-                <div className="w-44 shrink-0 px-3 py-2 text-xs font-bold text-[#8E9AAF] border-r border-[#222B3D] bg-[#0A0D14] sticky left-0 z-30 flex items-center justify-between">
-                  <span>Phòng Chiếu</span>
-                  <span className="text-[10px] text-[#5C677D] font-mono">08h-24h</span>
-                </div>
-
-                <div className="flex-1 flex">
-                  {timelineHours.map((hour) => (
-                    <div
-                      key={hour}
-                      style={{ width: `${HOUR_WIDTH_PX}px` }}
-                      className="shrink-0 border-r border-[#1C2433] px-1 py-2 text-center text-[10px] font-mono font-semibold text-[#8E9AAF]"
-                    >
-                      {String(hour).padStart(2, '0')}:00
-                    </div>
-                  ))}
-                </div>
+      {/* VISUAL TIMELINE MATRIX (GIAO DIỆN MA TRẬN 100% FLUID - ĐỦ 8H-24H KHÔNG CUỘN NGANG) */}
+      <div
+        className={`bg-[#121622] border border-[#222B3D] rounded-2xl overflow-hidden shadow-2xl flex flex-col ${
+          isFullscreen ? 'flex-1' : 'h-[calc(100vh-140px)] min-h-[460px]'
+        }`}
+      >
+        {/* Timeline Scroll Container: Chỉ cuộn dọc nội bộ khi nhiều phòng, KHÔNG cuộn ngang */}
+        <div className="overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar w-full">
+          <div className="w-full">
+            {/* Timeline Header (Time slots: 08:00 - 24:00) - Ghim cố định ở đỉnh khi cuộn dọc */}
+            <div className="flex border-b border-[#222B3D] bg-[#0E121B] sticky top-0 z-20 shadow-md w-full">
+              {/* Giao điểm góc trên bên trái: Ghim cả 2 chiều */}
+              <div className="w-36 md:w-40 shrink-0 px-2.5 py-2 text-xs font-bold text-[#8E9AAF] border-r border-[#222B3D] bg-[#0A0D14] sticky left-0 z-30 flex items-center justify-between">
+                <span>Phòng Chiếu</span>
+                <span className="text-[10px] text-[#5C677D] font-mono">08h-24h</span>
               </div>
 
-              {/* Rows for each auditorium - Chiều cao thu gọn h-16 để thấy nhiều phòng cùng lúc */}
-              <div className="divide-y divide-[#1D2536]">
-                {displayedAuditoriums.map((aud) => {
-                  const roomShowtimes = showtimes.filter((st) => {
-                    const stDate = st.starts_at ? new Date(st.starts_at).toISOString().split('T')[0] : '';
-                    return st.auditorium_id === aud.id && stDate === selectedDate;
-                  });
-
-                  return (
-                    <div key={aud.id} className="flex relative hover:bg-[#151B27]/40 transition-colors group">
-                      {/* Left Room Label - Ghim cố định bên trái khi cuộn ngang */}
-                      <div className="w-44 shrink-0 px-3 py-2 border-r border-[#222B3D] bg-[#121622] sticky left-0 z-10 flex flex-col justify-center shadow-sm">
-                        <div className="font-bold text-white text-xs flex items-center gap-1.5 truncate">
-                          <Armchair className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
-                          <span className="truncate">{aud.name}</span>
-                        </div>
-                        <div className="text-[10px] text-[#8E9AAF] mt-0.5 flex items-center gap-1.5">
-                          <span className={`px-1 py-0.2 rounded text-[9px] font-black uppercase ${
-                            aud.screen_type === 'IMAX' ? 'bg-[#FABF2E]/20 text-[#FABF2E]' : 'bg-[#1C2433] text-[#06B6D4]'
-                          }`}>
-                            {aud.screen_type}
-                          </span>
-                          <span>• {aud.total_seats} ghế</span>
-                        </div>
-                      </div>
-
-                      {/* Right Timeline Canvas with Hourly Grid Lines */}
-                      <div
-                        className="flex-1 relative h-16 flex items-center"
-                        style={{ width: `${TIMELINE_CANVAS_WIDTH}px` }}
-                      >
-                        {/* Background Grid hour columns for quick clicking */}
-                        <div className="absolute inset-0 flex pointer-events-auto">
-                          {timelineHours.map((hour) => (
-                            <div
-                              key={hour}
-                              style={{ width: `${HOUR_WIDTH_PX}px` }}
-                              onClick={() => handleQuickSlotClick(aud.id, hour)}
-                              className="shrink-0 border-r border-[#1C2433]/60 hover:bg-[#E63845]/10 cursor-pointer transition-colors relative group/slot"
-                              title={`Click để xếp suất chiếu mới lúc ${String(hour).padStart(2, '0')}:00 tại ${aud.name}`}
-                            >
-                              <span className="absolute bottom-1 right-1 text-[9px] text-[#3E4D68] opacity-0 group-hover/slot:opacity-100 font-mono font-bold">
-                                +
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Placed Showtimes as Interactive Blocks - Chiều cao h-12 mỏng gọn, vừa mắt */}
-                        {roomShowtimes.map((st) => {
-                          const movie = st.movie || movies.find((m) => m.id === st.movie_id);
-                          const isOverlap = checkOverlap(st);
-
-                          const startDate = new Date(st.starts_at);
-                          const endDate = new Date(st.ends_at);
-
-                          const startHours = startDate.getHours() + startDate.getMinutes() / 60;
-                          const endHours = endDate.getHours() + endDate.getMinutes() / 60;
-
-                          // Offset from 08:00
-                          const leftOffsetPx = Math.max(0, (startHours - TIMELINE_START_HOUR) * HOUR_WIDTH_PX);
-                          const durationHours = Math.max(0.7, endHours - startHours);
-                          const blockWidthPx = durationHours * HOUR_WIDTH_PX;
-
-                          const bufferMinutes = aud.cleaning_buffer_minutes || 15;
-                          const bufferWidthPx = Math.max(12, (bufferMinutes / 60) * HOUR_WIDTH_PX);
-
-                          const startTimeStr = startDate.toLocaleTimeString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          });
-                          const endTimeStr = endDate.toLocaleTimeString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          });
-
-                          return (
-                            <div
-                              key={st.id}
-                              style={{
-                                left: `${leftOffsetPx}px`,
-                                width: `${blockWidthPx}px`
-                              }}
-                              onClick={() => handleOpenEditShowtime(st)}
-                              className={`absolute h-12 rounded-lg px-2 py-1 z-5 shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer select-none group/card ${
-                                isOverlap
-                                  ? 'bg-[#3B191C] border-2 border-[#EF4444] animate-pulse text-[#EF4444]'
-                                  : 'bg-gradient-to-r from-[#172233] to-[#141B29] border border-[#2D3F5E] hover:border-[#06B6D4] hover:shadow-cyan-900/30'
-                              }`}
-                              title={`Bấm để chỉnh sửa suất chiếu: ${movie?.title || 'Phim'} (${startTimeStr} - ${endTimeStr})`}
-                            >
-                              {/* Top Bar: Title & Format */}
-                              <div className="flex items-center justify-between gap-1 leading-tight">
-                                <span className="font-bold text-white text-[11px] truncate">
-                                  {movie?.title || 'Phim'}
-                                </span>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <span className="px-1 py-0.2 rounded text-[8px] font-black bg-[#E63845] text-white">
-                                    {st.format || '2D'}
-                                  </span>
-                                  {isOverlap && (
-                                    <AlertTriangle className="w-3 h-3 text-[#EF4444] shrink-0" />
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Bottom Bar: Giờ chiếu & Thao tác nhanh */}
-                              <div className="flex items-center justify-between text-[10px] text-[#8E9AAF] leading-tight">
-                                <span className="font-mono text-[#06B6D4] font-semibold text-[10px]">
-                                  {startTimeStr} - {endTimeStr}
-                                </span>
-
-                                <div className="flex items-center gap-1 opacity-90 group-hover/card:opacity-100">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openPricingMatrix(st);
-                                    }}
-                                    className="p-0.5 rounded bg-[#253247] hover:bg-[#FABF2E] hover:text-black text-white transition-all cursor-pointer"
-                                    title="Chỉnh bảng giá vé"
-                                  >
-                                    <DollarSign className="w-2.5 h-2.5" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDeleteConfirmShowtime({
-                                        id: st.id,
-                                        title: movie?.title || 'Suất chiếu',
-                                        time: `${startTimeStr} - ${endTimeStr}`,
-                                        room: aud?.name || 'Phòng chiếu'
-                                      });
-                                    }}
-                                    className="p-0.5 rounded bg-[#253247] hover:bg-[#EF4444] text-[#8E9AAF] hover:text-white transition-all cursor-pointer"
-                                    title="Xóa suất"
-                                  >
-                                    <Trash2 className="w-2.5 h-2.5" />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Cleaning Buffer Stripe Visual (Mép phải thẻ) */}
-                              <div
-                                style={{ width: `${bufferWidthPx}px` }}
-                                className="absolute right-0 top-0 bottom-0 bg-[#06B6D4]/10 border-l border-dashed border-[#06B6D4]/30 pointer-events-none"
-                                title={`Đệm dọn rạp ${bufferMinutes} phút`}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* 16 khoảng giờ từ 08:00 đến 24:00 chia đều 100% chiều rộng */}
+              <div className="flex-1 flex w-full relative">
+                {timelineHours.map((hour) => (
+                  <div
+                    key={hour}
+                    className="flex-1 border-r border-[#1C2433] px-0.5 py-2 text-center text-[10px] font-mono font-semibold text-[#8E9AAF] truncate"
+                  >
+                    {String(hour).padStart(2, '0')}:00
+                  </div>
+                ))}
+                <div className="absolute right-0 top-0 bottom-0 pr-1 flex items-center text-[9px] font-mono text-[#5C677D] pointer-events-none">
+                  24h
+                </div>
               </div>
             </div>
+
+            {/* Rows for each auditorium */}
+            <div className="divide-y divide-[#1D2536] w-full">
+              {displayedAuditoriums.map((aud) => {
+                const roomShowtimes = showtimes.filter((st) => {
+                  const stDate = st.starts_at ? new Date(st.starts_at).toISOString().split('T')[0] : '';
+                  return st.auditorium_id === aud.id && stDate === selectedDate;
+                });
+
+                return (
+                  <div key={aud.id} className="flex relative hover:bg-[#151B27]/40 transition-colors group w-full">
+                    {/* Left Room Label */}
+                    <div className="w-36 md:w-40 shrink-0 px-2.5 py-2 border-r border-[#222B3D] bg-[#121622] sticky left-0 z-20 flex flex-col justify-center shadow-sm">
+                      <div className="font-bold text-white text-xs flex items-center gap-1.5 truncate">
+                        <Armchair className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        <span className="truncate">{aud.name}</span>
+                      </div>
+                      <div className="text-[10px] text-[#8E9AAF] mt-0.5 flex items-center gap-1.5">
+                        <span
+                          className={`px-1 py-0.2 rounded text-[9px] font-black uppercase ${
+                            aud.screen_type === 'IMAX' ? 'bg-[#FABF2E]/20 text-[#FABF2E]' : 'bg-[#1C2433] text-[#06B6D4]'
+                          }`}
+                        >
+                          {aud.screen_type}
+                        </span>
+                        <span>• {aud.total_seats} ghế</span>
+                      </div>
+                    </div>
+
+                    {/* Right Timeline Canvas 100% Fluid Width */}
+                    <div className="flex-1 relative h-14 flex items-center w-full overflow-hidden">
+                      {/* Background Grid: 16 cột giờ cho click nhanh */}
+                      <div className="absolute inset-0 flex pointer-events-auto">
+                        {timelineHours.map((hour) => (
+                          <div
+                            key={hour}
+                            onClick={() => handleQuickSlotClick(aud.id, hour)}
+                            className="flex-1 border-r border-[#1C2433]/60 hover:bg-[#E63845]/15 cursor-pointer transition-colors relative group/slot"
+                            title={`Click để xếp suất chiếu mới lúc ${String(hour).padStart(2, '0')}:00 tại ${aud.name}`}
+                          >
+                            <span className="absolute bottom-1 right-1 text-[8px] text-[#3E4D68] opacity-0 group-hover/slot:opacity-100 font-mono font-bold">
+                              +
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Placed Showtimes as Interactive Blocks */}
+                      {roomShowtimes.map((st) => {
+                        const movie = st.movie || movies.find((m) => m.id === st.movie_id);
+                        const isOverlap = checkOverlap(st);
+
+                        const startDate = new Date(st.starts_at);
+                        const endDate = new Date(st.ends_at);
+
+                        const startHours = startDate.getHours() + startDate.getMinutes() / 60;
+                        let endHours = endDate.getHours() + endDate.getMinutes() / 60;
+                        if (endHours < startHours) {
+                          endHours += 24;
+                        }
+
+                        // Tọa độ % chính xác từ 08:00 (0%) đến 24:00 (100%)
+                        const leftPercent = Math.max(0, ((startHours - TIMELINE_START_HOUR) / TIMELINE_TOTAL_HOURS) * 100);
+                        const durationHours = Math.max(0.6, endHours - startHours);
+                        const widthPercent = Math.min(100 - leftPercent, (durationHours / TIMELINE_TOTAL_HOURS) * 100);
+
+                        const bufferMinutes = aud.cleaning_buffer_minutes || 15;
+                        const bufferWidthPercent = ((bufferMinutes / 60) / TIMELINE_TOTAL_HOURS) * 100;
+
+                        const startTimeStr = startDate.toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                        const endTimeStr = endDate.toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+
+                        return (
+                          <div
+                            key={st.id}
+                            style={{
+                              left: `${leftPercent}%`,
+                              width: `${widthPercent}%`
+                            }}
+                            onClick={() => handleOpenEditShowtime(st)}
+                            className={`absolute h-11 rounded-lg px-2 py-0.5 z-10 shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer select-none group/card min-w-[36px] ${
+                              isOverlap
+                                ? 'bg-[#3B191C] border-2 border-[#EF4444] animate-pulse text-[#EF4444]'
+                                : 'bg-gradient-to-r from-[#172233] to-[#141B29] border border-[#2D3F5E] hover:border-[#06B6D4] hover:shadow-cyan-900/40'
+                            }`}
+                            title={`Bấm để chỉnh sửa: ${movie?.title || 'Phim'} (${startTimeStr} - ${endTimeStr})`}
+                          >
+                            {/* Top Bar: Title & Format */}
+                            <div className="flex items-center justify-between gap-1 leading-tight">
+                              <span className="font-bold text-white text-[11px] truncate">
+                                {movie?.title || 'Phim'}
+                              </span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className="px-1 py-0.2 rounded text-[8px] font-black bg-[#E63845] text-white">
+                                  {st.format || '2D'}
+                                </span>
+                                {isOverlap && (
+                                  <AlertTriangle className="w-3 h-3 text-[#EF4444] shrink-0" />
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Bottom Bar: Giờ chiếu */}
+                            <div className="flex items-center justify-between text-[10px] text-[#8E9AAF] leading-tight">
+                              <span className="font-mono text-[#06B6D4] font-semibold text-[9px] sm:text-[10px] truncate">
+                                {startTimeStr} - {endTimeStr}
+                              </span>
+
+                              <div className="flex items-center gap-1 opacity-90 group-hover/card:opacity-100 shrink-0">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPricingMatrix(st);
+                                  }}
+                                  className="p-0.5 rounded bg-[#253247] hover:bg-[#FABF2E] hover:text-black text-white transition-all cursor-pointer"
+                                  title="Chỉnh bảng giá vé"
+                                >
+                                  <DollarSign className="w-2.5 h-2.5" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteConfirmShowtime({
+                                      id: st.id,
+                                      title: movie?.title || 'Suất chiếu',
+                                      time: `${startTimeStr} - ${endTimeStr}`,
+                                      room: aud?.name || 'Phòng chiếu'
+                                    });
+                                  }}
+                                  className="p-0.5 rounded bg-[#253247] hover:bg-[#EF4444] text-[#8E9AAF] hover:text-white transition-all cursor-pointer"
+                                  title="Xóa suất"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Cleaning Buffer Stripe Visual (Mép phải thẻ) */}
+                            <div
+                              style={{ width: `${Math.min(20, bufferWidthPercent * 10)}px` }}
+                              className="absolute right-0 top-0 bottom-0 bg-[#06B6D4]/10 border-l border-dashed border-[#06B6D4]/30 pointer-events-none"
+                              title={`Đệm dọn rạp ${bufferMinutes} phút`}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
+        </div>
 
           {/* Timeline Bottom Legend - Thu gọn chỉ 1 dòng mỏng */}
           <div className="px-3 py-1.5 bg-[#0E121B] border-t border-[#222B3D] flex flex-wrap items-center justify-between gap-3 text-[11px] text-[#8E9AAF] shrink-0">
