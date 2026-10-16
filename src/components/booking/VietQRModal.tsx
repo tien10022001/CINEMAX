@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { VietQRService } from '@/services/vietqr.service';
+import { VietQRService, BankAccountInfo } from '@/services/vietqr.service';
 import { BankTransferService, BankTransaction } from '@/services/bank-transfer.service';
 import {
   Copy,
@@ -55,11 +55,29 @@ export default function VietQRModal({
   const [manualRefInput, setManualRefInput] = useState<string>('');
   const [manualLookupError, setManualLookupError] = useState<string>('');
 
-  const bank = VietQRService.BANK_INFO;
+  const [bank, setBank] = useState<BankAccountInfo>(() => VietQRService.getBankInfo());
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    const handleBankConfigChange = () => {
+      const updatedBank = VietQRService.getBankInfo();
+      setBank(updatedBank);
+      if (orderCode) {
+        setImgSrc(VietQRService.generateDynamicQrUrl({ amount, orderCode }));
+      }
+    };
+
+    window.addEventListener('cinemax_bank_config_updated', handleBankConfigChange);
+    window.addEventListener('storage', handleBankConfigChange);
+    return () => {
+      window.removeEventListener('cinemax_bank_config_updated', handleBankConfigChange);
+      window.removeEventListener('storage', handleBankConfigChange);
+    };
+  }, [amount, orderCode]);
+
+  useEffect(() => {
     if (isOpen && orderCode) {
+      setBank(VietQRService.getBankInfo());
       setImgSrc(VietQRService.generateDynamicQrUrl({ amount, orderCode }));
       setSecondsRemaining(timeLeftSeconds);
       setVerificationStatus('WAITING');

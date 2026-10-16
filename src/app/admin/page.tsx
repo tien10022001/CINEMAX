@@ -34,8 +34,11 @@ import {
   AlertTriangle,
   Zap,
   Receipt,
+  QrCode,
+  Building2,
 } from 'lucide-react';
 import { BankTransferService, BankTransaction } from '@/services/bank-transfer.service';
+import { VietQRService, BankAccountInfo, POPULAR_VIETQR_BANKS } from '@/services/vietqr.service';
 
 export default function AdminDashboardPage() {
   const { currentUser, login, logout } = useAuth();
@@ -225,23 +228,42 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
+  // Cấu hình tài khoản ngân hàng nhận tiền VietQR (Phương thức 1: QR Động)
+  const [bankConfig, setBankConfig] = useState<BankAccountInfo>(() => VietQRService.getBankInfo());
+  const [previewQrUrl, setPreviewQrUrl] = useState<string>('');
+
+  useEffect(() => {
+    setPreviewQrUrl(VietQRService.generatePreviewQrUrl(bankConfig, 100000));
+  }, [bankConfig]);
+
+  const handleSaveBankConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bankConfig.accountNumber.trim() || !bankConfig.accountName.trim()) {
+      showToast('Vui lòng nhập đầy đủ Số tài khoản và Tên chủ tài khoản');
+      return;
+    }
+    VietQRService.saveBankInfo(bankConfig);
+    showToast(`Đã lưu cấu hình tài khoản ${bankConfig.bankShortName} - ${bankConfig.accountNumber} thành công!`);
+  };
+
   const handleManualApproveTicket = (ticket: any, idx: number) => {
     const updated = [...systemTickets];
+    const currentBank = VietQRService.getBankInfo();
     const tx = BankTransferService.recordIncomingTransaction({
       transactionId: `FT-ADMIN-${Date.now().toString().slice(-6)}`,
       orderCode: ticket.bookingCode,
       amount: ticket.totalAmount || 0,
       senderBank: 'Thu ngân duyệt tại quầy',
-      receiverBank: 'TPBank',
-      accountNumber: '08341902000',
-      accountName: 'TRUONG CONG TIEN',
+      receiverBank: currentBank.bankShortName,
+      accountNumber: currentBank.accountNumber,
+      accountName: currentBank.accountName,
       description: `Thu ngan duyet don ${ticket.bookingCode}`,
       status: 'SUCCESS',
     });
     updated[idx] = {
       ...ticket,
       status: 'ĐÃ THANH TOÁN',
-      paymentMethod: `VIETQR (TPBank) • ${tx.transactionId}`,
+      paymentMethod: `VIETQR (${currentBank.bankShortName}) • ${tx.transactionId}`,
       bankTxnId: tx.transactionId,
     };
     setSystemTickets(updated);
@@ -1442,73 +1464,188 @@ export default function AdminDashboardPage() {
         )}
 
         {/* ================================================================= */}
-        {/* TAB 8: CẤU HÌNH WEBSITE (Site Settings) */}
+        {/* TAB 8: CẤU HÌNH WEBSITE & THANH TOÁN (Site & Payment Settings) */}
         {/* ================================================================= */}
         {activeTab === 'SETTINGS' && (
-          <div className="max-w-2xl bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-white">Cấu Hình Banner & Hệ Thống Website</h2>
-              <p className="text-xs text-[#9EA6B8]">Thay đổi thông tin hotline, email hỗ trợ, tiêu đề banner nổi bật trên trang chủ</p>
-            </div>
-
-            <form onSubmit={handleSaveSettings} className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Card 1: Cấu hình Website & Hotline */}
+            <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
               <div>
-                <label className="text-xs font-semibold text-[#9EA6B8] block mb-1.5">
-                  Tiêu đề Banner Hero Trang chủ
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.hero_title || ''}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, hero_title: e.target.value })}
-                  className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
-                />
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-[#E63845]" />
+                  <span>Cấu Hình Banner & Hệ Thống Website</span>
+                </h2>
+                <p className="text-xs text-[#9EA6B8]">Thay đổi thông tin hotline, email hỗ trợ, tiêu đề banner nổi bật trên trang chủ</p>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-[#9EA6B8] block mb-1.5">
-                  Phụ đề / Thông điệp Banner Hero
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.hero_subtitle || ''}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, hero_subtitle: e.target.value })}
-                  className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleSaveSettings} className="space-y-4">
                 <div>
                   <label className="text-xs font-semibold text-[#9EA6B8] block mb-1.5">
-                    Số Hotline CSKH
+                    Tiêu đề Banner Hero Trang chủ
                   </label>
                   <input
                     type="text"
-                    value={settingsForm.hotline || ''}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, hotline: e.target.value })}
+                    value={settingsForm.hero_title || ''}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, hero_title: e.target.value })}
                     className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
                   />
                 </div>
 
                 <div>
                   <label className="text-xs font-semibold text-[#9EA6B8] block mb-1.5">
-                    Email Hỗ Trợ Khách Hàng
+                    Phụ đề / Thông điệp Banner Hero
                   </label>
                   <input
-                    type="email"
-                    value={settingsForm.support_email || ''}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, support_email: e.target.value })}
+                    type="text"
+                    value={settingsForm.hero_subtitle || ''}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, hero_subtitle: e.target.value })}
                     className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
                   />
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-[#9EA6B8] block mb-1.5">
+                      Số Hotline CSKH
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.hotline || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, hotline: e.target.value })}
+                      className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#9EA6B8] block mb-1.5">
+                      Email Hỗ Trợ Khách Hàng
+                    </label>
+                    <input
+                      type="email"
+                      value={settingsForm.support_email || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, support_email: e.target.value })}
+                      className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-6 py-2.5 rounded-full font-bold text-xs transition-all shadow-md cursor-pointer"
+                >
+                  Lưu Cấu Hình Website
+                </button>
+              </form>
+            </div>
+
+            {/* Card 2: Cấu hình Tài khoản Ngân hàng VietQR (Phương thức 1: QR Động Napas 247) */}
+            <div className="bg-[#1A1C26] border border-[#8E24AA]/50 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-[#8E24AA] text-white text-[10px] font-black px-3 py-1 rounded-bl-xl tracking-wider uppercase">
+                Phương thức 1: QR Động
               </div>
 
-              <button
-                type="submit"
-                className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-6 py-2.5 rounded-full font-bold text-xs transition-all shadow-md cursor-pointer"
-              >
-                Lưu Thay Đổi Cấu Hình
-              </button>
-            </form>
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#8E24AA]/20 text-[#CE93D8] mb-2 border border-[#8E24AA]/40">
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>VIETQR NAPAS 247 • TÀI KHOẢN THỤ HƯỞNG</span>
+                </div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <QrCode className="w-5 h-5 text-[#FABF2E]" />
+                  <span>Cấu Hình QR Nhận Thanh Toán (Admin)</span>
+                </h2>
+                <p className="text-xs text-[#9EA6B8]">
+                  Khách đặt vé sẽ quét mã VietQR tự động nhúng số tiền và mã đơn vé chuyển trực tiếp về tài khoản dưới đây:
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveBankConfig} className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-[#9EA6B8] block mb-1.5">
+                    Ngân hàng thụ hưởng *
+                  </label>
+                  <select
+                    value={bankConfig.bankShortName}
+                    onChange={(e) => {
+                      const selectedBank = POPULAR_VIETQR_BANKS.find((b) => b.shortName === e.target.value);
+                      if (selectedBank) {
+                        setBankConfig({
+                          ...bankConfig,
+                          bankId: selectedBank.bin,
+                          bankName: selectedBank.name,
+                          bankShortName: selectedBank.shortName,
+                          bankCode: selectedBank.code,
+                        });
+                      }
+                    }}
+                    className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#FABF2E]"
+                  >
+                    {POPULAR_VIETQR_BANKS.map((b) => (
+                      <option key={b.bin} value={b.shortName}>
+                        {b.shortName} — {b.name} ({b.bin})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-[#9EA6B8] block mb-1.5">
+                    Số tài khoản ngân hàng *
+                  </label>
+                  <input
+                    type="text"
+                    value={bankConfig.accountNumber}
+                    onChange={(e) => setBankConfig({ ...bankConfig, accountNumber: e.target.value.trim() })}
+                    placeholder="VD: 08341902000"
+                    className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#FABF2E] font-mono font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-[#9EA6B8] block mb-1.5">
+                    Tên chủ tài khoản thụ hưởng (In hoa không dấu) *
+                  </label>
+                  <input
+                    type="text"
+                    value={bankConfig.accountName}
+                    onChange={(e) => setBankConfig({ ...bankConfig, accountName: e.target.value.toUpperCase() })}
+                    placeholder="VD: TRUONG CONG TIEN"
+                    className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#FABF2E] font-bold uppercase"
+                  />
+                </div>
+
+                {/* Khối Xem Trước (Live Preview) */}
+                <div className="p-3.5 bg-[#0F1217] border border-[#303645] rounded-2xl flex items-center gap-4">
+                  <div className="w-20 h-20 bg-white p-1 rounded-xl shrink-0 flex items-center justify-center shadow-md">
+                    <img
+                      src={previewQrUrl}
+                      alt="VietQR Preview"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="text-[10px] text-[#FABF2E] font-bold uppercase flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      <span>Xem trước mã VietQR tự động:</span>
+                    </div>
+                    <div className="font-bold text-white text-sm">{bankConfig.accountName || 'CHỦ TÀI KHOẢN'}</div>
+                    <div className="text-[#9EA6B8] font-mono text-xs">
+                      STK: <strong className="text-white">{bankConfig.accountNumber || '...'}</strong> ({bankConfig.bankShortName})
+                    </div>
+                    <div className="text-[10px] text-gray-400">
+                      Chuẩn Napas 247 • Nhúng tự động số tiền & mã đơn
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-[#8E24AA] hover:bg-[#7B1FA2] text-white py-3 rounded-full font-bold text-xs transition-all shadow-lg shadow-[#8E24AA]/30 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Lưu Cấu Hình Tài Khoản VietQR</span>
+                </button>
+              </form>
+            </div>
           </div>
         )}
       </main>
@@ -2088,7 +2225,7 @@ export default function AdminDashboardPage() {
               </div>
               <h3 className="text-xl font-bold text-white">Sao Kê Biến Động Số Dư & Đối Soát Vé</h3>
               <p className="text-xs text-[#9EA6B8]">
-                Tài khoản nhận tiền: <strong className="text-white">TPBank - 08341902000 (TRUONG CONG TIEN)</strong>
+                Tài khoản nhận tiền: <strong className="text-white">{bankConfig.bankShortName} - {bankConfig.accountNumber} ({bankConfig.accountName})</strong>
               </p>
             </div>
 

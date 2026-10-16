@@ -3,6 +3,8 @@
  * Tự động kiểm tra biến động số dư ngân hàng theo mã đơn hàng và số tiền thực tế.
  */
 
+import { VietQRService } from './vietqr.service';
+
 export interface BankTransaction {
   id: string;
   transactionId: string; // Mã giao dịch ngân hàng (VD: FT26101689234)
@@ -103,6 +105,7 @@ export class BankTransferService {
                 t.status === 'ĐÃ THANH TOÁN'
             );
             if (foundTicket) {
+              const currentBank = VietQRService.getBankInfo();
               return {
                 verified: true,
                 message: 'Đơn hàng đã được quản trị viên duyệt thanh toán thành công!',
@@ -112,9 +115,9 @@ export class BankTransferService {
                   orderCode: cleanOrderCode,
                   amount: expectedAmount,
                   senderBank: 'Hệ thống CINEMAX',
-                  receiverBank: 'TPBank',
-                  accountNumber: '08341902000',
-                  accountName: 'TRUONG CONG TIEN',
+                  receiverBank: currentBank.bankShortName,
+                  accountNumber: currentBank.accountNumber,
+                  accountName: currentBank.accountName,
                   description: `Duyet tay don ${cleanOrderCode}`,
                   transactionTime: new Date().toISOString(),
                   status: 'SUCCESS',
@@ -161,14 +164,15 @@ export class BankTransferService {
     senderBank: string = 'Vietcombank (Demo)'
   ): BankTransaction {
     const randomFT = 'FT26' + Math.floor(10000000 + Math.random() * 90000000);
+    const bank = VietQRService.getBankInfo();
     return this.recordIncomingTransaction({
       transactionId: randomFT,
       orderCode: orderCode.trim().toUpperCase(),
       amount,
       senderBank,
-      receiverBank: 'TPBank',
-      accountNumber: '08341902000',
-      accountName: 'TRUONG CONG TIEN',
+      receiverBank: bank.bankShortName,
+      accountNumber: bank.accountNumber,
+      accountName: bank.accountName,
       description: `CINEMAX ${orderCode.trim().toUpperCase()} chuyen khoan tien ve`,
       status: 'SUCCESS',
     });
