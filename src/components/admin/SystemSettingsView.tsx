@@ -205,24 +205,47 @@ export default function SystemSettingsView({
           u.id === staffId ||
           (staffTarget && u.full_name && u.full_name.toLowerCase() === staffTarget.name.toLowerCase())
       );
+      let updatedPerms: StaffPerm[] = [];
       if (idx !== -1) {
         const current = parsed[idx].staff_permissions || [];
-        parsed[idx].staff_permissions = willHavePerm
+        updatedPerms = willHavePerm
           ? Array.from(new Set([...current, perm]))
           : current.filter((p: string) => p !== perm);
+        parsed[idx].staff_permissions = updatedPerms;
         localStorage.setItem('cinemax_users_db', JSON.stringify(parsed));
       } else if (staffTarget) {
+        updatedPerms = willHavePerm ? [perm] : [];
         parsed.push({
           id: staffTarget.id,
           role_id: 2,
           role_code: 'STAFF',
-          staff_permissions: willHavePerm ? [perm] : [],
+          staff_permissions: updatedPerms,
           full_name: staffTarget.name,
           email: staffTarget.email,
           is_active: true,
         });
         localStorage.setItem('cinemax_users_db', JSON.stringify(parsed));
       }
+
+      // Cập nhật ngay cinemax_session_user nếu người dùng hiện tại chính là nhân viên này
+      const sessionStr = localStorage.getItem('cinemax_session_user');
+      if (sessionStr) {
+        try {
+          const sessionUser = JSON.parse(sessionStr);
+          if (
+            sessionUser.id === staffId ||
+            (staffTarget && sessionUser.email && sessionUser.email.toLowerCase() === staffTarget.email.toLowerCase()) ||
+            (staffTarget && sessionUser.full_name && sessionUser.full_name.toLowerCase() === staffTarget.name.toLowerCase())
+          ) {
+            sessionUser.staff_permissions = updatedPerms;
+            localStorage.setItem('cinemax_session_user', JSON.stringify(sessionUser));
+          }
+        } catch (_) {}
+      }
+
+      // Phát sự kiện cập nhật tức thời cho các tab/trang đang mở (ví dụ /staff)
+      window.dispatchEvent(new Event('cinemax_auth_update'));
+      window.dispatchEvent(new Event('storage'));
     } catch (e) {
       console.warn('Lỗi lưu quyền local:', e);
     }

@@ -270,6 +270,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (savedSession) {
         let user = JSON.parse(savedSession);
 
+        // Đồng bộ quyền mới nhất từ cinemax_users_db (nếu Admin vừa cập nhật)
+        const existingDb = localStorage.getItem('cinemax_users_db');
+        if (existingDb) {
+          try {
+            const parsedDb: User[] = JSON.parse(existingDb);
+            const dbMatch = parsedDb.find(
+              (u) =>
+                (u.id && user.id && u.id === user.id) ||
+                (u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase()) ||
+                (u.full_name && user.full_name && u.full_name.toLowerCase() === user.full_name.toLowerCase())
+            );
+            if (dbMatch) {
+              user = {
+                ...user,
+                role_code: dbMatch.role_code || user.role_code,
+                role_id: dbMatch.role_id || user.role_id,
+                staff_permissions: dbMatch.staff_permissions !== undefined ? dbMatch.staff_permissions : user.staff_permissions,
+                staff_position: dbMatch.staff_position || user.staff_position,
+              };
+              localStorage.setItem('cinemax_session_user', JSON.stringify(user));
+            }
+          } catch (e) {
+            console.warn('Lỗi đọc database user local:', e);
+          }
+        }
+
         // Check if seed users have an updated role for this user
         const seedMatch = SEED_USERS.find(
           (su) => su.email.toLowerCase() === user.email?.toLowerCase()
@@ -334,6 +360,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+
+    // Lắng nghe sự kiện cập nhật quyền tức thời (từ tab khác hoặc từ trang /admin)
+    const handleSyncAuth = () => {
+      try {
+        const raw = localStorage.getItem('cinemax_session_user');
+        if (raw) {
+          let u = JSON.parse(raw);
+          const rawDb = localStorage.getItem('cinemax_users_db');
+          if (rawDb) {
+            const dbUsers = JSON.parse(rawDb);
+            const found = dbUsers.find(
+              (item: any) =>
+                (item.id && u.id && item.id === u.id) ||
+                (item.email && u.email && item.email.toLowerCase() === u.email.toLowerCase()) ||
+                (item.full_name && u.full_name && item.full_name.toLowerCase() === u.full_name.toLowerCase())
+            );
+            if (found && Array.isArray(found.staff_permissions)) {
+              u = { ...u, staff_permissions: found.staff_permissions };
+            }
+          }
+          setCurrentUser(u);
+        }
+      } catch (_) {}
+    };
+
+    window.addEventListener('storage', handleSyncAuth);
+    window.addEventListener('cinemax_auth_update', handleSyncAuth);
+    return () => {
+      window.removeEventListener('storage', handleSyncAuth);
+      window.removeEventListener('cinemax_auth_update', handleSyncAuth);
+    };
   }, []);
 
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
@@ -349,7 +406,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       SEED_USERS.forEach((u) => userMap.set(u.email.toLowerCase(), u));
       storedUsers.forEach((u) => userMap.set(u.email.toLowerCase(), u));
 
-      const user = userMap.get(cleanEmail);
+      let user = storedUsers.find(
+        (u) =>
+          u.email.toLowerCase() === cleanEmail ||
+          u.full_name?.toLowerCase() === cleanEmail ||
+          u.phone === cleanEmail
+      );
+      if (!user) {
+        user = userMap.get(cleanEmail);
+      }
 
       if (!user) {
         return { success: false, error: 'Email không tồn tại trong hệ thống. Vui lòng đăng ký tài khoản.' };
