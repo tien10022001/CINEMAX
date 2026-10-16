@@ -32,7 +32,10 @@ import {
   Eye,
   Check,
   AlertTriangle,
+  Zap,
+  Receipt,
 } from 'lucide-react';
+import { BankTransferService, BankTransaction } from '@/services/bank-transfer.service';
 
 export default function AdminDashboardPage() {
   const { currentUser, login, logout } = useAuth();
@@ -202,6 +205,73 @@ export default function AdminDashboardPage() {
       window.removeEventListener('storage', loadTickets);
     };
   }, []);
+
+  // Quản lý biến động số dư ngân hàng & đối soát chuyển khoản
+  const [isBankStatementsOpen, setIsBankStatementsOpen] = useState(false);
+  const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
+  const [manualTxOrderCode, setManualTxOrderCode] = useState('');
+  const [manualTxAmount, setManualTxAmount] = useState<number>(100000);
+  const [manualTxSenderBank, setManualTxSenderBank] = useState('Vietcombank');
+
+  const refreshBankTransactions = () => {
+    setBankTransactions(BankTransferService.getAllTransactions());
+  };
+
+  useEffect(() => {
+    refreshBankTransactions();
+    window.addEventListener('cinemax_bank_transaction_received', refreshBankTransactions);
+    return () => {
+      window.removeEventListener('cinemax_bank_transaction_received', refreshBankTransactions);
+    };
+  }, []);
+
+  const handleManualApproveTicket = (ticket: any, idx: number) => {
+    const updated = [...systemTickets];
+    const tx = BankTransferService.recordIncomingTransaction({
+      transactionId: `FT-ADMIN-${Date.now().toString().slice(-6)}`,
+      orderCode: ticket.bookingCode,
+      amount: ticket.totalAmount || 0,
+      senderBank: 'Thu ngân duyệt tại quầy',
+      receiverBank: 'TPBank',
+      accountNumber: '08341902000',
+      accountName: 'TRUONG CONG TIEN',
+      description: `Thu ngan duyet don ${ticket.bookingCode}`,
+      status: 'SUCCESS',
+    });
+    updated[idx] = {
+      ...ticket,
+      status: 'ĐÃ THANH TOÁN',
+      paymentMethod: `VIETQR (TPBank) • ${tx.transactionId}`,
+      bankTxnId: tx.transactionId,
+    };
+    setSystemTickets(updated);
+    localStorage.setItem('cinemax_user_tickets', JSON.stringify(updated));
+    window.dispatchEvent(new Event('cinemax_data_updated'));
+    window.dispatchEvent(new Event('storage'));
+    showToast(`Đã duyệt thanh toán chuyển khoản thành công cho đơn ${ticket.bookingCode}!`);
+  };
+
+  const handleAddManualBankTransaction = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualTxOrderCode.trim() || manualTxAmount <= 0) {
+      showToast('Vui lòng nhập đầy đủ mã đơn và số tiền');
+      return;
+    }
+    const newTx = BankTransferService.recordIncomingTransaction({
+      transactionId: `FT-POS-${Date.now().toString().slice(-6)}`,
+      orderCode: manualTxOrderCode.trim().toUpperCase(),
+      amount: manualTxAmount,
+      senderBank: manualTxSenderBank,
+      receiverBank: 'TPBank',
+      accountNumber: '08341902000',
+      accountName: 'TRUONG CONG TIEN',
+      description: `CINEMAX ${manualTxOrderCode.trim().toUpperCase()} chuyen khoan doi soat`,
+      status: 'SUCCESS',
+    });
+    refreshBankTransactions();
+    showToast(`Đã ghi nhận giao dịch ${newTx.transactionId} thành công!`);
+    setManualTxOrderCode('');
+  };
 
   const totalRevenue = systemTickets.reduce((sum, t) => sum + (t.totalAmount || 0), 24500000);
   const totalTicketsSold = systemTickets.reduce((acc, t) => {
@@ -988,76 +1058,167 @@ export default function AdminDashboardPage() {
         )}
 
         {/* ================================================================= */}
-        {/* TAB 4: QUẢN LÝ ĐƠN VÉ & KHÁCH HÀNG (Bookings) */}
+        {/* TAB 4: QUẢN LÝ ĐƠN VÉ & ĐỐI SOÁT CHUYỂN KHOẢN (Bookings) */}
         {/* ================================================================= */}
         {activeTab === 'BOOKINGS' && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-white">Danh Sách Đơn Đặt Vé Toàn Hệ Thống</h2>
-              <p className="text-xs text-[#9EA6B8]">Tra cứu mã vé, thông tin khách hàng, số ghế và cập nhật trạng thái đơn</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <span>Danh Sách Đơn Đặt Vé Toàn Hệ Thống</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-[#FABF2E]/20 text-[#FABF2E] font-semibold font-mono">
+                    {systemTickets.length} đơn
+                  </span>
+                </h2>
+                <p className="text-xs text-[#9EA6B8]">
+                  Tra cứu mã vé, thông tin khách hàng, kiểm tra giao dịch chuyển khoản VietQR và duyệt vé
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    refreshBankTransactions();
+                    setIsBankStatementsOpen(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#8E24AA]/20 border border-[#8E24AA]/50 text-[#CE93D8] hover:bg-[#8E24AA] hover:text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Sao Kê Biến Động Số Dư ({bankTransactions.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (systemTickets.length === 0) {
+                      showToast('Chưa có đơn vé nào để mô phỏng');
+                      return;
+                    }
+                    const target = systemTickets[0];
+                    const tx = BankTransferService.simulateCustomerTransfer(
+                      target.bookingCode,
+                      target.totalAmount || 100000,
+                      'Vietcombank (Mô phỏng)'
+                    );
+                    refreshBankTransactions();
+                    showToast(`Đã nhận tiền chuyển khoản ${tx.amount.toLocaleString()}đ từ ${tx.senderBank}!`);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-[#33C773]/15 border border-[#33C773]/40 text-[#33C773] hover:bg-[#33C773] hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Mô phỏng khách chuyển tiền ngân hàng cho đơn vé đầu tiên"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Test Bắn Tiền</span>
+                </button>
+              </div>
             </div>
 
             <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl overflow-hidden shadow-xl">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#141720] text-[#9EA6B8] border-b border-[#303645]">
-                  <tr>
-                    <th className="p-4">Mã Vé</th>
-                    <th className="p-4">Khách Hàng</th>
-                    <th className="p-4">Tên Phim</th>
-                    <th className="p-4">Rạp & Ghế</th>
-                    <th className="p-4">Tổng Tiền</th>
-                    <th className="p-4">Trạng Thái</th>
-                    <th className="p-4 text-right">Thao Tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#303645]/60">
-                  {systemTickets.length === 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#141720] text-[#9EA6B8] border-b border-[#303645]">
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-[#9EA6B8] italic">
-                        Chưa có đơn đặt vé nào phát sinh trong phiên làm việc hiện tại.
-                      </td>
+                      <th className="p-4">Mã Vé</th>
+                      <th className="p-4">Khách Hàng</th>
+                      <th className="p-4">Tên Phim</th>
+                      <th className="p-4">Rạp & Ghế</th>
+                      <th className="p-4">Tổng Tiền</th>
+                      <th className="p-4">Kênh TT & Mã GD</th>
+                      <th className="p-4">Trạng Thái</th>
+                      <th className="p-4 text-right">Thao Tác</th>
                     </tr>
-                  ) : (
-                    systemTickets.map((ticket, idx) => (
-                      <tr key={idx} className="hover:bg-[#0F1217]/50 text-white">
-                        <td className="p-4 font-mono font-bold text-[#FABF2E]">{ticket.bookingCode}</td>
-                        <td className="p-4">
-                          <div className="font-bold">{ticket.customerName || 'Khách vãng lai'}</div>
-                          <div className="text-[10px] text-[#9EA6B8]">{ticket.customerPhone} • {ticket.customerEmail}</div>
-                        </td>
-                        <td className="p-4 font-bold">{ticket.movieTitle || 'Dune 2'}</td>
-                        <td className="p-4 text-[#9EA6B8]">
-                          <div>{ticket.cinemaName}</div>
-                          <div className="text-[10px] text-white font-semibold">Ghế: {ticket.seatsStr}</div>
-                        </td>
-                        <td className="p-4 font-bold text-[#FABF2E]">
-                          {(ticket.totalAmount || 0).toLocaleString('vi-VN')} đ
-                        </td>
-                        <td className="p-4">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#33C773]/20 text-[#33C773]">
-                            ✓ ĐÃ THANH TOÁN
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <button
-                            onClick={() => {
-                              const updated = systemTickets.filter((_, i) => i !== idx);
-                              setSystemTickets(updated);
-                              localStorage.setItem('cinemax_user_tickets', JSON.stringify(updated));
-                              window.dispatchEvent(new Event('cinemax_data_updated'));
-                              window.dispatchEvent(new Event('storage'));
-                              showToast('Đã xóa đơn vé!');
-                            }}
-                            className="p-1.5 rounded-lg bg-[#E63845]/15 text-[#E63845] hover:bg-[#E63845] hover:text-white transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                  </thead>
+                  <tbody className="divide-y divide-[#303645]/60">
+                    {systemTickets.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="p-8 text-center text-[#9EA6B8] italic">
+                          Chưa có đơn đặt vé nào phát sinh trong phiên làm việc hiện tại.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      systemTickets.map((ticket, idx) => {
+                        const isPaid = ticket.status === 'ĐÃ THANH TOÁN';
+                        return (
+                          <tr key={idx} className="hover:bg-[#0F1217]/50 text-white transition-colors">
+                            <td className="p-4 font-mono font-bold text-[#FABF2E]">{ticket.bookingCode}</td>
+                            <td className="p-4">
+                              <div className="font-bold">{ticket.customerName || 'Khách vãng lai'}</div>
+                              <div className="text-[10px] text-[#9EA6B8]">
+                                {ticket.customerPhone || 'N/A'} • {ticket.customerEmail || 'N/A'}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="font-bold">{ticket.movieTitle || 'Phim'}</div>
+                              <div className="text-[10px] text-[#9EA6B8]">{ticket.showtime || ticket.showtimeDate}</div>
+                            </td>
+                            <td className="p-4 text-[#9EA6B8]">
+                              <div>{ticket.cinemaName}</div>
+                              <div className="text-[10px] text-white font-semibold">
+                                Ghế: {ticket.seatsStr || (Array.isArray(ticket.seats) ? ticket.seats.join(', ') : ticket.seats)}
+                              </div>
+                            </td>
+                            <td className="p-4 font-bold text-[#FABF2E]">
+                              {(ticket.totalAmount || 0).toLocaleString('vi-VN')} đ
+                            </td>
+                            <td className="p-4">
+                              <div className="text-[11px] font-semibold text-white">
+                                {ticket.paymentMethod || 'VIETQR (TPBank)'}
+                              </div>
+                              {ticket.bankTxnId && (
+                                <div className="text-[10px] font-mono text-[#33C773]">
+                                  Mã GD: {ticket.bankTxnId}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {isPaid ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#33C773]/20 text-[#33C773] border border-[#33C773]/40">
+                                  <Check className="w-3 h-3" />
+                                  <span>ĐÃ THANH TOÁN</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FABF2E]/20 text-[#FABF2E] border border-[#FABF2E]/40">
+                                  <Clock className="w-3 h-3" />
+                                  <span>CHỜ CHUYỂN KHOẢN</span>
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {!isPaid && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleManualApproveTicket(ticket, idx)}
+                                    title="Duyệt thanh toán chuyển khoản thủ công"
+                                    className="p-1.5 rounded-lg bg-[#33C773]/15 text-[#33C773] hover:bg-[#33C773] hover:text-white transition-colors cursor-pointer"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = systemTickets.filter((_, i) => i !== idx);
+                                    setSystemTickets(updated);
+                                    localStorage.setItem('cinemax_user_tickets', JSON.stringify(updated));
+                                    window.dispatchEvent(new Event('cinemax_data_updated'));
+                                    window.dispatchEvent(new Event('storage'));
+                                    showToast('Đã xóa đơn vé!');
+                                  }}
+                                  title="Xóa đơn vé"
+                                  className="p-1.5 rounded-lg bg-[#E63845]/15 text-[#E63845] hover:bg-[#E63845] hover:text-white transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -1903,6 +2064,157 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* MODAL 7: SAO KÊ BIẾN ĐỘNG SỐ DƯ & ĐỐI SOÁT NGÂN HÀNG (VietQR TPBank) */}
+      {/* ================================================================= */}
+      {isBankStatementsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 max-w-3xl w-full space-y-5 shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsBankStatementsOpen(false)}
+              className="absolute top-5 right-5 text-[#9EA6B8] hover:text-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#8E24AA]/20 border border-[#8E24AA]/50 text-[#CE93D8]">
+                <Receipt className="w-3.5 h-3.5" />
+                <span>VIETQR • TPBANK OPEN BANKING API</span>
+              </div>
+              <h3 className="text-xl font-bold text-white">Sao Kê Biến Động Số Dư & Đối Soát Vé</h3>
+              <p className="text-xs text-[#9EA6B8]">
+                Tài khoản nhận tiền: <strong className="text-white">TPBank - 08341902000 (TRUONG CONG TIEN)</strong>
+              </p>
+            </div>
+
+            {/* Form ghi nhận giao dịch chuyển khoản tại quầy */}
+            <div className="p-4 bg-[#0F1217] border border-[#303645] rounded-2xl space-y-3">
+              <h4 className="text-xs font-bold text-[#FABF2E] flex items-center gap-1.5 uppercase">
+                <Plus className="w-3.5 h-3.5" />
+                <span>Ghi Nhận Giao Dịch Chuyển Khoản Thủ Công (Tại Quầy / Khách Gửi Biên Lai)</span>
+              </h4>
+              <form onSubmit={handleAddManualBankTransaction} className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                <div>
+                  <label className="text-[10px] text-[#9EA6B8] block mb-1">Mã đơn vé (CNM...)</label>
+                  <input
+                    type="text"
+                    value={manualTxOrderCode}
+                    onChange={(e) => setManualTxOrderCode(e.target.value)}
+                    placeholder="VD: CNM261016-A8F2K"
+                    className="w-full bg-[#1A1C26] border border-[#303645] rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-[#FABF2E] font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-[#9EA6B8] block mb-1">Số tiền (VNĐ)</label>
+                  <input
+                    type="number"
+                    value={manualTxAmount}
+                    onChange={(e) => setManualTxAmount(Number(e.target.value))}
+                    className="w-full bg-[#1A1C26] border border-[#303645] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FABF2E] font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-[#9EA6B8] block mb-1">Ngân hàng gửi</label>
+                  <select
+                    value={manualTxSenderBank}
+                    onChange={(e) => setManualTxSenderBank(e.target.value)}
+                    className="w-full bg-[#1A1C26] border border-[#303645] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FABF2E]"
+                  >
+                    <option value="Vietcombank">Vietcombank</option>
+                    <option value="MBBank">MBBank</option>
+                    <option value="Techcombank">Techcombank</option>
+                    <option value="BIDV">BIDV</option>
+                    <option value="VietinBank">VietinBank</option>
+                    <option value="ACB">ACB</option>
+                    <option value="TPBank">TPBank</option>
+                    <option value="VPBank">VPBank</option>
+                    <option value="Thu ngân duyệt tại quầy">Thu ngân tại quầy</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    className="w-full bg-[#33C773] hover:bg-[#2EB867] text-white py-2 px-3 rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Ghi Nhận & Khớp Vé</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Bảng danh sách sao kê ngân hàng */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-white">Lịch Sử Biến Động Số Dư Gần Nhất</h4>
+                <button
+                  type="button"
+                  onClick={refreshBankTransactions}
+                  className="text-xs text-[#FABF2E] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Làm mới</span>
+                </button>
+              </div>
+
+              <div className="border border-[#303645] rounded-2xl overflow-hidden bg-[#0F1217]">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#141720] text-[#9EA6B8] border-b border-[#303645]">
+                    <tr>
+                      <th className="p-3">Mã GD (FT)</th>
+                      <th className="p-3">Mã Đơn Khớp</th>
+                      <th className="p-3">Số Tiền</th>
+                      <th className="p-3">Ngân Hàng Gửi</th>
+                      <th className="p-3">Nội Dung</th>
+                      <th className="p-3">Trạng Thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#303645]/50">
+                    {bankTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-6 text-center text-[#9EA6B8] italic">
+                          Chưa có biến động số dư nào được ghi nhận. Bấm &quot;Test Bắn Tiền&quot; hoặc &quot;Ghi Nhận Giao Dịch&quot; để mô phỏng.
+                        </td>
+                      </tr>
+                    ) : (
+                      bankTransactions.map((tx, idx) => (
+                        <tr key={idx} className="hover:bg-[#1A1C26]/60 text-white">
+                          <td className="p-3 font-mono font-bold text-[#FABF2E]">{tx.transactionId}</td>
+                          <td className="p-3 font-mono font-bold text-white">{tx.orderCode}</td>
+                          <td className="p-3 font-bold text-[#33C773]">
+                            +{tx.amount.toLocaleString('vi-VN')} đ
+                          </td>
+                          <td className="p-3 text-[#9EA6B8]">{tx.senderBank}</td>
+                          <td className="p-3 text-[11px] text-[#9EA6B8] max-w-[180px] truncate">
+                            {tx.description}
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#33C773]/20 text-[#33C773] border border-[#33C773]/30">
+                              ✓ THÀNH CÔNG
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setIsBankStatementsOpen(false)}
+                className="px-5 py-2 rounded-full bg-[#303645] hover:bg-[#3E4557] text-white text-xs font-semibold cursor-pointer"
+              >
+                Đóng Cửa Sổ
+              </button>
+            </div>
           </div>
         </div>
       )}

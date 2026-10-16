@@ -793,13 +793,16 @@ function getDynamicShowtimeSeats(
     }
   };
 
-  const handleConfirmVietQR = async () => {
+  const handleConfirmVietQR = async (txDetails?: any) => {
     if (!pendingVietQROrder) return;
     const { PaymentService } = await import('@/services/payment.service');
 
+    const bankTxnId = txDetails?.transactionId || `FT-${Date.now()}`;
+    const senderBank = txDetails?.senderBank || 'TPBank';
+
     if (!pendingVietQROrder.orderId.startsWith('mock-')) {
       try {
-        await PaymentService.confirmPayment(pendingVietQROrder.orderId, 'CARD');
+        await PaymentService.confirmPayment(pendingVietQROrder.orderId, 'CARD', bankTxnId);
       } catch (payErr) {
         console.error('Lỗi xác nhận thanh toán Supabase:', payErr);
       }
@@ -846,7 +849,9 @@ function getDynamicShowtimeSeats(
         seatsStr: pendingVietQROrder.seatsStr,
         totalAmount: pendingVietQROrder.amount,
         status: 'ĐÃ THANH TOÁN',
-        paymentMethod: 'VIETQR (TPBank)',
+        paymentMethod: `VIETQR (TPBank) • ${bankTxnId}`,
+        bankTxnId,
+        senderBank,
         paidAt: paidTime,
       };
 
