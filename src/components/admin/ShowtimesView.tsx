@@ -209,10 +209,38 @@ export default function ShowtimesView({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [roomFilter, setRoomFilter] = useState<'ALL' | '2D' | 'IMAX' | 'CONFLICT'>('ALL');
 
-  // Timeline hours from 08:00 to 24:00 (16 hours total: 8, 9, ..., 23)
+  // Timeline hours from 08:00 to 03:00 sáng hôm sau (19 hours total: 8..23, 24=00h, 25=01h, 26=02h, kết thúc 03:00)
   const TIMELINE_START_HOUR = 8;
-  const TIMELINE_TOTAL_HOURS = 16;
-  const timelineHours = Array.from({ length: 16 }, (_, i) => 8 + i);
+  const TIMELINE_TOTAL_HOURS = 19;
+  const timelineHours = Array.from({ length: 19 }, (_, i) => 8 + i);
+
+  // Helper định dạng nhãn mốc giờ (08:00 -> 23:00, 00:00, 01:00, 02:00)
+  const getTimelineHourLabel = (h: number) => {
+    if (h < 24) return `${String(h).padStart(2, '0')}:00`;
+    const late = h - 24;
+    return `${String(late).padStart(2, '0')}:00`;
+  };
+
+  // Helper kiểm tra một suất chiếu có thuộc ngày kinh doanh (Business Day: 08:00 sáng -> 03:00 sáng hôm sau)
+  const isShowtimeInBusinessDay = (st: Showtime, businessDateStr: string) => {
+    if (!st.starts_at) return false;
+    const stDate = new Date(st.starts_at);
+    const ymd = stDate.toISOString().split('T')[0];
+    const hour = stDate.getHours() + stDate.getMinutes() / 60;
+
+    const nextD = new Date(businessDateStr);
+    nextD.setDate(nextD.getDate() + 1);
+    const nextDateStr = nextD.toISOString().split('T')[0];
+
+    // Thuộc ngày businessDateStr và từ 06:00 sáng trở đi
+    if (ymd === businessDateStr && hour >= 6) return true;
+    // Thuộc rạng sáng ngày hôm sau (00:00 - trước 04:00 sáng)
+    if (ymd === nextDateStr && hour < 5) return true;
+    // Nếu trong DB lưu cùng ngày nhưng giờ < 6h sáng
+    if (ymd === businessDateStr && hour < 6) return true;
+
+    return false;
+  };
 
   // Filtered auditoriums for timeline view
   const displayedAuditoriums = React.useMemo(() => {
@@ -221,8 +249,7 @@ export default function ShowtimesView({
       if (roomFilter === 'IMAX') return aud.screen_type === 'IMAX';
       if (roomFilter === 'CONFLICT') {
         const roomSts = showtimes.filter((st) => {
-          const stDate = st.starts_at ? new Date(st.starts_at).toISOString().split('T')[0] : '';
-          return st.auditorium_id === aud.id && stDate === selectedDate;
+          return st.auditorium_id === aud.id && isShowtimeInBusinessDay(st, selectedDate);
         });
         return roomSts.some(checkOverlap);
       }
@@ -262,7 +289,18 @@ export default function ShowtimesView({
 
   // Quick slot click: Khóa cứng phòng chiếu theo hàng đang bấm, không cần chọn lại phòng, lọc phim tương thích
   const handleQuickSlotClick = (auditoriumId: string, hour: number) => {
-    const formattedHour = String(hour).padStart(2, '0') + ':00';
+    let targetDate = selectedDate;
+    let formattedHour = '08:00';
+
+    if (hour >= 24) {
+      const nextD = new Date(selectedDate);
+      nextD.setDate(nextD.getDate() + 1);
+      targetDate = nextD.toISOString().split('T')[0];
+      formattedHour = String(hour - 24).padStart(2, '0') + ':00';
+    } else {
+      formattedHour = String(hour).padStart(2, '0') + ':00';
+    }
+
     const targetAud = auditoriums.find((a) => a.id === auditoriumId) || auditoriums[0];
     const defaultFormat = targetAud?.screen_type === 'IMAX' ? 'IMAX' : '2D';
 
@@ -280,7 +318,7 @@ export default function ShowtimesView({
       id: '',
       auditorium_id: auditoriumId,
       movie_id: chosenMovie?.id || prev.movie_id,
-      date: selectedDate,
+      date: targetDate,
       start_time: formattedHour,
       format: defaultFormat,
       language_version: defaultLang
@@ -752,26 +790,32 @@ export default function ShowtimesView({
         {/* Timeline Scroll Container: Chỉ cuộn dọc nội bộ khi nhiều phòng, KHÔNG cuộn ngang */}
         <div className="overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar w-full">
           <div className="w-full">
-            {/* Timeline Header (Time slots: 08:00 - 24:00) - Ghim cố định ở đỉnh khi cuộn dọc */}
+            {/* Timeline Header (Time slots: 08:00 - 03:00 sáng) - Ghim cố định ở đỉnh khi cuộn dọc */}
             <div className="flex border-b border-[#222B3D] bg-[#0E121B] sticky top-0 z-20 shadow-md w-full">
               {/* Giao điểm góc trên bên trái: Ghim cả 2 chiều */}
-              <div className="w-36 md:w-40 shrink-0 px-2.5 py-2 text-xs font-bold text-[#8E9AAF] border-r border-[#222B3D] bg-[#0A0D14] sticky left-0 z-30 flex items-center justify-between">
+              <div className="w-32 md:w-36 shrink-0 px-2 py-1.5 text-xs font-bold text-[#8E9AAF] border-r border-[#222B3D] bg-[#0A0D14] sticky left-0 z-30 flex items-center justify-between">
                 <span>Phòng Chiếu</span>
-                <span className="text-[10px] text-[#5C677D] font-mono">08h-24h</span>
+                <span className="text-[10px] text-[#FABF2E] font-mono">08h-03h</span>
               </div>
 
-              {/* 16 khoảng giờ từ 08:00 đến 24:00 chia đều 100% chiều rộng */}
+              {/* 19 khoảng giờ từ 08:00 đến 03:00 sáng chia đều 100% chiều rộng */}
               <div className="flex-1 flex w-full relative">
-                {timelineHours.map((hour) => (
-                  <div
-                    key={hour}
-                    className="flex-1 border-r border-[#1C2433] px-0.5 py-2 text-center text-[10px] font-mono font-semibold text-[#8E9AAF] truncate"
-                  >
-                    {String(hour).padStart(2, '0')}:00
-                  </div>
-                ))}
-                <div className="absolute right-0 top-0 bottom-0 pr-1 flex items-center text-[9px] font-mono text-[#5C677D] pointer-events-none">
-                  24h
+                {timelineHours.map((hour) => {
+                  const isLateNight = hour >= 24;
+                  return (
+                    <div
+                      key={hour}
+                      className={`flex-1 border-r border-[#1C2433] px-0.5 py-1.5 text-center text-[10px] font-mono font-semibold truncate ${
+                        isLateNight ? 'text-[#FABF2E] bg-[#FABF2E]/5' : 'text-[#8E9AAF]'
+                      }`}
+                      title={isLateNight ? `Suất khuya rạng sáng ${getTimelineHourLabel(hour)}` : undefined}
+                    >
+                      {getTimelineHourLabel(hour)}
+                    </div>
+                  );
+                })}
+                <div className="absolute right-0 top-0 bottom-0 pr-1 flex items-center text-[9px] font-mono font-bold text-[#FABF2E] pointer-events-none">
+                  03h
                 </div>
               </div>
             </div>
@@ -780,14 +824,13 @@ export default function ShowtimesView({
             <div className="divide-y divide-[#1D2536] w-full">
               {displayedAuditoriums.map((aud) => {
                 const roomShowtimes = showtimes.filter((st) => {
-                  const stDate = st.starts_at ? new Date(st.starts_at).toISOString().split('T')[0] : '';
-                  return st.auditorium_id === aud.id && stDate === selectedDate;
+                  return st.auditorium_id === aud.id && isShowtimeInBusinessDay(st, selectedDate);
                 });
 
                 return (
                   <div key={aud.id} className="flex relative hover:bg-[#151B27]/40 transition-colors group w-full">
                     {/* Left Room Label */}
-                    <div className="w-36 md:w-40 shrink-0 px-2.5 py-2 border-r border-[#222B3D] bg-[#121622] sticky left-0 z-20 flex flex-col justify-center shadow-sm">
+                    <div className="w-32 md:w-36 shrink-0 px-2 py-1.5 border-r border-[#222B3D] bg-[#121622] sticky left-0 z-20 flex flex-col justify-center shadow-sm">
                       <div className="font-bold text-white text-xs flex items-center gap-1.5 truncate">
                         <Armchair className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
                         <span className="truncate">{aud.name}</span>
@@ -805,24 +848,29 @@ export default function ShowtimesView({
                     </div>
 
                     {/* Right Timeline Canvas 100% Fluid Width */}
-                    <div className="flex-1 relative h-14 flex items-center w-full overflow-hidden">
-                      {/* Background Grid: 16 cột giờ cho click nhanh */}
+                    <div className="flex-1 relative h-11 flex items-center w-full overflow-hidden">
+                      {/* Background Grid: 19 cột giờ cho click nhanh */}
                       <div className="absolute inset-0 flex pointer-events-auto">
-                        {timelineHours.map((hour) => (
-                          <div
-                            key={hour}
-                            onClick={() => handleQuickSlotClick(aud.id, hour)}
-                            className="flex-1 border-r border-[#1C2433]/60 hover:bg-[#E63845]/15 cursor-pointer transition-colors relative group/slot"
-                            title={`Click để xếp suất chiếu mới lúc ${String(hour).padStart(2, '0')}:00 tại ${aud.name}`}
-                          >
-                            <span className="absolute bottom-1 right-1 text-[8px] text-[#3E4D68] opacity-0 group-hover/slot:opacity-100 font-mono font-bold">
-                              +
-                            </span>
-                          </div>
-                        ))}
+                        {timelineHours.map((hour) => {
+                          const isLate = hour >= 24;
+                          return (
+                            <div
+                              key={hour}
+                              onClick={() => handleQuickSlotClick(aud.id, hour)}
+                              className={`flex-1 border-r border-[#1C2433]/60 hover:bg-[#E63845]/15 cursor-pointer transition-colors relative group/slot ${
+                                isLate ? 'bg-[#FABF2E]/[0.02]' : ''
+                              }`}
+                              title={`Click để xếp suất chiếu mới lúc ${getTimelineHourLabel(hour)} tại ${aud.name}`}
+                            >
+                              <span className="absolute bottom-0.5 right-0.5 text-[8px] text-[#3E4D68] opacity-0 group-hover/slot:opacity-100 font-mono font-bold">
+                                +
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
 
-                      {/* Placed Showtimes as Interactive Blocks */}
+                      {/* Placed Showtimes as Interactive Compact Blocks */}
                       {roomShowtimes.map((st) => {
                         const movie = st.movie || movies.find((m) => m.id === st.movie_id);
                         const isOverlap = checkOverlap(st);
@@ -830,15 +878,15 @@ export default function ShowtimesView({
                         const startDate = new Date(st.starts_at);
                         const endDate = new Date(st.ends_at);
 
-                        const startHours = startDate.getHours() + startDate.getMinutes() / 60;
-                        let endHours = endDate.getHours() + endDate.getMinutes() / 60;
-                        if (endHours < startHours) {
-                          endHours += 24;
+                        let startHours = startDate.getHours() + startDate.getMinutes() / 60;
+                        if (startHours < 6) {
+                          startHours += 24;
                         }
 
-                        // Tọa độ % chính xác từ 08:00 (0%) đến 24:00 (100%)
+                        const durationHours = Math.max(0.5, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
+
+                        // Tọa độ % chính xác từ 08:00 (0%) đến 03:00 sáng hôm sau (100% - 19 tiếng)
                         const leftPercent = Math.max(0, ((startHours - TIMELINE_START_HOUR) / TIMELINE_TOTAL_HOURS) * 100);
-                        const durationHours = Math.max(0.6, endHours - startHours);
                         const widthPercent = Math.min(100 - leftPercent, (durationHours / TIMELINE_TOTAL_HOURS) * 100);
 
                         const bufferMinutes = aud.cleaning_buffer_minutes || 15;
@@ -861,7 +909,7 @@ export default function ShowtimesView({
                               width: `${widthPercent}%`
                             }}
                             onClick={() => handleOpenEditShowtime(st)}
-                            className={`absolute h-11 rounded-lg px-2 py-0.5 z-10 shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer select-none group/card min-w-[36px] ${
+                            className={`absolute h-8.5 rounded-lg px-1.5 py-0.5 z-10 shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer select-none group/card min-w-[32px] ${
                               isOverlap
                                 ? 'bg-[#3B191C] border-2 border-[#EF4444] animate-pulse text-[#EF4444]'
                                 : 'bg-gradient-to-r from-[#172233] to-[#141B29] border border-[#2D3F5E] hover:border-[#06B6D4] hover:shadow-cyan-900/40'
@@ -869,27 +917,27 @@ export default function ShowtimesView({
                             title={`Bấm để chỉnh sửa: ${movie?.title || 'Phim'} (${startTimeStr} - ${endTimeStr})`}
                           >
                             {/* Top Bar: Title & Format */}
-                            <div className="flex items-center justify-between gap-1 leading-tight">
-                              <span className="font-bold text-white text-[11px] truncate">
+                            <div className="flex items-center justify-between gap-1 leading-none">
+                              <span className="font-bold text-white text-[10px] truncate max-w-[75%]">
                                 {movie?.title || 'Phim'}
                               </span>
                               <div className="flex items-center gap-1 shrink-0">
-                                <span className="px-1 py-0.2 rounded text-[8px] font-black bg-[#E63845] text-white">
+                                <span className="px-1 py-0.2 rounded text-[7px] font-black bg-[#E63845] text-white">
                                   {st.format || '2D'}
                                 </span>
                                 {isOverlap && (
-                                  <AlertTriangle className="w-3 h-3 text-[#EF4444] shrink-0" />
+                                  <AlertTriangle className="w-2.5 h-2.5 text-[#EF4444] shrink-0" />
                                 )}
                               </div>
                             </div>
 
                             {/* Bottom Bar: Giờ chiếu */}
-                            <div className="flex items-center justify-between text-[10px] text-[#8E9AAF] leading-tight">
-                              <span className="font-mono text-[#06B6D4] font-semibold text-[9px] sm:text-[10px] truncate">
+                            <div className="flex items-center justify-between text-[9px] text-[#8E9AAF] leading-none">
+                              <span className="font-mono text-[#06B6D4] font-semibold text-[8.5px] truncate">
                                 {startTimeStr} - {endTimeStr}
                               </span>
 
-                              <div className="flex items-center gap-1 opacity-90 group-hover/card:opacity-100 shrink-0">
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -898,7 +946,7 @@ export default function ShowtimesView({
                                   className="p-0.5 rounded bg-[#253247] hover:bg-[#FABF2E] hover:text-black text-white transition-all cursor-pointer"
                                   title="Chỉnh bảng giá vé"
                                 >
-                                  <DollarSign className="w-2.5 h-2.5" />
+                                  <DollarSign className="w-2 h-2" />
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -913,14 +961,14 @@ export default function ShowtimesView({
                                   className="p-0.5 rounded bg-[#253247] hover:bg-[#EF4444] text-[#8E9AAF] hover:text-white transition-all cursor-pointer"
                                   title="Xóa suất"
                                 >
-                                  <Trash2 className="w-2.5 h-2.5" />
+                                  <Trash2 className="w-2 h-2" />
                                 </button>
                               </div>
                             </div>
 
                             {/* Cleaning Buffer Stripe Visual (Mép phải thẻ) */}
                             <div
-                              style={{ width: `${Math.min(20, bufferWidthPercent * 10)}px` }}
+                              style={{ width: `${Math.min(16, bufferWidthPercent * 8)}px` }}
                               className="absolute right-0 top-0 bottom-0 bg-[#06B6D4]/10 border-l border-dashed border-[#06B6D4]/30 pointer-events-none"
                               title={`Đệm dọn rạp ${bufferMinutes} phút`}
                             />
