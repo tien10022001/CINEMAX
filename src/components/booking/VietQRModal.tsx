@@ -38,8 +38,13 @@ export default function VietQRModal({
 }: VietQRModalProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
-  const [imgSrc, setImgSrc] = useState<string>('');
   const [secondsRemaining, setSecondsRemaining] = useState<number>(timeLeftSeconds);
+  const [imgSrc, setImgSrc] = useState<string>(() => {
+    if (orderCode) {
+      return VietQRService.generateDynamicQrUrl({ amount, orderCode });
+    }
+    return VietQRService.getFallbackQrUrl();
+  });
 
   // Trạng thái kiểm tra giao dịch tự động
   const [verificationStatus, setVerificationStatus] = useState<
@@ -349,12 +354,18 @@ export default function VietQRModal({
           </div>
         ) : (
           <div className="bg-white p-3.5 rounded-2xl flex flex-col items-center justify-center shadow-lg relative mx-auto max-w-[240px]">
-            <img
-              src={imgSrc}
-              alt="VietQR TPBank"
-              onError={() => setImgSrc(VietQRService.getFallbackQrUrl())}
-              className="w-48 h-48 object-contain"
-            />
+            {imgSrc ? (
+              <img
+                src={imgSrc}
+                alt="VietQR TPBank"
+                onError={() => setImgSrc(VietQRService.getFallbackQrUrl())}
+                className="w-48 h-48 object-contain"
+              />
+            ) : (
+              <div className="w-48 h-48 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+              </div>
+            )}
             <div className="text-[10px] text-gray-600 font-semibold mt-1">
               Chuyển nhanh NAPAS 247 • TPBank
             </div>
