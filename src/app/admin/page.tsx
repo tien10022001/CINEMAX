@@ -1669,7 +1669,7 @@ export default function AdminPage() {
         </header>
 
         {/* Tab View Container (Compact for single screen) */}
-        <div className="p-3 sm:p-4 max-w-7xl w-full mx-auto flex-1">
+        <div className="p-3 sm:p-4 max-w-7xl w-full mx-auto flex-1 flex flex-col">
           <>
               {activeTab === 'DASHBOARD' && (
                 <DashboardView

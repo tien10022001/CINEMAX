@@ -538,9 +538,13 @@ export default function MoviesView({
   };
 
   return (
-    <div className="space-y-3 animate-in fade-in duration-200">
-      {/* Compact Action & Filter Bar (Single row, no large header) */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-[#1E2638] pb-2.5">
+    <div
+      style={{ minHeight: 'calc(100vh - 120px)' }}
+      className="flex-1 flex flex-col justify-between space-y-3 animate-in fade-in duration-200"
+    >
+      <div className="space-y-3 flex-1 flex flex-col">
+        {/* Compact Action & Filter Bar (Single row, no large header) */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-[#1E2638] pb-2.5">
         {/* Status Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 custom-scrollbar">
           {[
@@ -720,10 +724,11 @@ export default function MoviesView({
           );
         }))}
       </div>
+      </div>
 
-      {/* Pagination Bar - Hạn chế cuộn trang */}
+      {/* Pagination Bar - Cố định ở đáy màn hình */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[#1E2638] text-xs">
+        <div className="sticky bottom-0 bg-[#0A0D14]/95 backdrop-blur-md pt-3 pb-2 border-t border-[#1E2638] mt-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs z-10">
           <div className="text-[#8E9AAF] text-xs">
             Hiển thị <span className="font-bold text-white">{startIndex + 1}</span> -{' '}
             <span className="font-bold text-white">
