@@ -42,6 +42,8 @@ interface AdminSidebarProps {
   activeShiftStatus: string;
   posTerminal: string;
   onLogout: () => void;
+  userRole?: string;
+  staffPermissions?: string[];
   counts: {
     movies: number;
     showtimes: number;
@@ -67,8 +69,11 @@ export default function AdminSidebar({
   activeShiftStatus,
   posTerminal,
   onLogout,
+  userRole = 'ADMIN',
+  staffPermissions = [],
   counts
 }: AdminSidebarProps) {
+  const isStaff = userRole === 'STAFF';
   const navItems: NavItem[] = [
     {
       id: 'DASHBOARD',
@@ -133,6 +138,12 @@ export default function AdminSidebar({
     }
   ];
 
+  // Staff allowed tabs: POS, CHECKIN, FOOD_CHECKIN, CONCESSION, ORDERS_FINANCE
+  const allowedNavItems = navItems.filter((item) => {
+    if (!isStaff) return true;
+    return ['POS_SHIFTS', 'CHECKIN', 'FOOD_CHECKIN', 'CONCESSION', 'ORDERS_FINANCE'].includes(item.id);
+  });
+
   return (
     <aside className="w-64 bg-[#0A0D14] border-r border-[#171D29] flex flex-col h-screen sticky top-0 select-none z-30 shrink-0">
       {/* Brand Header */}
@@ -142,7 +153,7 @@ export default function AdminSidebar({
             <Film className="w-4 h-4 text-white" />
           </div>
           <span className="font-black text-white tracking-wider text-base">
-            CINEMAX<span className="text-[#E50914] text-xs ml-1 font-bold">ADMIN</span>
+            CINEMAX<span className="text-[#E50914] text-xs ml-1 font-bold">{isStaff ? 'STAFF' : 'ADMIN'}</span>
           </span>
         </div>
 
@@ -158,7 +169,7 @@ export default function AdminSidebar({
 
       {/* Navigation List - Clean Single-Line Items */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5 custom-scrollbar">
-        {navItems.map((item) => {
+        {allowedNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
 
@@ -204,8 +215,8 @@ export default function AdminSidebar({
             {operatorName ? operatorName.charAt(0).toUpperCase() : 'A'}
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-bold text-white truncate">{operatorName || 'luan tran'}</div>
-            <div className="text-[10px] text-[#6E7B91] truncate">Quản trị viên</div>
+            <div className="text-xs font-bold text-white truncate">{operatorName || 'Admin'}</div>
+            <div className="text-[10px] text-[#6E7B91] truncate">{isStaff ? 'Nhân viên rạp (STAFF)' : 'Quản trị viên (ADMIN)'}</div>
           </div>
         </div>
 

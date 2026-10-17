@@ -1689,6 +1689,23 @@ function BookingContent() {
                       <span>-{discountAmount.toLocaleString('vi-VN')} đ</span>
                     </div>
                   )}
+                  {currentUser ? (
+                    <div className="flex justify-between text-[#FABF2E] text-[11px] pt-1">
+                      <span>Điểm tích lũy (+5%):</span>
+                      <span className="font-bold">+{Math.floor(finalTotal * 0.05).toLocaleString('vi-VN')} điểm</span>
+                    </div>
+                  ) : (
+                    <div className="mt-2 p-2.5 rounded-xl bg-[#FABF2E]/10 border border-[#FABF2E]/30 text-[11px] text-[#FABF2E] flex items-center justify-between">
+                      <span>Đăng nhập để tích +{Math.floor(finalTotal * 0.05).toLocaleString('vi-VN')} điểm</span>
+                      <button
+                        type="button"
+                        onClick={() => openAuthModal('LOGIN')}
+                        className="underline font-bold hover:text-white cursor-pointer"
+                      >
+                        Đăng nhập
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

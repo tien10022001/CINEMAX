@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
+import { useAuth } from '@/lib/auth-context';
 import { useData } from '@/lib/data-context';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -323,14 +324,46 @@ export default function StaffWorkspacePage() {
   // ==========================================================================
   // CORE NAVIGATION & STAFF STATE
   // ==========================================================================
+  const { currentUser, login, logout } = useAuth();
+  const [loginEmail, setLoginEmail] = useState('staff@cinemax.vn');
+  const [loginPassword, setLoginPassword] = useState('staff');
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   const [staffRole, setStaffRole] = useState<StaffRoleCode>('SUPERVISOR');
   const [activeTab, setActiveTab] = useState<StaffTab>('checkin');
-  const [staffName, setStaffName] = useState<string>('Nguyễn Văn An');
+  const [staffName, setStaffName] = useState<string>('Trần Minh Quân');
   const [posTerminal, setPosTerminal] = useState<string>('POS-01');
   const [shiftLabel, setShiftLabel] = useState<string>('Ca Tối (14:00 - 22:00)');
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
   const [newPasswordInput, setNewPasswordInput] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.full_name) setStaffName(currentUser.full_name);
+      if (currentUser.role_code === 'ADMIN') {
+        setStaffRole('SUPERVISOR');
+      } else if (currentUser.role_code === 'STAFF') {
+        const perms = currentUser.staff_permissions || [];
+        if (perms.includes('SUPERVISOR')) setStaffRole('SUPERVISOR');
+        else if (perms.includes('POS')) setStaffRole('POS');
+        else if (perms.includes('CHECKIN')) setStaffRole('CHECKIN');
+        else if (perms.includes('CONCESSION')) setStaffRole('CONCESSION');
+      }
+    }
+  }, [currentUser]);
+
+  const handleStaffLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError('');
+    const res = await login(loginEmail, loginPassword);
+    setIsLoggingIn(false);
+    if (!res.success) {
+      setLoginError(res.error || 'Email hoặc mật khẩu không chính xác.');
+    }
+  };
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -1865,6 +1898,110 @@ export default function StaffWorkspacePage() {
   const activeTabTitle =
     allSidebarItems.find((item) => item.id === activeTab)?.label || 'Soát vé (Check-in)';
 
+  // VIEW 1: 403 FORBIDDEN FOR CUSTOMER ROLE
+  if (currentUser && (currentUser.role_code === 'CUSTOMER' || currentUser.role_code === 'user')) {
+    return (
+      <div className="min-h-screen bg-[#090B10] text-slate-100 flex flex-col justify-center items-center p-4">
+        <div className="max-w-md w-full bg-[#11141D] border border-red-500/40 rounded-2xl p-8 space-y-6 text-center shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-red-500/15 border border-red-500/40 text-red-500 mx-auto flex items-center justify-center font-black text-2xl shadow-lg shadow-red-500/20">
+            403
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-lg font-bold text-white">TRUY CẬP BỊ TỪ CHỐI</h1>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Bạn đang đăng nhập bằng tài khoản <strong className="text-white">Khách Hàng ({currentUser.full_name})</strong>. Cổng này chỉ dành riêng cho Nhân viên rạp CINEMAX.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 pt-2">
+            <Link
+              href="/"
+              className="w-full py-2.5 rounded-lg bg-[#E63845] hover:bg-[#D02B38] font-bold text-xs text-center transition"
+            >
+              Về Trang Chủ Khách Hàng
+            </Link>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="w-full py-2.5 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-xs text-slate-400 hover:text-white transition cursor-pointer"
+            >
+              Đăng xuất & Đổi tài khoản Nhân viên
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // VIEW 2: UN-AUTHENTICATED STAFF GATEWAY
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#090B10] text-slate-100 flex flex-col justify-center items-center p-4">
+        <div className="max-w-md w-full bg-[#11141D] border border-[#1E2433] rounded-2xl p-8 space-y-6 shadow-2xl">
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 rounded-xl bg-[#E63845] text-white mx-auto flex items-center justify-center font-black text-xl shadow-lg shadow-[#E63845]/30">
+              S
+            </div>
+            <h1 className="text-lg font-bold text-white">CỔNG NHÂN VIÊN CINEMAX</h1>
+            <p className="text-xs text-slate-400">
+              Vui lòng đăng nhập tài khoản Nhân viên hoặc Quản trị viên để nhận ca làm việc.
+            </p>
+          </div>
+
+          <form onSubmit={handleStaffLogin} className="space-y-4 text-xs">
+            {loginError && (
+              <div className="p-3 rounded-lg bg-red-950/60 border border-red-500 text-red-400">
+                {loginError}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-300">Email nhân viên</label>
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full bg-[#161A26] border border-[#262D40] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-[#E63845]"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-300">Mật khẩu</label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full bg-[#161A26] border border-[#262D40] rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:border-[#E63845]"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full py-2.5 rounded-lg bg-[#E63845] hover:bg-[#D02B38] font-bold text-white transition cursor-pointer"
+            >
+              {isLoggingIn ? 'Đang xác thực...' : 'Đăng nhập vào ca trực'}
+            </button>
+
+            <div className="p-3 rounded-lg bg-[#161A26] border border-[#262D40] text-[11px] text-slate-400 space-y-1">
+              <div className="font-bold text-slate-300">Tài khoản nhân viên mẫu:</div>
+              <div>• Nhân viên rạp: <code className="text-[#4ADE80]">staff@cinemax.vn</code> / pass: <code className="text-[#4ADE80]">staff</code></div>
+              <div>• Quản lý ca trực: <code className="text-[#FBBF24]">admin@cinemax.vn</code> / pass: <code className="text-[#FBBF24]">admin</code></div>
+            </div>
+
+            <Link
+              href="/"
+              className="block text-center text-slate-400 hover:text-white pt-2 text-xs"
+            >
+              ← Về trang chủ khách hàng
+            </Link>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#090B10] text-slate-100 flex font-sans select-none">
       {/* ==================================================================== */}
@@ -1904,12 +2041,13 @@ export default function StaffWorkspacePage() {
 
         {/* Minimal Footer */}
         <div className="p-4 border-t border-[#1A1F2C] space-y-2">
-          <Link
-            href="/"
-            className="block w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-[#141822] transition"
+          <button
+            type="button"
+            onClick={() => logout()}
+            className="block w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-[#EF4444] hover:bg-[#141822] transition cursor-pointer"
           >
             Đăng xuất
-          </Link>
+          </button>
         </div>
       </aside>
 

@@ -456,33 +456,25 @@ export default function AdminPage() {
       const sessionUser = sessionUserStr ? JSON.parse(sessionUserStr) : null;
       const isAdminRole = sessionUser && (sessionUser.role_code === 'ADMIN' || sessionUser.role_code === 'STAFF');
 
-      if (!isExplicitlyLoggedOut && (adminAuthFlag || isAdminRole || !sessionUser)) {
+      if (!isExplicitlyLoggedOut && (adminAuthFlag || isAdminRole)) {
         setIsAdminLoggedIn(true);
-        localStorage.setItem('cinemax_admin_authenticated', 'true');
-        if (!sessionUser) {
-          const defaultAdmin = {
-            id: 'usr-admin-001',
-            role_id: 3,
-            role_code: 'ADMIN',
-            full_name: 'Quản trị viên Cinemax',
-            email: 'admin@cinemax.vn',
-            phone: '0988888888',
-            loyalty_points: 9999,
-            is_active: true,
-            created_at: '2026-01-01',
-            updated_at: '2026-01-01',
-          };
-          localStorage.setItem('cinemax_session_user', JSON.stringify(defaultAdmin));
-        }
-      } else if (isExplicitlyLoggedOut) {
-        setIsAdminLoggedIn(false);
       } else {
-        setIsAdminLoggedIn(!!isAdminRole);
+        setIsAdminLoggedIn(false);
       }
     } catch {
-      setIsAdminLoggedIn(true);
+      setIsAdminLoggedIn(false);
     }
   }, []);
+
+  // Staff Role Protection: auto-switch to allowed tab if staff lands on admin-only tab
+  useEffect(() => {
+    if (currentUser?.role_code === 'STAFF') {
+      const allowedTabs: AdminTab[] = ['POS_SHIFTS', 'CHECKIN', 'FOOD_CHECKIN', 'CONCESSION', 'ORDERS_FINANCE'];
+      if (!allowedTabs.includes(activeTab)) {
+        setActiveTab('POS_SHIFTS');
+      }
+    }
+  }, [currentUser, activeTab]);
 
   // Handle Admin Gateway Login
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -1418,8 +1410,45 @@ export default function AdminPage() {
     );
   }
 
+  // VIEW 0.5: ACCESS DENIED (403) FOR NORMAL CUSTOMER / USER
+  const isCustomer = currentUser && (currentUser.role_code === 'CUSTOMER' || currentUser.role_code === 'user');
+  if (isCustomer) {
+    return (
+      <div className="min-h-screen bg-[#0A0D14] flex flex-col justify-center items-center p-4 text-white">
+        <div className="max-w-md w-full bg-[#121622] border border-[#EF4444]/40 rounded-3xl p-8 space-y-6 shadow-2xl text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#EF4444]/15 border border-[#EF4444]/40 text-[#EF4444] mx-auto flex items-center justify-center shadow-lg shadow-[#EF4444]/20">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-black text-white">TRUY CẬP BỊ TỪ CHỐI (403)</h1>
+            <p className="text-xs text-[#8E9AAF] leading-relaxed">
+              Tài khoản hiện tại của bạn là <strong className="text-white">Khách hàng / Thành viên ({currentUser.full_name})</strong>. Khu vực này chỉ dành riêng cho Quản Trị Viên (Admin) và Nhân Viên Vận Hành (Staff) rạp CINEMAX.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 pt-2">
+            <Link
+              href="/"
+              className="w-full py-3 rounded-xl bg-[#E63845] hover:bg-[#D42B38] font-bold text-xs text-center transition-colors"
+            >
+              Quay về Trang Chủ Khách Hàng
+            </Link>
+            <button
+              onClick={() => {
+                logout();
+                setIsAdminLoggedIn(false);
+              }}
+              className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 font-bold text-xs text-[#8E9AAF] hover:text-white transition-colors cursor-pointer"
+            >
+              Đăng xuất & Đổi tài khoản Admin / Staff
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // =========================================================================
-  // VIEW 1: UN-AUTHENTICATED ADMIN GATEWAY (Only when explicitly logged out)
+  // VIEW 1: UN-AUTHENTICATED ADMIN GATEWAY (Only when not logged in as Admin/Staff)
   // =========================================================================
   if (!isAuthenticated) {
     return (
@@ -1517,6 +1546,8 @@ export default function AdminPage() {
         activeShiftStatus={currentActiveShift ? 'open' : 'closed'}
         posTerminal={currentActiveShift?.pos_terminal || 'POS-01'}
         onLogout={handleAdminLogout}
+        userRole={currentUser?.role_code || (isAdminLoggedIn ? 'ADMIN' : 'STAFF')}
+        staffPermissions={currentUser?.staff_permissions || []}
         counts={{
           movies: movies.length,
           showtimes: showtimes.length,
