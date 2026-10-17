@@ -431,36 +431,24 @@ export default function AdminPage() {
     loadDatabaseBundle();
   }, [loadDatabaseBundle]);
 
-  // Real-time synchronization when customer books tickets in another tab or window
+  // Real-time synchronization when customer books tickets or staff makes changes
   useEffect(() => {
-    const handleTicketPurchased = () => {
-      const userBundle = AdminDataService.getUserBookedOrdersAndTickets();
-      if (userBundle.orders.length > 0 || userBundle.tickets.length > 0) {
-        setOrders((prev) => {
-          const codes = new Set(prev.map((o) => o.order_code || o.id));
-          const newOrders = userBundle.orders.filter((uo) => !codes.has(uo.order_code) && !codes.has(uo.id));
-          return newOrders.length > 0 ? [...newOrders, ...prev] : prev;
-        });
-        setTickets((prev) => {
-          const hashes = new Set(prev.map((t) => t.qr_token_hash || t.id));
-          const newTickets = userBundle.tickets.filter((ut) => !hashes.has(ut.qr_token_hash) && !hashes.has(ut.id));
-          return newTickets.length > 0 ? [...newTickets, ...prev] : prev;
-        });
-      }
+    const handleDataUpdated = () => {
+      loadDatabaseBundle();
     };
 
-    window.addEventListener('storage', handleTicketPurchased);
-    window.addEventListener('cinemax_data_updated', handleTicketPurchased);
-    window.addEventListener('cinemax_ticket_purchased', handleTicketPurchased);
-    window.addEventListener('focus', handleTicketPurchased);
+    window.addEventListener('storage', handleDataUpdated);
+    window.addEventListener('cinemax_data_updated', handleDataUpdated);
+    window.addEventListener('cinemax_ticket_purchased', handleDataUpdated);
+    window.addEventListener('focus', handleDataUpdated);
 
     return () => {
-      window.removeEventListener('storage', handleTicketPurchased);
-      window.removeEventListener('cinemax_data_updated', handleTicketPurchased);
-      window.removeEventListener('cinemax_ticket_purchased', handleTicketPurchased);
-      window.removeEventListener('focus', handleTicketPurchased);
+      window.removeEventListener('storage', handleDataUpdated);
+      window.removeEventListener('cinemax_data_updated', handleDataUpdated);
+      window.removeEventListener('cinemax_ticket_purchased', handleDataUpdated);
+      window.removeEventListener('focus', handleDataUpdated);
     };
-  }, []);
+  }, [loadDatabaseBundle]);
 
   // Two-way synchronization: Push current modifications to DB & pull newest records
   const handleSyncAll = async () => {

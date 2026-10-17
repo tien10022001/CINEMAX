@@ -1223,6 +1223,10 @@ export default function StaffWorkspacePage() {
     saveOrders(updatedOrders);
     setInspectedOrder(updatedOrders.find((o) => o.id === orderToCheckIn.id) || null);
     await syncCheckInToSupabase(orderToCheckIn.id, true);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cinemax_data_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
     showToast(`Đã xác nhận vào rạp cho mã đơn #${orderToCheckIn.id.slice(0, 8)}!`);
   };
 
@@ -1235,6 +1239,10 @@ export default function StaffWorkspacePage() {
     saveOrders(updatedOrders);
     setInspectedOrder(updatedOrders.find((o) => o.id === orderToReject.id) || null);
     await syncCheckInToSupabase(orderToReject.id, false);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cinemax_data_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
     showToast(`Đã từ chối vé #${orderToReject.id.slice(0, 8)} do khách chưa đủ tuổi ${orderToReject.age_rating}.`);
   };
 
@@ -1600,6 +1608,10 @@ export default function StaffWorkspacePage() {
       setPosSelectedSeats([]);
       setPosFoodQuantities({});
       setPrintingOrder(newOrder);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cinemax_data_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
       showToast(`Đã tạo vé POS #${newOrder.id} thành công (Đã cập nhật kho & Supabase)!`);
     } finally {
       setPosSubmitting(false);
@@ -1630,6 +1642,10 @@ export default function StaffWorkspacePage() {
     );
     saveOrders(nextOrders);
     await syncConcessionFulfillmentToSupabase(orderId, staffName);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cinemax_data_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
     showToast(`Đã xác nhận giao đủ combo cho đơn #${orderId.slice(0, 8)} (Đã đồng bộ Supabase)!`);
   };
 
@@ -1657,6 +1673,10 @@ export default function StaffWorkspacePage() {
       reason: inventoryMoveReason.trim() || 'Kiểm kê kho quầy',
     });
 
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cinemax_data_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
     showToast(`Đã cập nhật tồn kho "${product.name}" thành ${newStock}!`);
   };
 
@@ -1827,6 +1847,10 @@ export default function StaffWorkspacePage() {
     });
 
     setShiftApprovedStatus(staffRole === 'SUPERVISOR' ? 'APPROVED' : 'SUBMITTED');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cinemax_data_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
     showToast(
       staffRole === 'SUPERVISOR'
         ? `Đã chốt và duyệt bàn giao ${shiftLabel} thành công!`
