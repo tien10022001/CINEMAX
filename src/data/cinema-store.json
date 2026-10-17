@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-10-17T01:45:53.409Z",
+  "last_updated": "2026-10-17T01:59:38.069Z",
   "movies": [
     {
       "id": "a7b8c9d0-e1f2-4a3b-4c5d-6e7f8a9b0c1d",
@@ -11,18 +11,18 @@
       "language": "Tiếng Việt",
       "duration_minutes": 115,
       "age_rating": "T13",
-      "poster_url": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800",
+      "poster_url": "https://upload.wikimedia.org/wikipedia/vi/4/41/Godzilla_x_Kong%2C_%C4%91%E1%BA%BF_ch%E1%BA%BF_m%E1%BB%9Bi.jpg?utm_source=vi.wikipedia.org&utm_campaign=parser&utm_content=thumbnail_unscaled",
       "banner_url": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=1440",
       "trailer_url": "https://www.youtube.com/watch?v=lV1OOlGwExg",
       "release_date": "2026-11-15",
       "end_date": null,
       "status": "coming_soon",
       "created_at": "2026-10-17T01:20:34.674775+00:00",
-      "updated_at": "2026-10-17T01:20:34.674775+00:00",
+      "updated_at": "2026-10-17T01:59:30.832778+00:00",
       "country": "Mỹ",
       "studio": null,
-      "meta_title": null,
-      "meta_description": null,
+      "meta_title": "Chúa Tể Godzilla x Kong: Đế Chế Mới",
+      "meta_description": "Hai quái thú khổng lồ buộc phải liên minh để đối đầu với mối hiểm họa ngầm ẩn giấu trong Trái Đất Rỗng.",
       "imdb_score": 7.6,
       "formats": [
         "2D",
@@ -30,7 +30,19 @@
         "IMAX"
       ],
       "movie_genres": [],
-      "genres": []
+      "genres": [
+        {
+          "id": "b8b3fd64-a8f5-496a-9d24-19eb9f8438ea",
+          "name": "Gia Đình",
+          "slug": "gia-dinh",
+          "active": true,
+          "created_at": "2026-10-17T01:20:34.674775+00:00",
+          "updated_at": "2026-10-17T01:20:34.674775+00:00"
+        }
+      ],
+      "original_title": "Chúa Tể Godzilla x Kong: Đế Chế Mới",
+      "tier": "STANDARD",
+      "is_blockbuster": false
     },
     {
       "id": "d4e5f6a1-b2c3-4d4e-1f5a-6b7c8d9e0f1a",
@@ -241,7 +253,7 @@
       ],
       "movie_genres": [
         {
-          "genres": {
+          "genre": {
             "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
             "name": "Hoạt Hình",
             "slug": "hoat-hinh",
@@ -272,18 +284,18 @@
       "language": "Tiếng Việt",
       "duration_minutes": 94,
       "age_rating": "P",
-      "poster_url": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800",
+      "poster_url": "https://play-lh.googleusercontent.com/07yB9cmTtvqyFyasZ-YvKNe-_evxKNqcVFPPMLrgc2H6ZS2UsxO0J3Sn79Uf2sv_Sjv_AWsNk7Lw6WhgdLY",
       "banner_url": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=1440",
       "trailer_url": "https://www.youtube.com/watch?v=_inKs4eeHiI",
       "release_date": "2026-11-12",
       "end_date": null,
       "status": "now_showing",
       "created_at": "2026-10-13T14:33:48.971286+00:00",
-      "updated_at": "2026-10-17T01:20:34.674775+00:00",
+      "updated_at": "2026-10-17T02:00:15.627221+00:00",
       "country": "Mỹ",
       "studio": null,
-      "meta_title": null,
-      "meta_description": null,
+      "meta_title": "Kung Fu Panda 4",
+      "meta_description": "Po được chọn trở thành Thủ lĩnh Tâm linh của Thung lũng Bình Yên và phải tìm kiếm một Hiệp sĩ Rồng mới.",
       "imdb_score": 7.8,
       "formats": [
         "2D",
@@ -291,7 +303,7 @@
       ],
       "movie_genres": [
         {
-          "genres": {
+          "genre": {
             "id": "1216d56b-4bce-40d8-b48e-7448ef22e3a6",
             "name": "Khoa Học Viễn Tưởng",
             "slug": "khoa-hoc-vien-tuong",
@@ -310,7 +322,10 @@
           "created_at": "2026-10-13T14:33:48.971286+00:00",
           "updated_at": "2026-10-13T14:33:48.971286+00:00"
         }
-      ]
+      ],
+      "original_title": "Kung Fu Panda 4",
+      "tier": "STANDARD",
+      "is_blockbuster": false
     },
     {
       "id": "c1da65d7-b688-4bcc-9fb8-75efb28e319f",
@@ -341,7 +356,7 @@
       ],
       "movie_genres": [
         {
-          "genres": {
+          "genre": {
             "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
             "name": "Hành Động",
             "slug": "hanh-dong",
@@ -351,7 +366,7 @@
           }
         },
         {
-          "genres": {
+          "genre": {
             "id": "1216d56b-4bce-40d8-b48e-7448ef22e3a6",
             "name": "Khoa Học Viễn Tưởng",
             "slug": "khoa-hoc-vien-tuong",

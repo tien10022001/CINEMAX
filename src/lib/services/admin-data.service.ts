@@ -202,26 +202,32 @@ export class AdminDataService {
   static async deleteEntity(entity: string, id: string) {
     if (typeof window !== 'undefined') {
       try {
-        const local = JSON.parse(localStorage.getItem('cinemax_deleted_ids') || '[]');
-        if (!local.includes(id)) {
-          local.push(id);
-          localStorage.setItem('cinemax_deleted_ids', JSON.stringify(local));
-        }
-      } catch {}
-      try {
         await fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: `delete_${entity}`, data: { id } })
+          body: JSON.stringify({ action: `delete_${entity}`, data: { id, code: id } })
         });
       } catch (err) {
         console.warn(`Sync delete ${entity} error:`, err);
       }
     }
     try {
-      await this.supabase.from(entity).delete().eq('id', id);
-    } catch {
-      // Fallback
+      if (entity === 'coupons') {
+        if (id.includes('-') && id.length === 36) {
+          await this.supabase.from('coupons').delete().eq('id', id);
+        } else {
+          await this.supabase.from('coupons').delete().eq('code', id);
+        }
+      } else if (entity === 'auditoriums') {
+        await this.supabase.from('seats').delete().eq('auditorium_id', id);
+        await this.supabase.from('auditoriums').delete().eq('id', id);
+      } else if (entity === 'products' || entity === 'foods') {
+        await this.supabase.from('products').delete().eq('id', id);
+      } else {
+        await this.supabase.from(entity).delete().eq('id', id);
+      }
+    } catch (err) {
+      console.warn(`Supabase delete ${entity} error:`, err);
     }
   }
 
@@ -636,7 +642,19 @@ export class AdminDataService {
   // 9. Coupons
   static async upsertCoupon(coupon: Partial<Coupon>) {
     const supabase = this.supabase;
-    const { data, error } = await supabase.from('coupons').upsert(coupon).select().single();
+    const now = new Date();
+    const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const dbPayload: any = {
+      ...coupon,
+      id: coupon.id || crypto.randomUUID(),
+      starts_at: coupon.starts_at || now.toISOString(),
+      ends_at: coupon.ends_at || thirtyDaysLater.toISOString(),
+      discount_type: coupon.discount_type || 'FIXED',
+      discount_value: Number(coupon.discount_value || 0),
+      apply_scope: coupon.apply_scope || 'ALL',
+      active: coupon.active ?? true,
+    };
+    const { data, error } = await supabase.from('coupons').upsert(dbPayload).select().single();
     if (error) throw error;
     return data as Coupon;
   }

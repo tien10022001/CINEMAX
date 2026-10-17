@@ -70,33 +70,55 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Synchronize directly with Supabase Cloud if service role key is provided
+// Synchronize directly with Supabase Cloud for all admin create, update, and delete actions
 async function syncToSupabaseIfConfigured(entityOrAction: string, data: any) {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const apiKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    'sb_publishable_g_o1rXOoH48TQ80fcAYD6g_vsk-tcs0';
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://cycuxhztpvezqcznifqh.supabase.co';
-  if (!serviceKey) return;
+  if (!apiKey) return;
 
   try {
     const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const supabase = createClient(supabaseUrl, apiKey);
 
     if (entityOrAction === 'save_movie' && data) {
-      // Ensure uuid compatibility
       const moviePayload = { ...data };
+      delete moviePayload.genres; // handled separately or not a column in movies
       if (moviePayload.id && !moviePayload.id.includes('-')) {
-        delete moviePayload.id; // let DB generate UUID if not a valid UUID format
+        delete moviePayload.id;
       }
       await supabase.from('movies').upsert(moviePayload);
     } else if (entityOrAction === 'delete_movie' && data?.id) {
+      await supabase.from('showtimes').delete().eq('movie_id', data.id);
       await supabase.from('movies').delete().eq('id', data.id);
     } else if (entityOrAction === 'save_movies' && Array.isArray(data)) {
-      await supabase.from('movies').upsert(data);
+      const cleanMovies = data.map((m: any) => {
+        const item = { ...m };
+        delete item.genres;
+        return item;
+      });
+      await supabase.from('movies').upsert(cleanMovies);
     } else if (entityOrAction === 'showtimes' && Array.isArray(data)) {
       await supabase.from('showtimes').upsert(data);
+    } else if (entityOrAction === 'delete_showtime' && data?.id) {
+      await supabase.from('showtime_prices').delete().eq('showtime_id', data.id);
+      await supabase.from('showtimes').delete().eq('id', data.id);
     } else if ((entityOrAction === 'products' || entityOrAction === 'foods') && Array.isArray(data)) {
       await supabase.from('products').upsert(data);
+    } else if ((entityOrAction === 'delete_product' || entityOrAction === 'delete_food') && data?.id) {
+      await supabase.from('products').delete().eq('id', data.id);
     } else if ((entityOrAction === 'coupons' || entityOrAction === 'promotions') && Array.isArray(data)) {
       await supabase.from('coupons').upsert(data);
+    } else if ((entityOrAction === 'delete_coupon' || entityOrAction === 'delete_promotion') && (data?.id || data?.code)) {
+      if (data?.id) await supabase.from('coupons').delete().eq('id', data.id);
+      if (data?.code) await supabase.from('coupons').delete().eq('code', data.code);
+    } else if (entityOrAction === 'auditoriums' && Array.isArray(data)) {
+      await supabase.from('auditoriums').upsert(data);
+    } else if (entityOrAction === 'delete_auditorium' && data?.id) {
+      await supabase.from('seats').delete().eq('auditorium_id', data.id);
+      await supabase.from('auditoriums').delete().eq('id', data.id);
     } else if (entityOrAction === 'settings' && Array.isArray(data)) {
       await supabase.from('cinema_settings').upsert(data);
     } else if (entityOrAction === 'seats' && Array.isArray(data)) {
