@@ -18,15 +18,40 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper normalization functions for Vietnamese staff matching
+export function normalizeStaffName(name?: string | null): string {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
+export function isSameStaffUser(
+  u1?: { id?: string | null; email?: string | null; full_name?: string | null; name?: string | null } | null,
+  u2?: { id?: string | null; email?: string | null; full_name?: string | null; name?: string | null } | null
+): boolean {
+  if (!u1 || !u2) return false;
+  if (u1.id && u2.id && u1.id === u2.id) return true;
+  if (u1.email && u2.email && u1.email.trim().toLowerCase() === u2.email.trim().toLowerCase()) return true;
+  const n1 = normalizeStaffName(u1.full_name || u1.name);
+  const n2 = normalizeStaffName(u2.full_name || u2.name);
+  if (n1 && n2 && n1 === n2) return true;
+  return false;
+}
+
 // Initial pre-seeded accounts in local store if not yet set
 export const SEED_USERS: (User & { password?: string })[] = [
   {
     id: 'b1600656-6fad-4ad0-8ada-e79e56e073c6',
     role_id: 2,
     role_code: 'STAFF',
-    staff_permissions: ['CHECKIN'],
-    staff_position: 'Nhân viên Soát vé',
-    full_name: 'tuoi',
+    staff_permissions: ['CONCESSION'],
+    staff_position: 'Nhân viên Bắp Nước',
+    full_name: 'tươi',
     email: 'tuoi@cinemax.vn',
     password: 'staff',
     phone: '0977888999',
@@ -229,15 +254,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!existingDb) {
         localStorage.setItem('cinemax_users_db', JSON.stringify(SEED_USERS));
       } else {
-        const parsedUsers: (User & { password?: string })[] = JSON.parse(existingDb);
+        let parsedUsers: (User & { password?: string })[] = JSON.parse(existingDb);
         let updated = false;
+
+        // Deduplicate & unify any accounts where isSameStaffUser is true (e.g. 'tuoi' vs 'tươi')
+        const unifiedUsers: (User & { password?: string })[] = [];
+        parsedUsers.forEach((u) => {
+          const matchIdx = unifiedUsers.findIndex((ex) => isSameStaffUser(ex, u));
+          if (matchIdx !== -1) {
+            const existingPerms = unifiedUsers[matchIdx].staff_permissions || [];
+            const newPerms = u.staff_permissions || [];
+            const mergedPerms = Array.from(new Set([...existingPerms, ...newPerms]));
+            unifiedUsers[matchIdx] = {
+              ...unifiedUsers[matchIdx],
+              ...u,
+              id: unifiedUsers[matchIdx].id || u.id,
+              full_name: 'tươi',
+              staff_permissions: mergedPerms.length > 0 ? mergedPerms : ['CONCESSION'],
+            };
+            updated = true;
+          } else {
+            unifiedUsers.push(u);
+          }
+        });
+        parsedUsers = unifiedUsers;
+
         SEED_USERS.forEach((seedUser) => {
-          const idx = parsedUsers.findIndex(
-            (u) =>
-              (u.id && u.id === seedUser.id) ||
-              (u.email && u.email.toLowerCase() === seedUser.email.toLowerCase()) ||
-              (u.full_name && seedUser.full_name && u.full_name.toLowerCase() === seedUser.full_name.toLowerCase())
-          );
+          const idx = parsedUsers.findIndex((u) => isSameStaffUser(u, seedUser));
           if (idx === -1) {
             parsedUsers.push(seedUser);
             updated = true;
@@ -247,14 +290,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id: seedUser.id,
               role_code: seedUser.role_code,
               role_id: seedUser.role_id,
-              staff_permissions: seedUser.staff_permissions,
-              staff_position: seedUser.staff_position,
-            };
-            updated = true;
-          } else if (seedUser.staff_permissions && (!parsedUsers[idx].staff_permissions || parsedUsers[idx].staff_permissions.length === 0)) {
-            parsedUsers[idx] = {
-              ...parsedUsers[idx],
-              staff_permissions: seedUser.staff_permissions,
               staff_position: seedUser.staff_position,
             };
             updated = true;
@@ -275,15 +310,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (existingDb) {
           try {
             const parsedDb: User[] = JSON.parse(existingDb);
-            const dbMatch = parsedDb.find(
-              (u) =>
-                (u.id && user.id && u.id === user.id) ||
-                (u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase()) ||
-                (u.full_name && user.full_name && u.full_name.toLowerCase() === user.full_name.toLowerCase())
-            );
+            const dbMatch = parsedDb.find((u) => isSameStaffUser(u, user));
             if (dbMatch) {
               user = {
                 ...user,
+                full_name: dbMatch.full_name || user.full_name,
                 role_code: dbMatch.role_code || user.role_code,
                 role_id: dbMatch.role_id || user.role_id,
                 staff_permissions: dbMatch.staff_permissions !== undefined ? dbMatch.staff_permissions : user.staff_permissions,
@@ -297,9 +328,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         // Check if seed users have an updated role for this user
-        const seedMatch = SEED_USERS.find(
-          (su) => su.email.toLowerCase() === user.email?.toLowerCase()
-        );
+        const seedMatch = SEED_USERS.find((su) => isSameStaffUser(su, user));
         if (seedMatch && (seedMatch.role_code !== user.role_code || seedMatch.role_id !== user.role_id)) {
           user = {
             ...user,
@@ -370,12 +399,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const rawDb = localStorage.getItem('cinemax_users_db');
           if (rawDb) {
             const dbUsers = JSON.parse(rawDb);
-            const found = dbUsers.find(
-              (item: any) =>
-                (item.id && u.id && item.id === u.id) ||
-                (item.email && u.email && item.email.toLowerCase() === u.email.toLowerCase()) ||
-                (item.full_name && u.full_name && item.full_name.toLowerCase() === u.full_name.toLowerCase())
-            );
+            const found = dbUsers.find((item: any) => isSameStaffUser(item, u));
             if (found && Array.isArray(found.staff_permissions)) {
               u = { ...u, staff_permissions: found.staff_permissions };
             }
@@ -406,12 +430,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       SEED_USERS.forEach((u) => userMap.set(u.email.toLowerCase(), u));
       storedUsers.forEach((u) => userMap.set(u.email.toLowerCase(), u));
 
-      let user = storedUsers.find(
-        (u) =>
-          u.email.toLowerCase() === cleanEmail ||
-          u.full_name?.toLowerCase() === cleanEmail ||
-          u.phone === cleanEmail
-      );
+      let user = storedUsers.find((u) => isSameStaffUser(u, { email: cleanEmail, full_name: cleanEmail }));
       if (!user) {
         user = userMap.get(cleanEmail);
       }

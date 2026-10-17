@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { CinemaSetting, AuditLog, StaffPerm } from '@/lib/types-redesign';
 import { createClient } from '@/lib/supabase/client';
-import { SEED_USERS } from '@/lib/auth-context';
+import { SEED_USERS, isSameStaffUser } from '@/lib/auth-context';
 
 interface SystemSettingsViewProps {
   settings: CinemaSetting[];
@@ -77,7 +77,7 @@ export default function SystemSettingsView({
           email: u.email,
           permissions: (u.staff_permissions && u.staff_permissions.length > 0
             ? u.staff_permissions
-            : ['CHECKIN']) as StaffPerm[],
+            : ['CONCESSION']) as StaffPerm[],
         });
       });
 
@@ -89,20 +89,15 @@ export default function SystemSettingsView({
         parsed
           .filter((u: any) => u.role_code === 'STAFF' || u.role_id === 2)
           .forEach((u: any) => {
-            const existingIdx = mergedStaff.findIndex(
-              (s) =>
-                s.id === u.id ||
-                (u.email && s.email.toLowerCase() === u.email.toLowerCase()) ||
-                (u.full_name && s.name.toLowerCase() === u.full_name.toLowerCase())
-            );
+            const existingIdx = mergedStaff.findIndex((s) => isSameStaffUser({ id: s.id, email: s.email, name: s.name }, u));
             const userPerms = (u.staff_permissions && u.staff_permissions.length > 0
               ? u.staff_permissions
-              : ['CHECKIN']) as StaffPerm[];
+              : ['CONCESSION']) as StaffPerm[];
 
             if (existingIdx !== -1) {
-              mergedStaff[existingIdx].id = u.id;
-              mergedStaff[existingIdx].name = u.full_name;
-              mergedStaff[existingIdx].email = u.email;
+              mergedStaff[existingIdx].id = u.id || mergedStaff[existingIdx].id;
+              mergedStaff[existingIdx].name = u.full_name || mergedStaff[existingIdx].name;
+              mergedStaff[existingIdx].email = u.email || mergedStaff[existingIdx].email;
               if (u.staff_permissions && u.staff_permissions.length > 0) {
                 mergedStaff[existingIdx].permissions = u.staff_permissions as StaffPerm[];
               }
@@ -136,12 +131,7 @@ export default function SystemSettingsView({
           .filter((p: any) => p.staff_id === sp.id && p.active)
           .map((p: any) => p.permission as StaffPerm);
 
-        const existingIdx = mergedStaff.findIndex(
-          (s) =>
-            s.id === sp.id ||
-            (sp.full_name && s.name.toLowerCase() === sp.full_name.toLowerCase()) ||
-            (sp.phone && s.email.includes(sp.phone))
-        );
+        const existingIdx = mergedStaff.findIndex((s) => isSameStaffUser({ id: s.id, email: s.email, name: s.name }, sp));
         if (existingIdx !== -1) {
           mergedStaff[existingIdx].id = sp.id;
           mergedStaff[existingIdx].name = sp.full_name;
@@ -153,7 +143,7 @@ export default function SystemSettingsView({
             id: sp.id,
             name: sp.full_name,
             email: sp.phone ? `${sp.phone}@cinemax.vn` : `staff_${sp.id.slice(0, 6)}@cinemax.vn`,
-            permissions: activePerms.length > 0 ? activePerms : ['CHECKIN'],
+            permissions: activePerms.length > 0 ? activePerms : ['CONCESSION'],
           });
         }
       });
@@ -164,7 +154,7 @@ export default function SystemSettingsView({
     // Đảm bảo luôn có các nhân viên mẫu nếu danh sách trống
     if (mergedStaff.length === 0) {
       mergedStaff = [
-        { id: 'b1600656-6fad-4ad0-8ada-e79e56e073c6', name: 'tuoi', email: 'tuoi@cinemax.vn', permissions: ['CHECKIN'] },
+        { id: 'b1600656-6fad-4ad0-8ada-e79e56e073c6', name: 'tươi', email: 'tuoi@cinemax.vn', permissions: ['CONCESSION'] },
         { id: '67de8101-c50f-426c-846a-f38f90656094', name: 'Lê Hoàng Nam (Trưởng Ca)', email: 'nam.le@cinemax.vn', permissions: ['POS', 'CHECKIN', 'CONCESSION', 'SUPERVISOR'] },
         { id: 'st-1', name: 'Trương Công Tiến', email: 'tientc@cinemax.vn', permissions: ['POS', 'CHECKIN', 'CONCESSION', 'SUPERVISOR'] },
         { id: 'st-2', name: 'Nguyễn Văn Thu Ngân', email: 'pos.cashier@cinemax.vn', permissions: ['POS'] },
@@ -200,20 +190,21 @@ export default function SystemSettingsView({
       const stored = localStorage.getItem('cinemax_users_db');
       const parsed = stored ? JSON.parse(stored) : [];
       const staffTarget = staffList.find((s) => s.id === staffId);
-      const idx = parsed.findIndex(
-        (u: any) =>
-          u.id === staffId ||
-          (staffTarget && u.full_name && u.full_name.toLowerCase() === staffTarget.name.toLowerCase())
-      );
       let updatedPerms: StaffPerm[] = [];
-      if (idx !== -1) {
-        const current = parsed[idx].staff_permissions || [];
-        updatedPerms = willHavePerm
-          ? Array.from(new Set([...current, perm]))
-          : current.filter((p: string) => p !== perm);
-        parsed[idx].staff_permissions = updatedPerms;
-        localStorage.setItem('cinemax_users_db', JSON.stringify(parsed));
-      } else if (staffTarget) {
+      let foundMatch = false;
+
+      parsed.forEach((u: any, i: number) => {
+        if (isSameStaffUser(u, { id: staffId, email: staffTarget?.email, name: staffTarget?.name })) {
+          foundMatch = true;
+          const current = parsed[i].staff_permissions || [];
+          updatedPerms = willHavePerm
+            ? Array.from(new Set([...current, perm]))
+            : current.filter((p: string) => p !== perm);
+          parsed[i].staff_permissions = updatedPerms;
+        }
+      });
+
+      if (!foundMatch && staffTarget) {
         updatedPerms = willHavePerm ? [perm] : [];
         parsed.push({
           id: staffTarget.id,
@@ -224,19 +215,15 @@ export default function SystemSettingsView({
           email: staffTarget.email,
           is_active: true,
         });
-        localStorage.setItem('cinemax_users_db', JSON.stringify(parsed));
       }
+      localStorage.setItem('cinemax_users_db', JSON.stringify(parsed));
 
       // Cập nhật ngay cinemax_session_user nếu người dùng hiện tại chính là nhân viên này
       const sessionStr = localStorage.getItem('cinemax_session_user');
       if (sessionStr) {
         try {
           const sessionUser = JSON.parse(sessionStr);
-          if (
-            sessionUser.id === staffId ||
-            (staffTarget && sessionUser.email && sessionUser.email.toLowerCase() === staffTarget.email.toLowerCase()) ||
-            (staffTarget && sessionUser.full_name && sessionUser.full_name.toLowerCase() === staffTarget.name.toLowerCase())
-          ) {
+          if (isSameStaffUser(sessionUser, { id: staffId, email: staffTarget?.email, name: staffTarget?.name })) {
             sessionUser.staff_permissions = updatedPerms;
             localStorage.setItem('cinemax_session_user', JSON.stringify(sessionUser));
           }

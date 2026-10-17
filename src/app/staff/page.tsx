@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
 import { useData } from '@/lib/data-context';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth, isSameStaffUser } from '@/lib/auth-context';
 import { createClient } from '@/lib/supabase/client';
 import {
   syncOrderToSupabase,
@@ -333,45 +333,48 @@ export default function StaffWorkspacePage() {
   const [livePermissions, setLivePermissions] = useState<StaffPerm[]>(() => {
     try {
       if (typeof window !== 'undefined') {
+        let activeUser = currentUser;
+        if (!activeUser) {
+          const rawSession = localStorage.getItem('cinemax_session_user');
+          if (rawSession) activeUser = JSON.parse(rawSession);
+        }
         const rawDb = localStorage.getItem('cinemax_users_db');
-        if (rawDb && currentUser) {
+        if (rawDb && activeUser) {
           const parsed = JSON.parse(rawDb);
-          const match = parsed.find(
-            (u: any) =>
-              (currentUser.id && u.id === currentUser.id) ||
-              (currentUser.email && u.email?.toLowerCase() === currentUser.email?.toLowerCase()) ||
-              (currentUser.full_name && u.full_name?.toLowerCase() === currentUser.full_name?.toLowerCase())
-          );
+          const match = parsed.find((u: any) => isSameStaffUser(u, activeUser));
           if (match && Array.isArray(match.staff_permissions) && match.staff_permissions.length > 0) {
             return match.staff_permissions as StaffPerm[];
           }
         }
+        if (activeUser?.staff_permissions && activeUser.staff_permissions.length > 0) {
+          return activeUser.staff_permissions as StaffPerm[];
+        }
       }
     } catch (_) {}
-    return (currentUser?.staff_permissions || ['CHECKIN']) as StaffPerm[];
+    return (currentUser?.staff_permissions || ['CONCESSION']) as StaffPerm[];
   });
 
   useEffect(() => {
     const syncPermissions = () => {
       try {
+        let activeUser = currentUser;
+        if (!activeUser) {
+          const rawSession = localStorage.getItem('cinemax_session_user');
+          if (rawSession) activeUser = JSON.parse(rawSession);
+        }
         const rawDb = localStorage.getItem('cinemax_users_db');
-        if (rawDb && currentUser) {
+        if (rawDb && activeUser) {
           const parsed = JSON.parse(rawDb);
-          const match = parsed.find(
-            (u: any) =>
-              (currentUser.id && u.id === currentUser.id) ||
-              (currentUser.email && u.email?.toLowerCase() === currentUser.email?.toLowerCase()) ||
-              (currentUser.full_name && u.full_name?.toLowerCase() === currentUser.full_name?.toLowerCase())
-          );
+          const match = parsed.find((u: any) => isSameStaffUser(u, activeUser));
           if (match && Array.isArray(match.staff_permissions) && match.staff_permissions.length > 0) {
             setLivePermissions(match.staff_permissions as StaffPerm[]);
             return;
           }
         }
+        if (activeUser?.staff_permissions && activeUser.staff_permissions.length > 0) {
+          setLivePermissions(activeUser.staff_permissions as StaffPerm[]);
+        }
       } catch (_) {}
-      if (currentUser?.staff_permissions && currentUser.staff_permissions.length > 0) {
-        setLivePermissions(currentUser.staff_permissions as StaffPerm[]);
-      }
     };
 
     syncPermissions();
@@ -398,7 +401,7 @@ export default function StaffWorkspacePage() {
     if (livePermissions.includes('CHECKIN')) roles.push('CHECKIN');
     if (livePermissions.includes('POS')) roles.push('POS');
     if (livePermissions.includes('SUPERVISOR')) roles.push('SUPERVISOR');
-    return roles.length > 0 ? roles : ['CHECKIN'];
+    return roles.length > 0 ? roles : ['CONCESSION'];
   }, [isSupervisorOrAdmin, livePermissions]);
 
   const [staffName, setStaffName] = useState<string>(currentUser?.full_name || 'Nhân viên Cinemax');
@@ -406,19 +409,19 @@ export default function StaffWorkspacePage() {
   const resolveTargetRole = useCallback((perms: StaffPerm[]): StaffRoleCode => {
     if (currentUser?.role_code === 'ADMIN') return 'SUPERVISOR';
     if (perms.includes('SUPERVISOR')) return 'SUPERVISOR';
-    if (perms.includes('CONCESSION') && !perms.includes('POS') && !perms.includes('CHECKIN')) return 'CONCESSION';
-    if (perms.includes('CHECKIN') && !perms.includes('POS') && !perms.includes('CONCESSION')) return 'CHECKIN';
-    if (perms.includes('POS')) return 'POS';
+    if (perms.includes('CONCESSION') && !perms.includes('CHECKIN') && !perms.includes('POS')) return 'CONCESSION';
+    if (perms.includes('CHECKIN') && !perms.includes('CONCESSION') && !perms.includes('POS')) return 'CHECKIN';
     if (perms.includes('CONCESSION')) return 'CONCESSION';
     if (perms.includes('CHECKIN')) return 'CHECKIN';
-    return 'CHECKIN';
+    if (perms.includes('POS')) return 'POS';
+    return 'CONCESSION';
   }, [currentUser]);
 
   const [staffRole, setStaffRole] = useState<StaffRoleCode>(() => resolveTargetRole(livePermissions));
 
   const [activeTab, setActiveTab] = useState<StaffTab>(() => {
     const role = resolveTargetRole(livePermissions);
-    const allowed = ROLE_CONFIG[role]?.allowedTabs || ['checkin'];
+    const allowed = ROLE_CONFIG[role]?.allowedTabs || ['concession'];
     return allowed[0];
   });
 
@@ -435,11 +438,11 @@ export default function StaffWorkspacePage() {
     const targetRole = resolveTargetRole(livePermissions);
     setStaffRole(targetRole);
 
-    const allowed = ROLE_CONFIG[targetRole]?.allowedTabs || ['checkin'];
+    const allowed = ROLE_CONFIG[targetRole]?.allowedTabs || ['concession'];
     if (!allowed.includes(activeTab)) {
       setActiveTab(allowed[0]);
     }
-  }, [currentUser, livePermissions, resolveTargetRole]);
+  }, [currentUser, livePermissions, resolveTargetRole, activeTab]);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
