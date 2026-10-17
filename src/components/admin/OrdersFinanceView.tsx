@@ -116,12 +116,18 @@ export default function OrdersFinanceView({
     const coveredOrderIds = new Set<string>();
 
     (tickets || []).forEach((t, idx) => {
-      const orderRef = (orders || []).find((o) => o.id === t.order_id || o.order_code === t.order_id);
+      const orderRef = (orders || []).find(
+        (o) =>
+          o.id === t.order_id ||
+          o.order_code === t.order_id ||
+          (Boolean((t as any).order_code) && o.order_code === (t as any).order_code)
+      );
       if (orderRef) {
         coveredOrderIds.add(orderRef.id);
         if (orderRef.order_code) coveredOrderIds.add(orderRef.order_code);
       }
       if (t.order_id) coveredOrderIds.add(t.order_id);
+      if ((t as any).order_code) coveredOrderIds.add((t as any).order_code);
 
       const isLocallyUsed = localCheckedInKeys[t.id] || localCheckedInKeys[t.qr_token_hash];
       const isUsed = t.status === 'used' || isLocallyUsed;
@@ -132,12 +138,12 @@ export default function OrdersFinanceView({
         key: t.id || `ticket-${idx}`,
         ticketId: t.id,
         qrToken: t.qr_token_hash || `CMX-${(t.id || '').slice(0, 8)}`,
-        orderCode: orderRef?.order_code || t.order_id || 'POS-WALKIN',
+        orderCode: orderRef?.order_code || (t as any).order_code || t.order_id || 'POS-WALKIN',
         orderId: t.order_id,
-        channel: orderRef?.channel || (t.order_id?.startsWith('CNM') ? 'online' : 'pos'),
-        customerName: orderRef?.contact_name || 'Khách Đặt Online',
-        customerPhone: orderRef?.contact_phone || undefined,
-        customerEmail: orderRef?.contact_email || undefined,
+        channel: orderRef?.channel || (t as any).channel || (t.order_id?.startsWith('CNM') ? 'online' : 'pos'),
+        customerName: orderRef?.contact_name || (t as any).customer_name || 'Khách Đặt Online',
+        customerPhone: orderRef?.contact_phone || (t as any).customer_phone || undefined,
+        customerEmail: orderRef?.contact_email || (t as any).customer_email || undefined,
         movieTitle: t.movie_title || orderRef?.items?.[0]?.item_snapshot?.movieTitle || 'Dune: Hành Tinh Cát 2',
         roomShowtime:
           t.showtime_str ||

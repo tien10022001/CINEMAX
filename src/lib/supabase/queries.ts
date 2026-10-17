@@ -796,13 +796,57 @@ export async function fetchSupabaseStaffRecords() {
 // Sync Check-in QR to Supabase
 export async function syncCheckInToSupabase(orderCode: string, ageVerified: boolean) {
   const supabase = createClient();
+  let ticketIds: string[] = [];
+
+  // 1. Try matching by qr_token_hash prefix or exact match
   const { data: tickets } = await supabase
     .from('tickets')
     .select('id, qr_token_hash')
     .ilike('qr_token_hash', `${orderCode}%`);
 
   if (tickets && tickets.length > 0) {
-    for (const t of tickets) {
+    ticketIds = tickets.map((t) => t.id);
+  }
+
+  // 2. If not found and orderCode is a UUID, try tickets.id
+  if (ticketIds.length === 0 && orderCode.length === 36) {
+    const { data: byId } = await supabase
+      .from('tickets')
+      .select('id')
+      .eq('id', orderCode);
+    if (byId && byId.length > 0) {
+      ticketIds = byId.map((t) => t.id);
+    }
+  }
+
+  // 3. If still not found, lookup via orders table
+  if (ticketIds.length === 0) {
+    const orderQuery = supabase.from('orders').select('id');
+    const { data: orderRow } = orderCode.length === 36
+      ? await orderQuery.or(`id.eq.${orderCode},order_code.eq.${orderCode}`).maybeSingle()
+      : await orderQuery.eq('order_code', orderCode).maybeSingle();
+
+    if (orderRow?.id) {
+      const { data: items } = await supabase
+        .from('order_items')
+        .select('id')
+        .eq('order_id', orderRow.id);
+
+      if (items && items.length > 0) {
+        const itemIds = items.map((i) => i.id);
+        const { data: itemTickets } = await supabase
+          .from('tickets')
+          .select('id')
+          .in('order_item_id', itemIds);
+        if (itemTickets && itemTickets.length > 0) {
+          ticketIds = itemTickets.map((t) => t.id);
+        }
+      }
+    }
+  }
+
+  if (ticketIds.length > 0) {
+    for (const tId of ticketIds) {
       await supabase
         .from('tickets')
         .update({
@@ -810,7 +854,7 @@ export async function syncCheckInToSupabase(orderCode: string, ageVerified: bool
           age_check_passed: ageVerified,
           checked_in_at: new Date().toISOString(),
         })
-        .eq('id', t.id);
+        .eq('id', tId);
     }
   }
 
@@ -818,7 +862,7 @@ export async function syncCheckInToSupabase(orderCode: string, ageVerified: bool
     action: 'CHECKIN_TICKET',
     entity_type: 'tickets',
     entity_id: orderCode,
-    after_data: { status: 'used', age_check_passed: ageVerified },
+    after_data: { status: 'used', age_check_passed: ageVerified, matched_tickets_count: ticketIds.length },
   });
 }
 
@@ -1057,11 +1101,10 @@ export async function syncSeatExchangeToSupabase(params: {
 // Sync Concession Food Fulfillment (2.3) to Supabase
 export async function syncConcessionFulfillmentToSupabase(orderCode: string, staffName: string) {
   const supabase = createClient();
-  const { data: orderRow } = await supabase
-    .from('orders')
-    .select('id')
-    .eq('order_code', orderCode)
-    .maybeSingle();
+  const orderQuery = supabase.from('orders').select('id');
+  const { data: orderRow } = orderCode.length === 36
+    ? await orderQuery.or(`id.eq.${orderCode},order_code.eq.${orderCode}`).maybeSingle()
+    : await orderQuery.eq('order_code', orderCode).maybeSingle();
 
   if (orderRow?.id) {
     const { data: prodItems } = await supabase

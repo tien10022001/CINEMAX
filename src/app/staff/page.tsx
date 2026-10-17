@@ -1622,8 +1622,13 @@ export default function StaffWorkspacePage() {
         discountAmount: 0,
         totalAmount: posGrandTotal,
         paymentProvider: posPaymentMethod,
-        showtimeUuid: activeShowtime?.supabase_id,
-        auditoriumUuid: activeShowtime?.auditorium_id,
+        showtimeUuid:
+          activeShowtime?.supabase_id ||
+          (typeof activeShowtime?.id === 'string' && activeShowtime.id.length === 36 ? activeShowtime.id : undefined),
+        auditoriumUuid:
+          activeShowtime?.auditorium_id ||
+          activeShowtime?.room?.supabase_id ||
+          (typeof activeShowtime?.room_id === 'string' && activeShowtime.room_id.length === 36 ? activeShowtime.room_id : undefined),
         seatCodes: posSelectedSeats,
         seatUuidLookup,
         audienceType: posAudienceType,
