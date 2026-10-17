@@ -326,6 +326,12 @@ export default function StaffWorkspacePage() {
   const { currentUser, logout } = useAuth();
   const router = useRouter();
 
+  // Prevent SSR Hydration Mismatch for client localStorage-dependent permissions
+  const [isMounted, setIsMounted] = useState<boolean>(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   // ==========================================================================
   // CORE NAVIGATION & STAFF STATE
   // ==========================================================================
@@ -2186,6 +2192,19 @@ export default function StaffWorkspacePage() {
 
   const activeTabTitle =
     allSidebarItems.find((item) => item.id === activeTab)?.label || 'Soát vé (Check-in)';
+
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-[#090B10] flex flex-col items-center justify-center p-4 select-none">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#E63845] border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-semibold text-slate-400 tracking-wider uppercase">
+            Đang tải hệ thống nhân viên...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#090B10] text-slate-100 flex font-sans select-none">
