@@ -353,6 +353,9 @@ export interface Ticket {
   seat_label?: string;
   movie_title?: string;
   showtime_str?: string;
+  price?: number;
+  order_id?: string;
+  created_at?: string;
 }
 
 // 22. refunds

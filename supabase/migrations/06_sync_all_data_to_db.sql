@@ -151,20 +151,49 @@ ON CONFLICT (code) DO UPDATE SET
   apply_scope = EXCLUDED.apply_scope,
   active = EXCLUDED.active;
 
--- 8. GỠ RÀNG BUỘC AUTH.USERS ĐỂ CHO PHÉP TÀI KHOẢN MẪU HOẠT ĐỘNG
+-- 8. GỠ RÀNG BUỘC AUTH.USERS ĐỂ CHO PHÉP TÀI KHOẢN MẪU HOẠT ĐỘNG & BỔ SUNG CỘT EMAIL
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email text;
 
-INSERT INTO public.profiles (id, full_name, role, loyalty_points, membership_tier, status)
+DROP POLICY IF EXISTS "dev_anon_profiles_all" ON public.profiles;
+CREATE POLICY "dev_anon_profiles_all" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "dev_anon_staff_permissions_all" ON public.staff_permissions;
+CREATE POLICY "dev_anon_staff_permissions_all" ON public.staff_permissions FOR ALL USING (true) WITH CHECK (true);
+
+INSERT INTO public.profiles (id, full_name, email, role, phone, loyalty_points, membership_tier, status)
 VALUES
-  ('00000000-0000-0000-0000-000000000001', 'Quản trị viên Cinemax', 'admin', 9999, 'VVIP', 'active'),
-  ('00000000-0000-0000-0000-000000000002', 'Trần Minh Quân', 'staff', 500, 'MEMBER', 'active'),
-  ('00000000-0000-0000-0000-000000000003', 'Nguyễn Văn A', 'user', 15000, 'VIP', 'active')
+  ('00000000-0000-0000-0000-000000000001', 'Quản trị viên Cinemax', 'admin@cinemax.vn', 'admin', '0988888888', 9999, 'VVIP', 'active'),
+  ('00000000-0000-0000-0000-000000000002', 'Trần Minh Quân', 'staff@cinemax.vn', 'staff', '0977111222', 500, 'MEMBER', 'active'),
+  ('00000000-0000-0000-0000-000000000003', 'Nguyễn Văn A', 'user@cinemax.vn', 'user', '0912345678', 15000, 'VIP', 'active'),
+  ('00000000-0000-0000-0000-000000000004', 'Nguyễn Văn Thu Ngân', 'pos.cashier@cinemax.vn', 'staff', '0933444555', 200, 'MEMBER', 'active'),
+  ('00000000-0000-0000-0000-000000000005', 'Lê Soát Vé', 'usher@cinemax.vn', 'staff', '0944555666', 200, 'MEMBER', 'active'),
+  ('00000000-0000-0000-0000-000000000006', 'Phạm Bắp Nước', 'concession@cinemax.vn', 'staff', '0955666777', 200, 'MEMBER', 'active'),
+  ('00000000-0000-0000-0000-000000000007', 'Trương Công Tiến', 'tientc@cinemax.vn', 'staff', '0911222333', 800, 'MEMBER', 'active')
 ON CONFLICT (id) DO UPDATE SET
   full_name = EXCLUDED.full_name,
+  email = EXCLUDED.email,
   role = EXCLUDED.role,
+  phone = EXCLUDED.phone,
   loyalty_points = EXCLUDED.loyalty_points,
   membership_tier = EXCLUDED.membership_tier,
   status = EXCLUDED.status;
+
+-- BỔ SUNG PHÂN QUYỀN STAFF (STAFF PERMISSIONS) VÀO DATABASE
+INSERT INTO public.staff_permissions (staff_id, permission, active)
+VALUES
+  ('00000000-0000-0000-0000-000000000004', 'POS', true),
+  ('00000000-0000-0000-0000-000000000005', 'CHECKIN', true),
+  ('00000000-0000-0000-0000-000000000006', 'CONCESSION', true),
+  ('00000000-0000-0000-0000-000000000002', 'POS', true),
+  ('00000000-0000-0000-0000-000000000002', 'CHECKIN', true),
+  ('00000000-0000-0000-0000-000000000002', 'CONCESSION', true),
+  ('00000000-0000-0000-0000-000000000002', 'SUPERVISOR', true),
+  ('00000000-0000-0000-0000-000000000007', 'POS', true),
+  ('00000000-0000-0000-0000-000000000007', 'CHECKIN', true),
+  ('00000000-0000-0000-0000-000000000007', 'CONCESSION', true),
+  ('00000000-0000-0000-0000-000000000007', 'SUPERVISOR', true)
+ON CONFLICT (staff_id, permission) DO UPDATE SET active = true;
 
 -- 9. TỰ ĐỘNG SINH SƠ ĐỒ GHẾ CHO CẢ 6 PHÒNG CHIẾU (80 GHẾ/PHÒNG)
 DO $$

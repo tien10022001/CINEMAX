@@ -274,6 +274,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, deleted: deleteId, from: keysToClean });
     }
 
+    if (action === 'save_order' || action === 'save_user_ticket') {
+      store.orders = store.orders || [];
+      const orderItem = {
+        id: data.bookingCode || data.id,
+        order_code: data.bookingCode || ('ORD-' + data.id),
+        channel: 'online',
+        status: data.status === 'ĐÃ XEM' ? 'used' : 'paid',
+        contact_name: data.customerName || 'Khách Đặt Online',
+        contact_phone: data.customerPhone || '0900000000',
+        contact_email: data.customerEmail || 'khachhang@cinemax.vn',
+        total_amount: Number(data.totalAmount) || 0,
+        subtotal: Number(data.totalAmount) || 0,
+        created_at: data.createdAt || new Date().toISOString(),
+        items: (data.seats ? String(data.seats).split(',') : ['VIP']).map((s: string) => ({
+          item_type: 'ticket',
+          unit_price: Math.round((Number(data.totalAmount) || 0) / Math.max(1, String(data.seats).split(',').length)),
+          item_snapshot: {
+            movieTitle: data.movieTitle,
+            cinemaName: data.cinemaName,
+            roomName: data.roomName,
+            showTime: data.showtime,
+            seatCode: s.trim()
+          }
+        }))
+      };
+      const idx = store.orders.findIndex((o: any) => o.id === orderItem.id || o.order_code === orderItem.order_code);
+      if (idx >= 0) {
+        store.orders[idx] = { ...store.orders[idx], ...orderItem };
+      } else {
+        store.orders.unshift(orderItem);
+      }
+      writeStoreFile(store);
+      return NextResponse.json({ success: true, order: orderItem });
+    }
+
     if (entity && data) {
       (store as any)[entity] = data;
       writeStoreFile(store);

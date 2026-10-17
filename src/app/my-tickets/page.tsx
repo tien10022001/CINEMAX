@@ -96,6 +96,16 @@ export default function MyTicketsPage() {
           const cleaned = deduplicateTickets(parsed);
           setAllTickets(cleaned);
           localStorage.setItem('cinemax_user_tickets', JSON.stringify(cleaned));
+          try {
+            cleaned.forEach((t: any) => {
+              fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save_order', data: t })
+              }).catch(() => {});
+            });
+            window.dispatchEvent(new Event('cinemax_data_updated'));
+          } catch {}
         }
       }
     } catch (e) {

@@ -970,6 +970,14 @@ function BookingContent() {
         }
 
         BookingService.releaseSessionHold(sessionId);
+        try {
+          fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'save_order', data: ticketRecord })
+          }).catch(() => {});
+        } catch {}
+        window.dispatchEvent(new CustomEvent('cinemax_ticket_purchased', { detail: ticketRecord }));
         window.dispatchEvent(new Event('cinemax_data_updated'));
         window.dispatchEvent(new Event('storage'));
       } catch (e) {
@@ -1149,6 +1157,14 @@ function BookingContent() {
       }
 
       BookingService.releaseSessionHold(sessionId);
+      try {
+        fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save_order', data: ticketRecord })
+        }).catch(() => {});
+      } catch {}
+      window.dispatchEvent(new CustomEvent('cinemax_ticket_purchased', { detail: ticketRecord }));
       window.dispatchEvent(new Event('cinemax_data_updated'));
       window.dispatchEvent(new Event('storage'));
     } catch (e) {

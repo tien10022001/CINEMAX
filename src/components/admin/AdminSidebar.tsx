@@ -16,9 +16,9 @@ import {
   Settings,
   LogOut,
   Eye,
-  Bookmark,
   Bell,
-  QrCode
+  QrCode,
+  ExternalLink
 } from 'lucide-react';
 
 export type AdminTab =
@@ -117,31 +117,16 @@ export default function AdminSidebar({
       badge: counts.orders
     },
     {
-      id: 'POS_SHIFTS',
-      label: 'Quầy Vé POS',
-      icon: CreditCard
-    },
-    {
-      id: 'FOOD_CHECKIN',
-      label: 'QR trả món',
-      icon: QrCode
-    },
-    {
-      id: 'CHECKIN',
-      label: 'Soát Vé QR',
-      icon: ScanLine
-    },
-    {
       id: 'SETTINGS',
       label: 'Cài đặt hệ thống',
       icon: Settings
     }
   ];
 
-  // Staff allowed tabs: POS, CHECKIN, FOOD_CHECKIN, CONCESSION, ORDERS_FINANCE
+  // Staff allowed tabs
   const allowedNavItems = navItems.filter((item) => {
     if (!isStaff) return true;
-    return ['POS_SHIFTS', 'CHECKIN', 'FOOD_CHECKIN', 'CONCESSION', 'ORDERS_FINANCE'].includes(item.id);
+    return ['ORDERS_FINANCE', 'CONCESSION'].includes(item.id);
   });
 
   return (
@@ -206,6 +191,26 @@ export default function AdminSidebar({
             </button>
           );
         })}
+      </div>
+
+      {/* Quick Access to Front-desk Staff Portal */}
+      <div className="p-3 border-t border-[#171D29]">
+        <Link
+          href="/staff"
+          target="_blank"
+          className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-r from-[#22C55E]/15 to-[#06B6D4]/15 hover:from-[#22C55E]/25 hover:to-[#06B6D4]/25 border border-[#22C55E]/30 text-white transition-all group"
+        >
+          <div className="w-8 h-8 rounded-lg bg-[#22C55E]/20 text-[#22C55E] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <CreditCard className="w-4 h-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-bold text-white flex items-center gap-1">
+              <span>Cổng Nhân Viên (POS)</span>
+              <ExternalLink className="w-3 h-3 text-[#22C55E]" />
+            </div>
+            <div className="text-[10px] text-[#8E9AAF] truncate">Bán vé, soát vé & quầy bắp</div>
+          </div>
+        </Link>
       </div>
 
       {/* Operator Footer Profile Bar */}

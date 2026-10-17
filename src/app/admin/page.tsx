@@ -16,9 +16,9 @@ import {
   Trash2,
   X,
   Info,
-  AlertTriangle,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  CreditCard
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
@@ -46,6 +46,7 @@ import {
   ProductModifier,
   Shift,
   Order,
+  OrderItem,
   Ticket,
   Refund,
   InvoiceRequest,
@@ -58,6 +59,7 @@ import {
   SeatStatus,
   SeatType
 } from '@/lib/types-redesign';
+import { syncOrderToSupabase } from '@/lib/supabase/queries';
 
 export interface AdminNotification {
   id: string;
@@ -405,8 +407,8 @@ export default function AdminPage() {
       if (bundle.coupons?.length) setCoupons(bundle.coupons);
       if (bundle.settings?.length) setSettings(bundle.settings);
       if (bundle.shifts?.length) setShifts(bundle.shifts);
-      if (bundle.orders?.length) setOrders(bundle.orders);
-      if (bundle.tickets?.length) setTickets(bundle.tickets);
+      if (bundle.orders) setOrders(bundle.orders);
+      if (bundle.tickets) setTickets(bundle.tickets);
       if (bundle.refunds?.length) setRefunds(bundle.refunds);
       if (bundle.invoices?.length) setInvoices(bundle.invoices);
       if (bundle.support?.length) setSupport(bundle.support);
@@ -422,6 +424,37 @@ export default function AdminPage() {
   useEffect(() => {
     loadDatabaseBundle();
   }, [loadDatabaseBundle]);
+
+  // Real-time synchronization when customer books tickets in another tab or window
+  useEffect(() => {
+    const handleTicketPurchased = () => {
+      const userBundle = AdminDataService.getUserBookedOrdersAndTickets();
+      if (userBundle.orders.length > 0 || userBundle.tickets.length > 0) {
+        setOrders((prev) => {
+          const codes = new Set(prev.map((o) => o.order_code || o.id));
+          const newOrders = userBundle.orders.filter((uo) => !codes.has(uo.order_code) && !codes.has(uo.id));
+          return newOrders.length > 0 ? [...newOrders, ...prev] : prev;
+        });
+        setTickets((prev) => {
+          const hashes = new Set(prev.map((t) => t.qr_token_hash || t.id));
+          const newTickets = userBundle.tickets.filter((ut) => !hashes.has(ut.qr_token_hash) && !hashes.has(ut.id));
+          return newTickets.length > 0 ? [...newTickets, ...prev] : prev;
+        });
+      }
+    };
+
+    window.addEventListener('storage', handleTicketPurchased);
+    window.addEventListener('cinemax_data_updated', handleTicketPurchased);
+    window.addEventListener('cinemax_ticket_purchased', handleTicketPurchased);
+    window.addEventListener('focus', handleTicketPurchased);
+
+    return () => {
+      window.removeEventListener('storage', handleTicketPurchased);
+      window.removeEventListener('cinemax_data_updated', handleTicketPurchased);
+      window.removeEventListener('cinemax_ticket_purchased', handleTicketPurchased);
+      window.removeEventListener('focus', handleTicketPurchased);
+    };
+  }, []);
 
   // Two-way synchronization: Push current modifications to DB & pull newest records
   const handleSyncAll = async () => {
@@ -1359,13 +1392,58 @@ export default function AdminPage() {
     try {
       const orderId = crypto.randomUUID();
       const orderCode = 'POS-' + Math.floor(100000 + Math.random() * 900000);
+      const movieTitle = saleData.showtime?.movie?.title || 'Phim Chiếu Rạp CINEMAX';
+      const auditoriumName = saleData.showtime?.auditorium?.name || 'Phòng 1';
+      const format = saleData.showtime?.format || '2D';
+      const ageRating = saleData.showtime?.movie?.age_rating || 'T13';
+      const showtimeStartsAt = saleData.showtime?.starts_at || new Date().toISOString();
+      const showTimeStr =
+        new Date(showtimeStartsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
+        ' • ' +
+        new Date(showtimeStartsAt).toLocaleDateString('vi-VN');
+
+      // 1. Create order items (ticket items and product items)
+      const ticketOrderItems: OrderItem[] = (saleData.seats || []).map((s: any) => ({
+        id: crypto.randomUUID(),
+        order_id: orderId,
+        item_type: 'ticket',
+        item_id: s.label,
+        quantity: 1,
+        unit_price: s.price,
+        line_total: s.price,
+        item_snapshot: {
+          movieTitle,
+          seatCode: s.label,
+          seatType: s.type,
+          showTime: showTimeStr,
+          format,
+          audienceType: saleData.audienceType || 'ADULT',
+        }
+      }));
+
+      const productOrderItems: OrderItem[] = (saleData.foods || []).map((f: any) => ({
+        id: crypto.randomUUID(),
+        order_id: orderId,
+        item_type: 'product',
+        item_id: f.productUuid || f.name,
+        quantity: f.qty,
+        unit_price: Math.round(f.price / (f.qty || 1)),
+        line_total: f.price,
+        item_snapshot: {
+          productName: f.name,
+          flavor: f.flavor,
+          drinkSize: f.drinkSize,
+          fulfilled: false
+        }
+      }));
+
       const newOrder: Order = {
         id: orderId,
         order_code: orderCode,
         user_id: null,
         channel: 'pos',
         status: 'paid',
-        contact_name: saleData.customerPhone || 'Khách Vãng Lai (POS)',
+        contact_name: saleData.customerPhone ? `Khách POS (${saleData.customerPhone})` : 'Khách Vãng Lai (POS)',
         contact_email: 'pos@cinemax.vn',
         contact_phone: saleData.customerPhone || '0900000000',
         subtotal: saleData.total,
@@ -1373,7 +1451,8 @@ export default function AdminPage() {
         loyalty_points_used: 0,
         loyalty_discount_amount: 0,
         total_amount: saleData.total,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        items: [...ticketOrderItems, ...productOrderItems]
       };
 
       const newTickets: Ticket[] = (saleData.seats || []).map((seat: any) => ({
@@ -1383,10 +1462,11 @@ export default function AdminPage() {
         seat_id: crypto.randomUUID(),
         seat_label: seat.label,
         price: seat.price,
-        qr_token_hash: 'QR-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+        qr_token_hash: orderCode,
         status: 'issued',
         age_check_passed: true,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        showtime: saleData.showtime
       }));
 
       setOrders((prev) => {
@@ -1403,15 +1483,137 @@ export default function AdminPage() {
         });
       }
 
-      // Update active shift expected cash
-      setShifts((prev) =>
-        prev.map((s) =>
-          s.status === 'open'
-            ? { ...s, expected_cash: s.expected_cash + saleData.total }
-            : s
-        )
+      // 2. Update active shift expected cash if CASH
+      if (saleData.paymentMethod === 'CASH') {
+        setShifts((prev) =>
+          prev.map((s) =>
+            s.status === 'open'
+              ? { ...s, expected_cash: s.expected_cash + saleData.total }
+              : s
+          )
+        );
+      }
+
+      // 3. Update cinemax_user_tickets in localStorage for immediate sync across views
+      try {
+        const rawUserTickets = localStorage.getItem('cinemax_user_tickets');
+        const userTicketsList = rawUserTickets ? JSON.parse(rawUserTickets) : [];
+        const foodSummary =
+          (saleData.foods || []).length > 0
+            ? (saleData.foods || [])
+                .map((f: any) => `${f.qty}x ${f.name} (${f.flavor || 'Vị Phô Mai'})`)
+                .join(', ')
+            : 'Không kèm bắp nước';
+
+        const newUt = {
+          bookingCode: orderCode,
+          id: orderCode,
+          movieTitle: movieTitle,
+          ageRating: ageRating,
+          cinemaName: 'Cinemax Xuân Thủy',
+          roomName: auditoriumName,
+          showtime: showTimeStr,
+          showtimeId: saleData.showtime?.id || 1,
+          seats: (saleData.seats || []).map((s: any) => s.label).join(', '),
+          checked_in_seats: [],
+          foodSummary,
+          foodFulfilled: false,
+          paymentMethod: saleData.paymentMethod || 'CASH',
+          channel: 'POS',
+          totalAmount: saleData.total,
+          customerName: saleData.customerPhone ? `Khách POS (${saleData.customerPhone})` : 'Khách Vãng Lai (POS)',
+          customerPhone: saleData.customerPhone || '0900000000',
+          customerEmail: 'pos@cinemax.vn',
+          createdAt: new Date().toLocaleString('vi-VN'),
+          status: 'ĐÃ THANH TOÁN'
+        };
+
+        const updatedUtList = [newUt, ...userTicketsList];
+        localStorage.setItem('cinemax_user_tickets', JSON.stringify(updatedUtList));
+
+        // Also add to cinemax_my_tickets_v2
+        const rawV2 = localStorage.getItem('cinemax_my_tickets_v2');
+        const v2List = rawV2 ? JSON.parse(rawV2) : [];
+        const newV2Order = {
+          id: orderCode,
+          movie_title: movieTitle,
+          age_rating: ageRating,
+          cinema_name: 'Cinemax Xuân Thủy',
+          room_name: auditoriumName,
+          screen_type: format,
+          start_time: showtimeStartsAt,
+          seats: (saleData.seats || []).map((s: any) => s.label),
+          checked_in_seats: [],
+          audience_type: saleData.audienceType || 'ADULT',
+          foods: (saleData.foods || []).map((f: any) => ({
+            name: f.name,
+            qty: f.qty,
+            price: f.price,
+            flavor: f.flavor || 'Vị Phô Mai',
+            drinkSize: f.drinkSize || 'Coca (M)',
+            fulfilled: false
+          })),
+          food_fulfilled: false,
+          promo_code: null,
+          discount_amount: 0,
+          total_amount: saleData.total,
+          payment_method: saleData.paymentMethod || 'CASH',
+          customer_name: saleData.customerPhone ? `Khách POS (${saleData.customerPhone})` : 'Khách Vãng Lai (POS)',
+          customer_phone: saleData.customerPhone || '0900000000',
+          customer_email: 'pos@cinemax.vn',
+          status: 'PAID',
+          created_at: new Date().toLocaleString('vi-VN'),
+          channel: 'POS',
+          showtime_id: 1
+        };
+        localStorage.setItem('cinemax_my_tickets_v2', JSON.stringify([newV2Order, ...v2List]));
+      } catch (err) {
+        console.warn('Failed to save POS tickets to localStorage', err);
+      }
+
+      // 4. Sync to Supabase in background
+      try {
+        await syncOrderToSupabase({
+          orderCode,
+          channel: 'pos',
+          contactName: saleData.customerPhone ? `Khách POS (${saleData.customerPhone})` : 'Khách Vãng Lai (POS)',
+          contactEmail: 'pos@cinemax.vn',
+          contactPhone: saleData.customerPhone || '0900000000',
+          subtotal: saleData.total,
+          discountAmount: 0,
+          totalAmount: saleData.total,
+          paymentProvider: saleData.paymentMethod || 'CASH',
+          showtimeUuid: saleData.showtime?.id,
+          auditoriumUuid: saleData.showtime?.auditorium_id,
+          seatCodes: (saleData.seats || []).map((s: any) => s.label),
+          audienceType: saleData.audienceType || 'ADULT',
+          unitTicketPrice:
+            (saleData.seats || []).length > 0 ? Math.round(saleData.total / saleData.seats.length) : 0,
+          movieSnapshot: {
+            movieTitle,
+            cinemaName: 'Cinemax Xuân Thủy',
+            roomName: auditoriumName,
+            showTime: showTimeStr,
+            format,
+            ageRating
+          },
+          foodItems: (saleData.foods || []).map((f: any) => ({
+            name: f.name,
+            quantity: f.qty,
+            unitPrice: Math.round(f.price / (f.qty || 1))
+          }))
+        });
+      } catch (err) {
+        console.warn('Could not sync POS order to Supabase:', err);
+      }
+
+      addNotification(
+        'Giao dịch vé POS',
+        `Đã xuất ${newTickets.length} vé cho đơn #${orderCode} (${saleData.total.toLocaleString('vi-VN')}đ).`,
+        'SUCCESS',
+        'SALES',
+        'POS_SHIFTS'
       );
-      addNotification('Giao dịch vé POS', `Đã xuất ${newTickets.length} vé cho đơn #${orderCode} (${saleData.total.toLocaleString('vi-VN')}đ).`, 'SUCCESS', 'SALES', 'POS_SHIFTS');
     } catch (e) {
       console.error('Failed to record POS sale', e);
     }
@@ -1836,6 +2038,17 @@ export default function AdminPage() {
               )}
             </div>
 
+            <Link
+              href="/staff"
+              target="_blank"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141924] hover:bg-[#1C2333] border border-[#222B3D] hover:border-[#22C55E]/50 text-xs font-bold text-white transition-all group cursor-pointer"
+              title="Mở cổng làm việc của Nhân viên (Quầy POS, Soát Vé, Bắp Nước)"
+            >
+              <CreditCard className="w-3.5 h-3.5 text-[#22C55E]" />
+              <span>Cổng Nhân Viên (Staff)</span>
+              <ExternalLink className="w-3 h-3 text-[#6E7B91] group-hover:text-white" />
+            </Link>
+
             <div className="flex items-center gap-2.5 pl-2 border-l border-[#1F2739]">
               <div className="w-8 h-8 rounded-full bg-[#1A2233] border border-[#2B374D] flex items-center justify-center text-xs font-bold text-white">
                 <User className="w-4 h-4 text-[#8E9AAF]" />
@@ -1961,9 +2174,14 @@ export default function AdminPage() {
               {activeTab === 'ORDERS_FINANCE' && (
                 <OrdersFinanceView
                   orders={orders}
+                  tickets={tickets}
+                  showtimes={showtimes}
+                  movies={movies}
                   refunds={refunds}
                   invoices={invoices}
                   coupons={coupons}
+                  operatorName={effectiveOperatorName}
+                  onCheckInTicket={handleCheckInTicket}
                   onApproveRefund={handleApproveRefund}
                   onIssueInvoice={handleIssueInvoice}
                   onSaveCoupon={handleSaveCoupon}

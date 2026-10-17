@@ -34,6 +34,18 @@ export async function POST(req: NextRequest) {
         membership_tier: 'MEMBER'
       },
       {
+        id: 'usr-staff-003',
+        full_name: 'Nguyễn Văn Thu Ngân',
+        email: 'pos.cashier@cinemax.vn',
+        password: 'staff',
+        role: 'staff',
+        role_code: 'STAFF',
+        staff_permissions: ['POS'],
+        staff_position: 'Nhân viên Quầy Vé (POS)',
+        loyalty_points: 200,
+        membership_tier: 'MEMBER'
+      },
+      {
         id: 'usr-cust-001',
         full_name: 'Nguyễn Văn A',
         email: 'user@cinemax.vn',
@@ -72,6 +84,8 @@ export async function POST(req: NextRequest) {
         email: user.email,
         role: user.role,
         role_code: user.role_code,
+        staff_permissions: (user as any).staff_permissions,
+        staff_position: (user as any).staff_position,
         loyalty_points: user.loyalty_points,
         membership_tier: user.membership_tier
       }

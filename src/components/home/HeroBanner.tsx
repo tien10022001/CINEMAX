@@ -22,6 +22,7 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
       <div className="relative w-full h-[460px] sm:h-[500px] overflow-hidden bg-[#0F1217]">
         {/* Background with Ambient Red Glow & Backdrop as in Figma Screen 1 */}
         <div
+          suppressHydrationWarning
           className="absolute inset-0 bg-cover bg-center opacity-40 transition-all duration-700"
           style={{
             backgroundImage: `url(${featured.banner_url || featured.poster_url})`,

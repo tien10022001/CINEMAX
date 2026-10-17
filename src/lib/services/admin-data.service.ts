@@ -138,6 +138,65 @@ export class AdminDataService {
         loadedSeats = seatsRes.value.data;
       }
 
+      let loadedOrders = ordersRes?.status === 'fulfilled' && ordersRes.value?.data?.length ? [...ordersRes.value.data] : (syncData.orders || []);
+      let loadedTickets = ticketsRes?.status === 'fulfilled' && ticketsRes.value?.data?.length ? [...ticketsRes.value.data] : (syncData.tickets || []);
+
+      // Synthesize ticket rows if loadedTickets is empty but orders have items
+      if (loadedTickets.length === 0 && loadedOrders.length > 0) {
+        loadedOrders.forEach((o: any) => {
+          if (o.items && Array.isArray(o.items)) {
+            o.items.forEach((item: any, itemIdx: number) => {
+              if (item.item_type === 'ticket') {
+                const snap = item.item_snapshot || {};
+                const seat = snap.seatCode || `S${itemIdx + 1}`;
+                loadedTickets.push({
+                  id: item.id || `tk-${o.id}-${seat}`,
+                  order_id: o.id,
+                  order_item_id: item.id,
+                  qr_token_hash: `${o.order_code || o.id}-${seat}`,
+                  seat_label: seat,
+                  movie_title: snap.movieTitle || 'Dune: Hành Tinh Cát 2',
+                  showtime_str: snap.showTime ? `${snap.cinemaName ? snap.cinemaName + ' • ' : ''}${snap.showTime}` : 'Suất chiếu tiêu chuẩn',
+                  price: Number(item.unit_price) || 85000,
+                  status: (o.status === 'used' ? 'used' : 'issued') as any,
+                  age_check_passed: true,
+                  created_at: o.created_at
+                });
+              }
+            });
+          }
+        });
+      }
+
+      // Merge user booked tickets from localStorage (cinemax_user_tickets)
+      const userBundle = AdminDataService.getUserBookedOrdersAndTickets();
+
+      const existingOrderCodes = new Set(loadedOrders.map((o: any) => o.order_code || o.id));
+      const mergedOrders = [
+        ...userBundle.orders.filter((uo) => !existingOrderCodes.has(uo.order_code) && !existingOrderCodes.has(uo.id)),
+        ...loadedOrders
+      ];
+
+      const existingTicketHashes = new Set(loadedTickets.map((t: any) => t.qr_token_hash || t.id));
+      const mergedTickets = [
+        ...userBundle.tickets.filter((ut) => !existingTicketHashes.has(ut.qr_token_hash) && !existingTicketHashes.has(ut.id)),
+        ...loadedTickets
+      ];
+
+      // Enrich tickets with metadata if missing
+      const enrichedTickets = mergedTickets.map((t: any) => {
+        const parentOrder = mergedOrders.find((o: any) => o.id === t.order_id || o.order_code === t.order_id);
+        const ticketItem = parentOrder?.items?.find((i: any) => i.id === t.order_item_id || i.item_type === 'ticket');
+        const snap = ticketItem?.item_snapshot;
+        return {
+          ...t,
+          movie_title: t.movie_title || snap?.movieTitle || 'Dune: Hành Tinh Cát 2',
+          seat_label: t.seat_label || snap?.seatCode || 'VIP',
+          showtime_str: t.showtime_str || (snap?.showTime ? `${snap.cinemaName ? snap.cinemaName + ' • ' : ''}${snap.showTime}` : 'Suất chiếu tiêu chuẩn'),
+          price: t.price || Number(ticketItem?.unit_price) || (parentOrder ? Math.round(Number(parentOrder.total_amount || 85000)) : 85000)
+        };
+      });
+
       return {
         movies: loadedMovies,
         genres: genresRes?.status === 'fulfilled' && genresRes.value?.data ? genresRes.value.data : [],
@@ -151,14 +210,18 @@ export class AdminDataService {
         coupons: loadedCoupons,
         settings: loadedSettings,
         shifts: shiftsRes?.status === 'fulfilled' && shiftsRes.value?.data ? shiftsRes.value.data : [],
-        orders: ordersRes?.status === 'fulfilled' && ordersRes.value?.data ? ordersRes.value.data : [],
-        tickets: ticketsRes?.status === 'fulfilled' && ticketsRes.value?.data ? ticketsRes.value.data : [],
+        orders: mergedOrders,
+        tickets: enrichedTickets,
         refunds: refundsRes?.status === 'fulfilled' && refundsRes.value?.data ? refundsRes.value.data : [],
         invoices: invoicesRes?.status === 'fulfilled' && invoicesRes.value?.data ? invoicesRes.value.data : [],
         support: supportRes?.status === 'fulfilled' && supportRes.value?.data ? supportRes.value.data : [],
         logs: logsRes?.status === 'fulfilled' && logsRes.value?.data ? logsRes.value.data : []
       };
     }
+
+    const userBundle = AdminDataService.getUserBookedOrdersAndTickets();
+    const fallbackOrders = [...userBundle.orders, ...(syncData.orders || [])];
+    const fallbackTickets = [...userBundle.tickets, ...(syncData.tickets || [])];
 
     return {
       movies: loadedMovies,
@@ -173,13 +236,130 @@ export class AdminDataService {
       coupons: loadedCoupons,
       settings: loadedSettings,
       shifts: [],
-      orders: [],
-      tickets: [],
+      orders: fallbackOrders,
+      tickets: fallbackTickets,
       refunds: [],
       invoices: [],
       support: [],
       logs: []
     };
+  }
+
+  // Extract user booked tickets from localStorage (cinemax_user_tickets)
+  static getUserBookedOrdersAndTickets(): { orders: Order[]; tickets: Ticket[] } {
+    if (typeof window === 'undefined') return { orders: [], tickets: [] };
+    try {
+      const stored = localStorage.getItem('cinemax_user_tickets');
+      if (!stored) return { orders: [], tickets: [] };
+      const list = JSON.parse(stored);
+      if (!Array.isArray(list) || list.length === 0) return { orders: [], tickets: [] };
+
+      const orders: Order[] = [];
+      const tickets: Ticket[] = [];
+
+      list.forEach((t: any, idx: number) => {
+        const orderCode = String(t.bookingCode || t.id || `CNM-${Date.now()}-${idx}`);
+        const seatStr = String(t.seats || 'VIP');
+        const seatArr = seatStr.split(',').map((s: string) => s.trim().toUpperCase()).filter(Boolean);
+        const effectiveSeats = seatArr.length > 0 ? seatArr : ['VIP'];
+        const totalAmt = Number(t.totalAmount) || 0;
+        const unitPrice = Math.round(totalAmt / Math.max(1, effectiveSeats.length));
+        const rawStatus = String(t.status || 'ĐÃ THANH TOÁN').toUpperCase();
+        const isUsed = rawStatus === 'ĐÃ XEM' || rawStatus === 'USED';
+        const isCancelled = rawStatus === 'ĐÃ HỦY' || rawStatus === 'HẾT HẠN' || rawStatus === 'CANCELLED';
+        const orderStatus = isUsed ? 'paid' : isCancelled ? 'cancelled' : 'paid';
+        const ticketStatus = isUsed ? 'used' : isCancelled ? 'cancelled' : 'issued';
+
+        const orderItemSnapshots = effectiveSeats.map((seat) => ({
+          id: `item-${orderCode}-${seat}`,
+          order_id: orderCode,
+          item_type: 'ticket' as const,
+          quantity: 1,
+          unit_price: unitPrice,
+          line_total: unitPrice,
+          item_snapshot: {
+            movieTitle: t.movieTitle,
+            cinemaName: t.cinemaName,
+            roomName: t.roomName,
+            showTime: t.showtime,
+            seatCode: seat,
+            posterUrl: t.posterUrl
+          }
+        }));
+
+        orders.push({
+          id: orderCode,
+          order_code: orderCode,
+          user_id: t.userId || null,
+          channel: 'online',
+          status: orderStatus as any,
+          contact_name: t.customerName || 'Khách Đặt Online',
+          contact_email: t.customerEmail || 'khachhang@cinemax.vn',
+          contact_phone: t.customerPhone || '0900000000',
+          subtotal: totalAmt,
+          discount_amount: 0,
+          loyalty_points_used: 0,
+          loyalty_discount_amount: 0,
+          total_amount: totalAmt,
+          created_at: t.createdAt && !isNaN(new Date(t.createdAt).getTime()) ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
+          items: orderItemSnapshots as any
+        });
+
+        effectiveSeats.forEach((seat) => {
+          tickets.push({
+            id: `ticket-${orderCode}-${seat}`,
+            order_item_id: `item-${orderCode}-${seat}`,
+            order_id: orderCode,
+            qr_token_hash: `${orderCode}-${seat}`,
+            seat_label: seat,
+            movie_title: t.movieTitle || 'Dune: Hành Tinh Cát 2',
+            showtime_str: `${t.cinemaName ? t.cinemaName + ' • ' : ''}${t.roomName ? t.roomName + ' • ' : ''}${t.showtime || ''}`,
+            price: unitPrice,
+            status: ticketStatus as any,
+            age_check_passed: true,
+            created_at: t.createdAt && !isNaN(new Date(t.createdAt).getTime()) ? new Date(t.createdAt).toISOString() : new Date().toISOString()
+          });
+        });
+      });
+
+      return { orders, tickets };
+    } catch (e) {
+      console.warn('Error reading user tickets:', e);
+      return { orders: [], tickets: [] };
+    }
+  }
+
+  // Check in a ticket by QR Token
+  static async checkInTicket(qrToken: string, checkedInBy: string, agePassed: boolean) {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cinemax_user_tickets');
+        if (stored) {
+          const list = JSON.parse(stored);
+          const updated = list.map((t: any) => {
+            const match = t.bookingCode === qrToken || qrToken.startsWith(t.bookingCode);
+            if (match) {
+              return { ...t, status: 'ĐÃ XEM', checkedInAt: new Date().toISOString() };
+            }
+            return t;
+          });
+          localStorage.setItem('cinemax_user_tickets', JSON.stringify(updated));
+          window.dispatchEvent(new Event('cinemax_data_updated'));
+          window.dispatchEvent(new Event('storage'));
+        }
+      } catch {}
+    }
+    try {
+      await this.supabase
+        .from('tickets')
+        .update({
+          status: 'used',
+          age_check_passed: agePassed,
+          checked_in_at: new Date().toISOString(),
+          checked_in_by: checkedInBy
+        })
+        .eq('qr_token_hash', qrToken);
+    } catch {}
   }
 
   // Generic Entity Save to /api/sync
