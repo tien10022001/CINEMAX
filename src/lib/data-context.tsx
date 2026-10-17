@@ -181,8 +181,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(storedMovies);
           if (Array.isArray(parsed) && parsed.length > 0) setMovies(parsed);
         }
-        const storedCinemas = localStorage.getItem('cinemax_cinemas_v2');
-        if (storedCinemas) setCinemas(JSON.parse(storedCinemas));
+        const storedCinemas = localStorage.getItem('cinemax_cinemas_v2') || localStorage.getItem('cinemax_cinemas_list');
+        if (storedCinemas) {
+          try {
+            const parsed = JSON.parse(storedCinemas);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setCinemas(parsed.map((c: any, idx: number) => ({
+                id: c.id && typeof c.id === 'number' ? c.id : idx + 1,
+                name: c.name,
+                address: c.address || '',
+                city: c.city || 'Hà Nội',
+                district: c.district || c.city || 'Hà Nội',
+                phone: c.phone || c.hotline || '1900 1081',
+                is_active: true,
+              })));
+            }
+          } catch {}
+        }
         const storedShowtimes = localStorage.getItem('cinemax_showtimes_v2');
         if (storedShowtimes) setShowtimes(JSON.parse(storedShowtimes));
         const storedPromotions = localStorage.getItem('cinemax_promotions_v2');
@@ -311,13 +326,43 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (localF) try { setFoods(JSON.parse(localF)); } catch {}
         const localS = localStorage.getItem('cinemax_showtimes_v2');
         if (localS) try { setShowtimes(JSON.parse(localS)); } catch {}
+        const localC = localStorage.getItem('cinemax_cinemas_v2') || localStorage.getItem('cinemax_cinemas_list');
+        if (localC) {
+          try {
+            const parsed = JSON.parse(localC);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setCinemas(parsed.map((c: any, idx: number) => ({
+                id: c.id && typeof c.id === 'number' ? c.id : idx + 1,
+                name: c.name,
+                address: c.address || '',
+                city: c.city || 'Hà Nội',
+                district: c.district || c.city || 'Hà Nội',
+                phone: c.phone || c.hotline || '1900 1081',
+                is_active: true,
+              })));
+            }
+          } catch {}
+        }
         const localSet = localStorage.getItem('cinemax_site_settings_v2');
         if (localSet) try { setSiteSettings(JSON.parse(localSet)); } catch {}
       }
     };
 
     window.addEventListener('cinemax_db_updated', handleDbUpdated);
+    window.addEventListener('cinemax_data_updated', handleDbUpdated);
     window.addEventListener('storage', handleDbUpdated);
+
+    // Cross-tab broadcast sync
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('cinemax_sync_channel');
+      bc.onmessage = (msg) => {
+        if (msg?.data?.cinemas && Array.isArray(msg.data.cinemas)) {
+          setCinemas(msg.data.cinemas);
+        }
+        refreshFromSupabase();
+      };
+    } catch {}
 
     // Subscribe to Supabase Realtime changes
     const supabase = createClient();
@@ -344,11 +389,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'seats' }, () => {
         refreshFromSupabase();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cinema_settings' }, () => {
+        refreshFromSupabase();
+      })
       .subscribe();
 
     return () => {
       window.removeEventListener('cinemax_db_updated', handleDbUpdated);
+      window.removeEventListener('cinemax_data_updated', handleDbUpdated);
       window.removeEventListener('storage', handleDbUpdated);
+      if (bc) bc.close();
       supabase.removeChannel(channel);
     };
   }, [refreshFromSupabase]);

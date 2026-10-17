@@ -873,12 +873,27 @@ export default function StaffWorkspacePage() {
         loadSynchronizedData();
         refreshFromSupabase();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cinema_settings' }, () => {
+        loadSynchronizedData();
+        refreshFromSupabase();
+      })
       .subscribe();
+
+    // Cross-tab broadcast sync
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('cinemax_sync_channel');
+      bc.onmessage = () => {
+        loadSynchronizedData();
+        refreshFromSupabase();
+      };
+    } catch {}
 
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('cinemax_db_updated', handleStorage);
       window.removeEventListener('cinemax_data_updated', handleStorage);
+      if (bc) bc.close();
       supabase.removeChannel(channel);
     };
   }, [loadSynchronizedData]);

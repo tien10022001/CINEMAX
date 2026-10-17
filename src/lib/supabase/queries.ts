@@ -105,22 +105,44 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
     };
   }
 
-  // 1. Map cinema_settings
+  // 1. Map cinema_settings & authoritative cinemas list
+  const cinemaListRow = (settingsRes.data || []).find((r: { setting_key: string }) => r.setting_key === 'cinemas_list');
   const cinemaInfoRow = (settingsRes.data || []).find((r: { setting_key: string }) => r.setting_key === 'cinema_info');
   const cinemaInfo = cinemaInfoRow?.setting_value || {};
-  const primaryCinema: Cinema = {
+
+  let mergedCinemas: Cinema[] = [];
+  if (cinemaListRow?.setting_value && Array.isArray(cinemaListRow.setting_value) && cinemaListRow.setting_value.length > 0) {
+    mergedCinemas = cinemaListRow.setting_value.map((c: any, idx: number) => ({
+      id: idx + 1,
+      name: c.name,
+      address: c.address || '',
+      district: c.city || 'Hà Nội',
+      city: c.city || 'Hà Nội',
+      phone: c.hotline || cinemaInfo.hotline || '1900 1081',
+      is_active: true,
+    }));
+  } else if (cinemaInfo?.name) {
+    mergedCinemas = [{
+      id: 1,
+      name: cinemaInfo.name,
+      address: cinemaInfo.address || '144 Xuân Thủy, Cầu Giấy, Hà Nội',
+      district: cinemaInfo.city || 'Hà Nội',
+      city: cinemaInfo.city || 'Hà Nội',
+      phone: cinemaInfo.hotline || '1900 1081',
+      is_active: true,
+    }];
+  } else {
+    mergedCinemas = MOCK_CINEMAS;
+  }
+  const primaryCinema: Cinema = mergedCinemas[0] || {
     id: 1,
-    name: cinemaInfo.name || 'CINEMAX Plaza (FPT Polytechnic)',
-    address: cinemaInfo.address || 'Tòa nhà FPT Polytechnic, Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội',
-    district: 'Nam Từ Liêm',
+    name: 'CINEMAX Xuân Thủy',
+    address: '144 Xuân Thủy, Cầu Giấy, Hà Nội',
+    district: 'Cầu Giấy',
     city: 'Hà Nội',
-    phone: cinemaInfo.hotline || '1900-6868',
+    phone: '1900 1081',
     is_active: true,
   };
-  const mergedCinemas: Cinema[] = [
-    primaryCinema,
-    ...MOCK_CINEMAS.filter((c) => c.id !== 1),
-  ];
 
   // 2. Map movies from Supabase + merge extra mock movies for rich catalog
   const dbMovies: Movie[] = (moviesRes.data || []).map((m: Record<string, unknown>, idx: number) => {

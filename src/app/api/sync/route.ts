@@ -149,18 +149,29 @@ async function syncToSupabaseIfConfigured(entityOrAction: string, data: any) {
       for (let i = 0; i < cleanSeats.length; i += 80) {
         await supabase.from('seats').upsert(cleanSeats.slice(i, i + 80));
       }
-    } else if ((entityOrAction === 'cinemas' || entityOrAction === 'cinema') && Array.isArray(data) && data.length > 0) {
+    } else if ((entityOrAction === 'cinemas' || entityOrAction === 'cinema') && Array.isArray(data)) {
       const primary = data[0];
-      await supabase.from('cinema_settings').upsert({
-        setting_key: 'cinema_info',
-        setting_value: {
-          name: primary.name || 'CINEMAX Plaza',
-          address: primary.address || '',
-          hotline: primary.hotline || '1900-6868',
-          city: primary.city || 'Hà Nội'
+      await supabase.from('cinema_settings').upsert([
+        {
+          setting_key: 'cinemas_list',
+          setting_value: data,
+          updated_at: new Date().toISOString()
         },
-        updated_at: new Date().toISOString()
-      });
+        ...(primary
+          ? [
+              {
+                setting_key: 'cinema_info',
+                setting_value: {
+                  name: primary.name || 'CINEMAX Xuân Thủy',
+                  address: primary.address || '',
+                  hotline: primary.hotline || '1900 1081',
+                  city: primary.city || 'Hà Nội'
+                },
+                updated_at: new Date().toISOString()
+              }
+            ]
+          : [])
+      ]);
     }
   } catch (err) {
     console.warn('Supabase Cloud sync note:', err);

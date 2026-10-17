@@ -279,7 +279,7 @@ function HomeContent() {
                     <div className="space-y-1.5 text-xs text-[#9EA6B8] pt-2 border-t border-[#303645]/60">
                       <div>
                         <span>Hotline: </span>
-                        <span className="text-white font-semibold">1900 6868 (08:00 - 24:00)</span>
+                        <span className="text-white font-semibold">{cinema.phone || '1900 1081'} (08:00 - 24:00)</span>
                       </div>
                       <div>
                         <span>Công nghệ: </span>

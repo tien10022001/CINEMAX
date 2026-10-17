@@ -524,12 +524,16 @@ export default function AuditoriumsView({
           body: JSON.stringify({ entity: 'cinemas', data: updatedList })
         }).catch(() => {});
 
-        // Sync primary cinema to Supabase cinema_settings
-        AdminDataService.saveCinemaInfo({
-          name: updatedList[0]?.name || theaterForm.name,
-          address: updatedList[0]?.address || theaterForm.address,
-          hotline: updatedList[0]?.hotline || theaterForm.hotline
-        }).catch(() => {});
+        // Sync full cinemas list and primary info to Supabase cinema_settings
+        AdminDataService.saveCinemasList(updatedList).catch(() => {});
+
+        // Broadcast cross-tab
+        try {
+          const bc = new BroadcastChannel('cinemax_sync_channel');
+          bc.postMessage({ type: 'cinemas_updated', cinemas: mappedV2 });
+          bc.close();
+        } catch {}
+        localStorage.setItem('cinemax_sync_timestamp', Date.now().toString());
       } catch {}
     }
 
@@ -1546,6 +1550,17 @@ export default function AuditoriumsView({
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ entity: 'cinemas', data: nextCinemas })
                         }).catch(() => {});
+
+                        // Sync updated list to Supabase cinema_settings
+                        AdminDataService.saveCinemasList(nextCinemas).catch(() => {});
+
+                        // Broadcast cross-tab
+                        try {
+                          const bc = new BroadcastChannel('cinemax_sync_channel');
+                          bc.postMessage({ type: 'cinemas_updated', cinemas: mappedV2 });
+                          bc.close();
+                        } catch {}
+                        localStorage.setItem('cinemax_sync_timestamp', Date.now().toString());
                       } catch {}
                     }
                     showToast(`Đã xóa cụm rạp "${item.name}"!`);

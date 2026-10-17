@@ -460,7 +460,7 @@ export class AdminDataService {
     await this.deleteEntity('seats', seatId);
   }
 
-  static async saveCinemaInfo(cinemaInfo: { name: string; address: string; hotline: string; email?: string }) {
+  static async saveCinemaInfo(cinemaInfo: { name: string; address: string; hotline: string; email?: string; city?: string }) {
     const supabase = this.supabase;
     try {
       await supabase
@@ -472,6 +472,37 @@ export class AdminDataService {
         });
     } catch (err) {
       console.warn('Save cinema_info to Supabase error:', err);
+    }
+  }
+
+  static async saveCinemasList(cinemasList: any[]) {
+    const supabase = this.supabase;
+    try {
+      await supabase
+        .from('cinema_settings')
+        .upsert([
+          {
+            setting_key: 'cinemas_list',
+            setting_value: cinemasList,
+            updated_at: new Date().toISOString()
+          },
+          ...(cinemasList.length > 0
+            ? [
+                {
+                  setting_key: 'cinema_info',
+                  setting_value: {
+                    name: cinemasList[0].name,
+                    address: cinemasList[0].address,
+                    hotline: cinemasList[0].hotline || '1900 1081',
+                    city: cinemasList[0].city || 'Hà Nội'
+                  },
+                  updated_at: new Date().toISOString()
+                }
+              ]
+            : [])
+        ]);
+    } catch (err) {
+      console.warn('Save cinemas_list to Supabase error:', err);
     }
   }
 
