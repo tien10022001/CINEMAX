@@ -232,7 +232,15 @@ export default function StaffWorkspacePage() {
   // ==========================================================================
   // CORE NAVIGATION & STAFF STATE
   // ==========================================================================
-  const { currentUser, login, logout } = useAuth();
+  const { currentUser, isLoading: isAuthLoading, login, logout } = useAuth();
+  const [isMounted, setIsMounted] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    setIsMounted(true);
+    setIsCheckingAuth(false);
+  }, []);
+
   const [loginEmail, setLoginEmail] = useState('staff@cinemax.vn');
   const [loginPassword, setLoginPassword] = useState('staff');
   const [loginError, setLoginError] = useState('');
@@ -2064,8 +2072,23 @@ export default function StaffWorkspacePage() {
   const activeTabTitle =
     allSidebarItems.find((item) => item.id === activeTab)?.label || 'Soát vé (Check-in)';
 
+  // VIEW 0: LOADING SPINNER BEFORE HYDRATION & AUTH CHECK (Prevents login gate flicker on reload)
+  if (!isMounted || isAuthLoading || isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-[#090B10] text-slate-100 flex flex-col justify-center items-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-9 h-9 border-2 border-[#E63845] border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-semibold text-slate-400 tracking-wider uppercase">
+            Đang tải cổng nhân viên...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   // VIEW 1: 403 FORBIDDEN FOR CUSTOMER ROLE
-  if (currentUser && (currentUser.role_code === 'CUSTOMER' || currentUser.role_code === 'user')) {
+  const userRoleUpper = currentUser?.role_code?.toUpperCase();
+  if (currentUser && (userRoleUpper === 'CUSTOMER' || userRoleUpper === 'USER')) {
     return (
       <div className="min-h-screen bg-[#090B10] text-slate-100 flex flex-col justify-center items-center p-4">
         <div className="max-w-md w-full bg-[#11141D] border border-red-500/40 rounded-2xl p-8 space-y-6 text-center shadow-2xl">

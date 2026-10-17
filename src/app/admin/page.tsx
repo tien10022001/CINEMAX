@@ -147,6 +147,7 @@ export default function AdminPage() {
 
   // Client hydration & admin session persistence
   const [isMounted, setIsMounted] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
   // Login credentials for admin gateway
@@ -475,13 +476,13 @@ export default function AdminPage() {
 
   // Check admin session persistence on mount
   useEffect(() => {
-    setIsMounted(true);
     try {
       const isExplicitlyLoggedOut = localStorage.getItem('cinemax_admin_logged_out') === 'true';
       const adminAuthFlag = localStorage.getItem('cinemax_admin_authenticated') === 'true';
       const sessionUserStr = localStorage.getItem('cinemax_session_user');
       const sessionUser = sessionUserStr ? JSON.parse(sessionUserStr) : null;
-      const isAdminRole = sessionUser && (sessionUser.role_code === 'ADMIN' || sessionUser.role_code === 'STAFF');
+      const userRole = sessionUser?.role_code?.toUpperCase();
+      const isAdminRole = userRole === 'ADMIN' || userRole === 'STAFF';
 
       if (!isExplicitlyLoggedOut && (adminAuthFlag || isAdminRole)) {
         setIsAdminLoggedIn(true);
@@ -490,6 +491,9 @@ export default function AdminPage() {
       }
     } catch {
       setIsAdminLoggedIn(false);
+    } finally {
+      setIsMounted(true);
+      setIsCheckingAuth(false);
     }
   }, []);
 
@@ -1697,12 +1701,14 @@ export default function AdminPage() {
 
   // Operator and Authentication check
   const effectiveOperatorName = currentUser?.full_name || 'Quản trị viên Cinemax';
-  const isAuthenticated = isAdminLoggedIn || (currentUser && (currentUser.role_code === 'ADMIN' || currentUser.role_code === 'STAFF'));
+  const userRoleUpper = currentUser?.role_code?.toUpperCase();
+  const isPrivilegedUser = userRoleUpper === 'ADMIN' || userRoleUpper === 'STAFF';
+  const isAuthenticated = isAdminLoggedIn || Boolean(isPrivilegedUser);
 
   // =========================================================================
   // VIEW 0: RELOAD / HYDRATING LOADING SPINNER (Only show reload spinner)
   // =========================================================================
-  if (!isMounted || isAuthLoading) {
+  if (!isMounted || isAuthLoading || isCheckingAuth) {
     return (
       <div className="min-h-screen bg-[#0A0D14] flex flex-col justify-center items-center p-4">
         <div className="flex flex-col items-center gap-3">
@@ -1716,7 +1722,7 @@ export default function AdminPage() {
   }
 
   // VIEW 0.5: ACCESS DENIED (403) FOR NORMAL CUSTOMER / USER
-  const isCustomer = currentUser && (currentUser.role_code === 'CUSTOMER' || currentUser.role_code === 'user');
+  const isCustomer = currentUser && (userRoleUpper === 'CUSTOMER' || userRoleUpper === 'USER');
   if (isCustomer) {
     return (
       <div className="min-h-screen bg-[#0A0D14] flex flex-col justify-center items-center p-4 text-white">
