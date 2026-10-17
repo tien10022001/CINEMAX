@@ -767,6 +767,10 @@ function BookingContent() {
   };
 
   const ticketSubtotal = selectedSeats.reduce((sum, seat) => sum + getSeatPrice(seat), 0);
+  const totalSeatsCount = seats.length;
+  const soldSeatsCount = seats.filter((s) => s.status === 'sold' || s.status === 'blocked').length;
+  const selectedSeatsCount = selectedSeats.length;
+  const availableSeatsCount = Math.max(0, totalSeatsCount - soldSeatsCount - selectedSeatsCount);
 
   const foodSubtotal = Object.entries(foodQuantities).reduce((sum, [id, qty]) => {
     const food = foods.find((f) => f.id === parseInt(id));
@@ -1161,7 +1165,6 @@ function BookingContent() {
           cinemaId: selectedCinema.id,
           roomName: selectedShowtime?.room?.name || 'Phòng 01 (IMAX)',
           auditoriumName: selectedShowtime?.room?.name || 'Phòng 01 (IMAX)',
-          showtimeId: selectedShowtime?.id || queryShowtimeId,
           showtimeDate: queryDate,
           showtimeTime: queryTime,
           showtime: `${queryTime} • ${queryDate || '14/10/2026'}`,

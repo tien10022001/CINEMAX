@@ -17,6 +17,7 @@ interface StoreData {
   promotions?: any[];
   cinemas?: any[];
   news?: any[];
+  orders?: any[];
   deleted_ids?: string[];
   last_updated?: string;
 }

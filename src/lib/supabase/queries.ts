@@ -444,7 +444,7 @@ export async function syncOrderToSupabase(params: {
   showtimeUuid?: string;
   auditoriumUuid?: string;
   seatCodes: string[];
-  seatUuidLookup: Record<string, string>;
+  seatUuidLookup?: Record<string, string>;
   audienceType?: 'ADULT' | 'STUDENT_U22' | 'CHILD' | 'SENIOR';
   unitTicketPrice: number;
   movieSnapshot: {
@@ -471,9 +471,9 @@ export async function syncOrderToSupabase(params: {
     const audUuid = params.auditoriumUuid;
     let seatIds: string[] = [];
 
-    if (audUuid) {
+    if (audUuid && params.seatUuidLookup) {
       seatIds = params.seatCodes
-        .map((code) => params.seatUuidLookup[`${audUuid}:${code}`])
+        .map((code) => params.seatUuidLookup?.[`${audUuid}:${code}`])
         .filter((id): id is string => Boolean(id));
     }
 
@@ -650,8 +650,8 @@ export async function syncOrderToSupabase(params: {
     // 2. Insert ticket order_items & tickets & update showtime_seats
     for (const seatCode of params.seatCodes) {
       const seatUuid =
-        params.auditoriumUuid && params.seatUuidLookup[`${params.auditoriumUuid}:${seatCode}`]
-          ? params.seatUuidLookup[`${params.auditoriumUuid}:${seatCode}`]
+        params.auditoriumUuid && params.seatUuidLookup
+          ? params.seatUuidLookup[`${params.auditoriumUuid}:${seatCode}`] || null
           : null;
 
       const { data: oiRow } = await supabase

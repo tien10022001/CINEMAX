@@ -957,7 +957,7 @@ export default function PosShiftsView({
                         {s.expected_cash.toLocaleString('vi-VN')} đ
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-white">
-                        {s.counted_cash !== null ? `${s.counted_cash.toLocaleString('vi-VN')} đ` : '—'}
+                        {s.counted_cash != null ? `${s.counted_cash.toLocaleString('vi-VN')} đ` : '—'}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span

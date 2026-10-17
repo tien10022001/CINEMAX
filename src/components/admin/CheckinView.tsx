@@ -266,7 +266,7 @@ export default function CheckinView({
     }
 
     // 1.3 Từ tickets prop
-    (tickets || []).forEach((t) => {
+    (tickets || []).forEach((t: any) => {
       const id = t.qr_token_hash || t.id;
       if (!id || map.has(id.toLowerCase())) return;
       map.set(id.toLowerCase(), {
@@ -291,9 +291,9 @@ export default function CheckinView({
         customer_name: 'Khách Hàng',
         customer_phone: '0901234567',
         channel: 'ONLINE',
-        checked_in_at: t.checked_in_at,
-        checked_in_by: t.checked_in_by,
-        age_check_passed: t.age_check_passed
+        checked_in_at: t.checked_in_at || undefined,
+        checked_in_by: t.checked_in_by || undefined,
+        age_check_passed: t.age_check_passed ?? false
       });
     });
 

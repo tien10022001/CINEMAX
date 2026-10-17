@@ -81,7 +81,8 @@ export default function MyTicketsPage() {
       if (!t) continue;
       const code = (t.bookingCode || '').trim().toUpperCase();
       const id = t.id;
-      const sig = `${(t.movieTitle || '').trim().toLowerCase()}_${(t.showtime || '').trim()}_${(t.seats || '').trim().toLowerCase()}_${(t.customerPhone || t.customerEmail || '').trim()}`;
+      const seatsStr = Array.isArray(t.seats) ? t.seats.join(', ') : (t.seats || '');
+      const sig = `${(t.movieTitle || '').trim().toLowerCase()}_${(t.showtime || '').trim()}_${seatsStr.trim().toLowerCase()}_${(t.customerPhone || t.customerEmail || '').trim()}`;
 
       if (code) {
         if (seenCodes.has(code)) continue;

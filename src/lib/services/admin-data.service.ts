@@ -872,23 +872,6 @@ export class AdminDataService {
     return data as Shift;
   }
 
-  // 7. Check-in Ticket
-  static async checkInTicket(qrTokenHash: string, checkedInBy: string, ageCheckPassed: boolean) {
-    const supabase = this.supabase;
-    const { data, error } = await supabase
-      .from('tickets')
-      .update({
-        status: 'used',
-        age_check_passed: ageCheckPassed,
-        checked_in_at: new Date().toISOString(),
-        checked_in_by: checkedInBy
-      })
-      .eq('qr_token_hash', qrTokenHash)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Ticket;
-  }
 
   // 8. Refunds & Invoices
   static async approveRefund(refundId: string, approvedBy: string) {

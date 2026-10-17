@@ -25,7 +25,8 @@ import {
   Filter,
   ScanLine,
   ShieldCheck,
-  Eye
+  Eye,
+  AlertCircle
 } from 'lucide-react';
 import {
   Order,
@@ -51,6 +52,9 @@ interface OrdersFinanceViewProps {
   onIssueInvoice: (requestId: string, invoiceRef: string) => Promise<void>;
   onSaveCoupon?: (coupon: Partial<Coupon>) => Promise<void>;
   onDeleteCoupon?: (idOrCode: string) => Promise<void>;
+  supportRequests?: any[];
+  onApproveSupport?: (ticketCode: string) => Promise<void>;
+  onRejectSupport?: (ticketCode: string) => Promise<void>;
   showToast: (msg: string) => void;
   defaultSubTab?: 'ALL' | 'TICKETS' | 'ORDERS' | 'REFUNDS' | 'INVOICES';
 }
@@ -150,7 +154,7 @@ export default function OrdersFinanceView({
     // Also include any orders that had no individual tickets (e.g. food only or POS orders)
     (orders || []).forEach((o) => {
       if (!coveredOrderIds.has(o.id) && !coveredOrderIds.has(o.order_code)) {
-        const isUsed = o.status === 'used';
+        const isUsed = (o.status as string) === 'used';
         const isCancelled = o.status === 'cancelled';
         const status: 'used' | 'issued' | 'cancelled' = isUsed ? 'used' : isCancelled ? 'cancelled' : 'issued';
 

@@ -19,7 +19,8 @@ import {
   Info,
   ExternalLink,
   Sparkles,
-  CreditCard
+  CreditCard,
+  AlertTriangle
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
@@ -1657,6 +1658,7 @@ export default function AdminPage() {
             cinemaName: 'Cinemax Xuân Thủy',
             roomName: auditoriumName,
             showTime: showTimeStr,
+            showDate: showtimeStartsAt ? showtimeStartsAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
             format,
             ageRating
           },
