@@ -163,181 +163,76 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Sync state from Server Store, LocalStorage & Supabase
+  // Sync state from Supabase first, with LocalStorage & Server Store fallback
   const syncFromSupabaseAndStorage = async () => {
     try {
-      let loadedMovies: Movie[] | null = null;
-
-      // 1. Check local storage first (instant client render)
-      const storedMovies = localStorage.getItem('cinemax_movies_v2');
-      if (storedMovies) {
-        try {
-          const parsed = JSON.parse(storedMovies);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            loadedMovies = parsed;
-            setMovies(parsed);
-          }
-        } catch {}
-      }
-
-      // 2. Check persistent server sync store for ALL entities
+      // 1. Initial hydration from local storage for 0ms paint
       try {
-        const syncRes = await fetch('/api/sync');
-        if (syncRes.ok) {
-          const syncJson = await syncRes.json();
-          if (syncJson.success && syncJson.data) {
-            const d = syncJson.data;
+        const storedMovies = localStorage.getItem('cinemax_movies_v2');
+        if (storedMovies) {
+          const parsed = JSON.parse(storedMovies);
+          if (Array.isArray(parsed) && parsed.length > 0) setMovies(parsed);
+        }
+        const storedCinemas = localStorage.getItem('cinemax_cinemas_v2');
+        if (storedCinemas) setCinemas(JSON.parse(storedCinemas));
+        const storedShowtimes = localStorage.getItem('cinemax_showtimes_v2');
+        if (storedShowtimes) setShowtimes(JSON.parse(storedShowtimes));
+        const storedPromotions = localStorage.getItem('cinemax_promotions_v2');
+        if (storedPromotions) setPromotions(JSON.parse(storedPromotions));
+        const storedFoods = localStorage.getItem('cinemax_foods_v2');
+        if (storedFoods) setFoods(JSON.parse(storedFoods));
+        const storedNews = localStorage.getItem('cinemax_news_v2');
+        if (storedNews) setNews(JSON.parse(storedNews));
+        const storedSettings = localStorage.getItem('cinemax_site_settings_v2');
+        if (storedSettings) setSiteSettings(JSON.parse(storedSettings));
+      } catch (hydrateErr) {
+        console.warn('Hydration from localStorage warning:', hydrateErr);
+      }
 
-            // Movies
-            if (d.movies && Array.isArray(d.movies) && d.movies.length > 0) {
-              const mappedServer: Movie[] = d.movies.map((m: any, idx: number) => {
-                const poster = m.poster_url || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800';
-                return {
-                  id: m.id || ('mov-' + idx),
-                  title: m.title,
-                  original_title: m.original_title || m.title || '',
-                  slug: m.slug,
-                  synopsis: m.synopsis || '',
-                  duration_min: m.duration_minutes || m.duration_min || 120,
-                  release_date: m.release_date || '',
-                  end_date: m.end_date || '',
-                  age_rating: m.age_rating || 'T13',
-                  country: m.country || 'Việt Nam',
-                  director: m.director || '',
-                  cast_list: m.cast_list || '',
-                  poster_url: poster,
-                  banner_url: m.banner_url || poster,
-                  trailer_url: m.trailer_url || '',
-                  imdb_score: m.imdb_score || 8.0,
-                  status:
-                    m.status?.toUpperCase() === 'NOW_SHOWING' || m.status === 'now_showing'
-                      ? 'NOW_SHOWING'
-                      : 'COMING_SOON',
-                  is_deleted: false,
-                  genres: m.genres || [{ id: 1, name: 'Hành Động', slug: 'hanh-dong' }]
-                };
-              });
-              loadedMovies = mappedServer;
-              setMovies(mappedServer);
-              localStorage.setItem('cinemax_movies_v2', JSON.stringify(mappedServer));
-            }
+      // 2. Fetch fresh authoritative data from Supabase Cloud
+      const [catalog, writeStatus] = await Promise.all([
+        fetchSupabaseCatalog(),
+        probeSupabaseWriteAccess(),
+      ]);
 
-            // Promotions / Coupons
-            if (d.promotions && Array.isArray(d.promotions) && d.promotions.length > 0) {
-              setPromotions(d.promotions);
-              localStorage.setItem('cinemax_promotions_v2', JSON.stringify(d.promotions));
-            }
+      if (catalog.connected && catalog.movies?.length > 0) {
+        setSupabaseConnected(true);
+        setSupabaseWritable(writeStatus.writable);
+        setMovies(catalog.movies);
+        setCinemas(catalog.cinemas);
+        setShowtimes(catalog.showtimes);
+        setFoods(catalog.foods);
+        setPromotions(catalog.promotions);
+        setSoldSeatsByShowtime(catalog.soldSeatsByShowtime);
+        setSeatUuidLookup(catalog.seatUuidLookup);
+        setTableCounts(catalog.tableCounts);
+        if (catalog.siteSettings) {
+          setSiteSettings((prev) => ({ ...prev, ...catalog.siteSettings }));
+        }
 
-            // Foods / Concessions
-            if (d.foods && Array.isArray(d.foods) && d.foods.length > 0) {
-              setFoods(d.foods);
-              localStorage.setItem('cinemax_foods_v2', JSON.stringify(d.foods));
-            }
-
-            // Showtimes
-            if (d.showtimes && Array.isArray(d.showtimes) && d.showtimes.length > 0) {
-              const mappedShowtimes: Showtime[] = d.showtimes.map((st: any) => ({
-                id: st.id,
-                movie_id: st.movie_id,
-                room_id: st.auditorium_id || 1,
-                start_time: st.starts_at || st.start_time,
-                end_time: st.ends_at || st.end_time,
-                language_type: st.language_version?.includes('Lồng tiếng') ? 'DUBBED' : 'SUBTITLED',
-                status: st.status?.toUpperCase() === 'OPEN' || st.status === 'open' ? 'OPEN' : 'CLOSED',
-                movie: st.movie,
-                room: st.auditorium ? {
-                  id: 1,
-                  cinema_id: 1,
-                  name: st.auditorium.name,
-                  screen_type: st.auditorium.screen_type || '2D',
-                  total_rows: 10,
-                  total_cols: 14,
-                  status: 'ACTIVE'
-                } : undefined
-              }));
-              setShowtimes(mappedShowtimes);
-              localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(mappedShowtimes));
-            }
-
-            // Settings
-            if (d.settings && Array.isArray(d.settings) && d.settings.length > 0) {
-              const current = { ...DEFAULT_SETTINGS };
-              d.settings.forEach((s: any) => {
-                if (s.setting_key === 'system_policy' && s.setting_value) {
-                  if (s.setting_value.hotline) current.hotline = s.setting_value.hotline;
-                  if (s.setting_value.support_email) current.support_email = s.setting_value.support_email;
-                  if (s.setting_value.announcement) current.announcement_banner = s.setting_value.announcement;
-                }
-              });
-              setSiteSettings(current);
-              localStorage.setItem('cinemax_site_settings_v2', JSON.stringify(current));
+        // Cache fresh Supabase data to localStorage
+        localStorage.setItem('cinemax_movies_v2', JSON.stringify(catalog.movies));
+        localStorage.setItem('cinemax_cinemas_v2', JSON.stringify(catalog.cinemas));
+        localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(catalog.showtimes));
+        localStorage.setItem('cinemax_foods_v2', JSON.stringify(catalog.foods));
+        localStorage.setItem('cinemax_promotions_v2', JSON.stringify(catalog.promotions));
+      } else {
+        // 3. Fallback to /api/sync if Supabase is offline
+        try {
+          const syncRes = await fetch('/api/sync');
+          if (syncRes.ok) {
+            const syncJson = await syncRes.json();
+            if (syncJson.success && syncJson.data) {
+              const d = syncJson.data;
+              if (d.movies?.length) setMovies(d.movies);
+              if (d.foods?.length) setFoods(d.foods);
+              if (d.promotions?.length) setPromotions(d.promotions);
             }
           }
-        }
-      } catch (e) {
-        console.warn('Could not read /api/sync', e);
-      }
-
-      // 3. Only if no local/server movies exist, query Supabase
-      if (!loadedMovies) {
-        const supabase = createClient();
-        const { data: supaMovies, error } = await supabase
-          .from('movies')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (!error && supaMovies && supaMovies.length > 0) {
-          const mapped: Movie[] = supaMovies.map((m: any, idx: number) => {
-            const poster = m.poster_url || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800';
-            return {
-              id: m.id || ('mov-supa-' + idx),
-              title: m.title,
-              original_title: m.original_title || '',
-              slug: m.slug,
-              synopsis: m.synopsis || '',
-              duration_min: m.duration_minutes || m.duration_min || 120,
-              release_date: m.release_date || '',
-              end_date: m.end_date || '',
-              age_rating: m.age_rating || 'T13',
-              country: m.country || 'Việt Nam',
-              director: m.director || '',
-              cast_list: m.cast_list || '',
-              poster_url: poster,
-              banner_url: m.banner_url || poster,
-              trailer_url: m.trailer_url || '',
-              imdb_score: m.imdb_score || 8.0,
-              status:
-                m.status?.toUpperCase() === 'NOW_SHOWING' || m.status === 'now_showing'
-                  ? 'NOW_SHOWING'
-                  : 'COMING_SOON',
-              is_deleted: false,
-              genres: m.genres || [{ id: 1, name: 'Hành Động', slug: 'hanh-dong' }]
-            };
-          });
-
-          setMovies(mapped);
-          localStorage.setItem('cinemax_movies_v2', JSON.stringify(mapped));
+        } catch (syncErr) {
+          console.warn('Fallback sync store warning:', syncErr);
         }
       }
-
-      // Other entities from local storage if not yet updated
-      const storedCinemas = localStorage.getItem('cinemax_cinemas_v2');
-      if (storedCinemas) setCinemas(JSON.parse(storedCinemas));
-
-      const storedShowtimes = localStorage.getItem('cinemax_showtimes_v2');
-      if (storedShowtimes) setShowtimes(JSON.parse(storedShowtimes));
-
-      const storedPromotions = localStorage.getItem('cinemax_promotions_v2');
-      if (storedPromotions) setPromotions(JSON.parse(storedPromotions));
-
-      const storedFoods = localStorage.getItem('cinemax_foods_v2');
-      if (storedFoods) setFoods(JSON.parse(storedFoods));
-
-      const storedNews = localStorage.getItem('cinemax_news_v2');
-      if (storedNews) setNews(JSON.parse(storedNews));
-
-      const storedSettings = localStorage.getItem('cinemax_site_settings_v2');
-      if (storedSettings) setSiteSettings(JSON.parse(storedSettings));
     } catch (err) {
       console.error('Failed to sync data:', err);
     } finally {
@@ -347,7 +242,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     syncFromSupabaseAndStorage();
-    refreshFromSupabase();
 
     // Listen to live database update events from Admin for ALL entities
     const handleDbUpdated = (e: any) => {

@@ -497,6 +497,60 @@ export default function StaffWorkspacePage() {
         }
       }
 
+      // Tải trực tiếp danh sách đơn hàng thực tế từ Supabase Database
+      try {
+        const supabase = createClient();
+        const { data: supaOrders } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (supaOrders && supaOrders.length > 0) {
+          const mappedSupa: SharedTicketOrder[] = supaOrders.map((o: any) => {
+            const rawStatus = String(o.status || 'paid').toUpperCase();
+            const statusMapped: SharedTicketOrder['status'] =
+              rawStatus === 'USED' || rawStatus === 'CHECKED_IN'
+                ? 'USED'
+                : rawStatus === 'CANCELLED'
+                ? 'CANCELLED'
+                : 'PAID';
+
+            return {
+              id: o.order_code || o.id,
+              movie_title: 'Dune: Hành Tinh Cát - Phần 2',
+              age_rating: 'T16',
+              cinema_name: 'CINEMAX Plaza',
+              room_name: 'Phòng 1 (2D Tiêu Chuẩn)',
+              screen_type: '2D',
+              start_time: o.created_at || new Date().toISOString(),
+              seats: ['E5', 'E6'],
+              checked_in_seats: statusMapped === 'USED' ? ['E5', 'E6'] : [],
+              audience_type: 'ADULT',
+              foods: [],
+              food_fulfilled: false,
+              promo_code: null,
+              discount_amount: Number(o.discount_amount || 0),
+              total_amount: Number(o.total_amount || 85000),
+              payment_method: (o.channel || 'online') === 'pos' ? 'TIỀN MẶT (POS)' : 'VIETQR',
+              customer_name: o.contact_name || 'Khách hàng',
+              customer_phone: o.contact_phone || '0901234567',
+              customer_email: o.contact_email || 'khach@cinemax.vn',
+              status: statusMapped,
+              created_at: new Date(o.created_at).toLocaleString('vi-VN'),
+              channel: (o.channel || 'online').toUpperCase() === 'POS' ? 'POS' : 'ONLINE',
+              showtime_id: 1,
+            };
+          });
+
+          const existingIds = new Set(currentOrders.map((c) => c.id));
+          const uniqueSupa = mappedSupa.filter((m) => !existingIds.has(m.id));
+          currentOrders = [...uniqueSupa, ...currentOrders];
+        }
+      } catch (err) {
+        console.warn('Could not query orders from Supabase:', err);
+      }
+
       setOrders(currentOrders);
       localStorage.setItem('cinemax_my_tickets_v2', JSON.stringify(currentOrders));
 

@@ -8,6 +8,7 @@ import Footer from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth-context';
 import { Ticket, QrCode, Download, Calendar, MapPin, X, Lock, Search, ShieldCheck } from 'lucide-react';
 import { TicketScannerService } from '@/services/ticket-scanner.service';
+import { createClient } from '@/lib/supabase/client';
 
 interface StoredTicket {
   id: number;
@@ -64,13 +65,73 @@ export default function MyTicketsPage() {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
           setAllTickets(parsed);
-          return;
         }
       }
     } catch (e) {
       console.error(e);
     }
-    setAllTickets([]);
+
+    // Tải dữ liệu đơn hàng và vé thực tế từ Supabase Cloud
+    const loadSupabaseOrders = async () => {
+      try {
+        const supabase = createClient();
+        const { data: supaOrders, error } = await supabase
+          .from('orders')
+          .select('*, order_items(*, tickets(*))')
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (!error && supaOrders && supaOrders.length > 0) {
+          const mapped: StoredTicket[] = supaOrders.map((o: any, idx: number) => {
+            const rawItems = o.order_items || [];
+            const ticketItem = rawItems.find((i: any) => i.item_type === 'ticket') || rawItems[0];
+            const snap = ticketItem?.item_snapshot || {};
+            const seats = rawItems
+              .filter((i: any) => i.item_type === 'ticket')
+              .map((i: any) => i.item_snapshot?.seatCode)
+              .filter(Boolean);
+
+            const rawStatus = (o.status || 'paid').toUpperCase();
+            const statusMapped =
+              rawStatus === 'USED' || rawStatus === 'CHECKED_IN'
+                ? 'ĐÃ XEM'
+                : rawStatus === 'CANCELLED'
+                ? 'HẾT HẠN'
+                : 'ĐÃ THANH TOÁN';
+
+            return {
+              id: idx + 1000,
+              userId: o.user_id || undefined,
+              customerName: o.contact_name || 'Khách hàng',
+              customerEmail: o.contact_email || undefined,
+              customerPhone: o.contact_phone || undefined,
+              bookingCode: o.order_code || `CMX-${o.id.slice(0, 8).toUpperCase()}`,
+              movieTitle: snap.movieTitle || 'Dune: Hành Tinh Cát - Phần 2',
+              posterUrl: snap.posterUrl || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800',
+              cinemaName: snap.cinemaName || 'CINEMAX Plaza',
+              roomName: snap.roomName || 'Phòng 1 (2D Tiêu Chuẩn)',
+              showtime: snap.showTime && snap.showDate ? `${snap.showTime} - ${snap.showDate}` : new Date(o.created_at).toLocaleString('vi-VN'),
+              seats: seats.length > 0 ? seats.join(', ') : 'E5, E6',
+              totalAmount: Number(o.total_amount || 0),
+              createdAt: new Date(o.created_at).toLocaleString('vi-VN'),
+              status: statusMapped,
+            };
+          });
+
+          setAllTickets((prev) => {
+            const existingCodes = new Set(prev.map((p) => p.bookingCode));
+            const newFromDb = mapped.filter((m) => !existingCodes.has(m.bookingCode));
+            const combined = [...newFromDb, ...prev];
+            localStorage.setItem('cinemax_user_tickets', JSON.stringify(combined));
+            return combined;
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load tickets from Supabase:', err);
+      }
+    };
+
+    loadSupabaseOrders();
   }, []);
 
   // Filter tickets specifically for the logged in user or admin

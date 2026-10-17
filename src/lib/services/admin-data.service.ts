@@ -58,7 +58,7 @@ export class AdminDataService {
       supabase.from('showtime_prices').select('*'),
       supabase.from('products').select('*').order('name'),
       supabase.from('product_modifiers').select('*'),
-      supabase.from('product_components').select('*, component:products(*)'),
+      supabase.from('product_components').select('*'),
       supabase.from('coupons').select('*').order('starts_at', { ascending: false }),
       supabase.from('cinema_settings').select('*'),
       supabase.from('shifts').select('*').order('opened_at', { ascending: false }),
@@ -70,10 +70,10 @@ export class AdminDataService {
       supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(50)
     ]);
 
-    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000));
     const settledResults: any = await Promise.race([supabasePromise, timeoutPromise]);
 
-    // Combine deleted IDs from sync store and local storage tombstone
+    // Local storage deleted IDs fallback only for offline edits
     let localDeletedIds: string[] = [];
     if (typeof window !== 'undefined') {
       try {
@@ -112,53 +112,31 @@ export class AdminDataService {
         logsRes
       ] = settledResults;
 
+      // ƯU TIÊN DỮ LIỆU TỪ SUPABASE DATABASE (Không bị chặn bởi deletedIds cũ)
       if (moviesRes?.status === 'fulfilled' && moviesRes.value?.data?.length) {
         const parsedMovies = moviesRes.value.data.map((m: any) => ({
           ...m,
           genres: m.movie_genres?.map((mg: any) => mg.genre).filter(Boolean) || m.genres || []
         }));
-        if (!syncData.movies || syncData.movies.length === 0) {
-          loadedMovies = parsedMovies.filter((m: any) => !deletedIds.has(m.id));
-        } else {
-          // Keep syncData as master, only include items not deleted
-          loadedMovies = syncData.movies.filter((m: any) => !deletedIds.has(m.id));
-        }
+        loadedMovies = parsedMovies.filter((m: any) => !m.is_deleted);
       }
       if (couponsRes?.status === 'fulfilled' && couponsRes.value?.data?.length) {
-        if (!syncData.coupons || syncData.coupons.length === 0) {
-          loadedCoupons = couponsRes.value.data.filter((c: any) => !deletedIds.has(c.id) && !deletedIds.has(c.code));
-        } else {
-          loadedCoupons = syncData.coupons.filter((c: any) => !deletedIds.has(c.id) && !deletedIds.has(c.code));
-        }
+        loadedCoupons = couponsRes.value.data;
       }
       if (productsRes?.status === 'fulfilled' && productsRes.value?.data?.length) {
-        if (!syncData.products || syncData.products.length === 0) {
-          loadedProducts = productsRes.value.data.filter((p: any) => !deletedIds.has(p.id));
-        } else {
-          loadedProducts = syncData.products.filter((p: any) => !deletedIds.has(p.id));
-        }
+        loadedProducts = productsRes.value.data;
       }
       if (showtimesRes?.status === 'fulfilled' && showtimesRes.value?.data?.length) {
-        if (!syncData.showtimes || syncData.showtimes.length === 0) {
-          loadedShowtimes = showtimesRes.value.data.filter((s: any) => !deletedIds.has(s.id));
-        } else {
-          loadedShowtimes = syncData.showtimes.filter((s: any) => !deletedIds.has(s.id));
-        }
+        loadedShowtimes = showtimesRes.value.data;
       }
       if (auditoriumsRes?.status === 'fulfilled' && auditoriumsRes.value?.data?.length) {
-        if (!syncData.auditoriums || syncData.auditoriums.length === 0) {
-          loadedAuditoriums = auditoriumsRes.value.data;
-        }
+        loadedAuditoriums = auditoriumsRes.value.data;
       }
       if (settingsRes?.status === 'fulfilled' && settingsRes.value?.data?.length) {
-        if (!syncData.settings || syncData.settings.length === 0) {
-          loadedSettings = settingsRes.value.data;
-        }
+        loadedSettings = settingsRes.value.data;
       }
       if (seatsRes?.status === 'fulfilled' && seatsRes.value?.data?.length) {
-        if (!syncData.seats || syncData.seats.length === 0) {
-          loadedSeats = seatsRes.value.data;
-        }
+        loadedSeats = seatsRes.value.data;
       }
 
       return {
