@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Search, X, Ticket, LogOut, Menu, ShieldCheck, User as UserIcon } from 'lucide-react';
-import { MOCK_MOVIES, MOCK_CINEMAS } from '@/lib/mock-data';
+import { MOCK_MOVIES } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
+import { useData } from '@/lib/data-context';
 
 interface NavItem {
   id: string;
@@ -39,6 +40,7 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
     openAuthModal,
     closeAuthModal,
   } = useAuth();
+  const { movies: liveMovies, cinemas: liveCinemas } = useData();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [internalActiveTab, setInternalActiveTab] = useState<string>('home');
@@ -148,10 +150,10 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
   // Filtered search results
   const searchResults = searchQuery.trim()
     ? {
-        movies: MOCK_MOVIES.filter((m) =>
+        movies: (liveMovies && liveMovies.length > 0 ? liveMovies : MOCK_MOVIES).filter((m) =>
           m.title.toLowerCase().includes(searchQuery.toLowerCase())
         ),
-        cinemas: MOCK_CINEMAS.filter((c) =>
+        cinemas: (liveCinemas || []).filter((c) =>
           c.name.toLowerCase().includes(searchQuery.toLowerCase())
         ),
       }

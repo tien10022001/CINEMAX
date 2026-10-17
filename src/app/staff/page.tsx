@@ -112,8 +112,8 @@ const DEFAULT_ROOMS: RoomDefinition[] = [
   {
     id: 'room-q1-1',
     cinemaId: 1,
-    cinemaName: 'Cinemax Quận 1',
-    cinemaAddress: 'Tầng 5, Vincom Đồng Khởi, Quận 1',
+    cinemaName: 'CINEMAX Xuân Thủy',
+    cinemaAddress: '144 Xuân Thủy, Cầu Giấy, Hà Nội',
     roomName: 'Phòng 1',
     screenType: 'IMAX Laser',
     totalSeats: 80,
@@ -123,8 +123,8 @@ const DEFAULT_ROOMS: RoomDefinition[] = [
   {
     id: 'room-q1-2',
     cinemaId: 1,
-    cinemaName: 'Cinemax Quận 1',
-    cinemaAddress: 'Tầng 5, Vincom Đồng Khởi, Quận 1',
+    cinemaName: 'CINEMAX Xuân Thủy',
+    cinemaAddress: '144 Xuân Thủy, Cầu Giấy, Hà Nội',
     roomName: 'Phòng 2',
     screenType: '2D Dolby',
     totalSeats: 80,
@@ -134,8 +134,8 @@ const DEFAULT_ROOMS: RoomDefinition[] = [
   {
     id: 'room-q1-3',
     cinemaId: 1,
-    cinemaName: 'Cinemax Quận 1',
-    cinemaAddress: 'Tầng 5, Vincom Đồng Khởi, Quận 1',
+    cinemaName: 'CINEMAX Xuân Thủy',
+    cinemaAddress: '144 Xuân Thủy, Cầu Giấy, Hà Nội',
     roomName: 'Phòng 3',
     screenType: 'Gold Class',
     totalSeats: 80,
@@ -143,23 +143,34 @@ const DEFAULT_ROOMS: RoomDefinition[] = [
     cols: 10,
   },
   {
-    id: 'room-td-1',
-    cinemaId: 2,
-    cinemaName: 'Cinemax Thủ Đức',
-    cinemaAddress: 'Tầng 6, Gigamall Phạm Văn Đồng',
-    roomName: 'Phòng 1',
-    screenType: '4DX',
+    id: 'room-q1-4',
+    cinemaId: 1,
+    cinemaName: 'CINEMAX Xuân Thủy',
+    cinemaAddress: '144 Xuân Thủy, Cầu Giấy, Hà Nội',
+    roomName: 'Phòng 4',
+    screenType: '2D Digital',
     totalSeats: 80,
     rows: SEAT_ROWS,
     cols: 10,
   },
   {
-    id: 'room-td-2',
-    cinemaId: 2,
-    cinemaName: 'Cinemax Thủ Đức',
-    cinemaAddress: 'Tầng 6, Gigamall Phạm Văn Đồng',
-    roomName: 'Phòng 2',
-    screenType: '2D Chuẩn',
+    id: 'room-q1-5',
+    cinemaId: 1,
+    cinemaName: 'CINEMAX Xuân Thủy',
+    cinemaAddress: '144 Xuân Thủy, Cầu Giấy, Hà Nội',
+    roomName: 'Phòng 5',
+    screenType: 'IMAX Laser',
+    totalSeats: 80,
+    rows: SEAT_ROWS,
+    cols: 10,
+  },
+  {
+    id: 'room-q1-6',
+    cinemaId: 1,
+    cinemaName: 'CINEMAX Xuân Thủy',
+    cinemaAddress: '144 Xuân Thủy, Cầu Giấy, Hà Nội',
+    roomName: 'Phòng 6',
+    screenType: '2D Tiêu Chuẩn',
     totalSeats: 80,
     rows: SEAT_ROWS,
     cols: 10,
@@ -756,7 +767,7 @@ export default function StaffWorkspacePage() {
               cinema_name: String(
                 firstTicketSnap.cinemaName ||
                   existingLocal?.cinema_name ||
-                  'Cinemax Hà Nội Centre'
+                  'CINEMAX Xuân Thủy'
               ),
               room_name: String(
                 firstTicketSnap.roomName || existingLocal?.room_name || 'Phòng 1'
@@ -3006,8 +3017,8 @@ export default function StaffWorkspacePage() {
                 {[1, ...(cinemas.length > 1 ? [2] : [])].map((cinemaId) => {
                   const targetCinema = cinemas.find((c) => c.id === cinemaId) || cinemas[0] || {
                     id: cinemaId,
-                    name: cinemaId === 1 ? 'CINEMAX Plaza (FPT Polytechnic)' : 'CINEMAX Landmark',
-                    address: cinemaId === 1 ? 'Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội' : 'Tầng 4 Landmark 81, TP. HCM',
+                    name: 'CINEMAX Xuân Thủy',
+                    address: '144 Xuân Thủy, Cầu Giấy, Hà Nội',
                   };
                   const cinemaRooms = dynamicRooms.filter((r) => r.cinemaId === cinemaId);
                   if (cinemaRooms.length === 0) return null;

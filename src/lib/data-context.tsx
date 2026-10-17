@@ -118,9 +118,65 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
+const STALE_MOCK_NAMES = [
+  'cinemax hà nội centre',
+  'cinemax cầu giấy',
+  'cinemax landmark 81',
+  'cinemax giải phóng',
+  'cinemax landmark',
+];
+
+export function sanitizeCinemas(raw: any[]): Cinema[] {
+  if (!Array.isArray(raw) || raw.length === 0) return MOCK_CINEMAS;
+  const filtered = raw.filter((c: any) => {
+    if (!c || !c.name || typeof c.name !== 'string') return false;
+    const nameLower = c.name.trim().toLowerCase();
+    return !STALE_MOCK_NAMES.includes(nameLower);
+  });
+  if (filtered.length === 0) return MOCK_CINEMAS;
+  return filtered.map((c: any, idx: number) => ({
+    id: c.id && typeof c.id === 'number' ? c.id : idx + 1,
+    name: c.name,
+    address: c.address || '',
+    city: c.city || 'Hà Nội',
+    district: c.district || c.city || 'Hà Nội',
+    phone: c.phone || c.hotline || '1900 1081',
+    is_active: true,
+  }));
+}
+
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [movies, setMovies] = useState<Movie[]>(MOCK_MOVIES);
-  const [cinemas, setCinemas] = useState<Cinema[]>(MOCK_CINEMAS);
+  const [movies, setMovies] = useState<Movie[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cinemax_movies_v2');
+        if (stored) {
+          const p = JSON.parse(stored);
+          if (Array.isArray(p) && p.length > 0) return p;
+        }
+      } catch {}
+    }
+    return MOCK_MOVIES;
+  });
+
+  const [cinemas, setCinemas] = useState<Cinema[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cinemax_cinemas_v2') || localStorage.getItem('cinemax_cinemas_list');
+        if (stored) {
+          const p = JSON.parse(stored);
+          const sanitized = sanitizeCinemas(p);
+          // If any stale mock cinemas existed, purge them from storage immediately
+          if (sanitized.length !== p.length || (sanitized[0] && sanitized[0].name !== p[0]?.name)) {
+            localStorage.setItem('cinemax_cinemas_v2', JSON.stringify(sanitized));
+          }
+          return sanitized;
+        }
+      } catch {}
+    }
+    return MOCK_CINEMAS;
+  });
+
   const [showtimes, setShowtimes] = useState<Showtime[]>(MOCK_SHOWTIMES);
   const [promotions, setPromotions] = useState<Promotion[]>(MOCK_PROMOTIONS);
   const [foods, setFoods] = useState<FoodItem[]>(MOCK_FOODS);
@@ -132,7 +188,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [soldSeatsByShowtime, setSoldSeatsByShowtime] = useState<Record<number, string[]>>({});
   const [seatUuidLookup, setSeatUuidLookup] = useState<Record<string, string>>({});
   const [tableCounts, setTableCounts] = useState<Record<string, number>>({});
-  const [auditoriums, setAuditoriums] = useState<any[]>([]);
+  const [auditoriums, setAuditoriums] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cinemax_auditoriums_v2');
+        if (stored) {
+          const p = JSON.parse(stored);
+          if (Array.isArray(p) && p.length > 0) return p;
+        }
+      } catch {}
+    }
+    return [];
+  });
 
   const refreshFromSupabase = useCallback(async () => {
     try {
@@ -185,16 +252,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (storedCinemas) {
           try {
             const parsed = JSON.parse(storedCinemas);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setCinemas(parsed.map((c: any, idx: number) => ({
-                id: c.id && typeof c.id === 'number' ? c.id : idx + 1,
-                name: c.name,
-                address: c.address || '',
-                city: c.city || 'Hà Nội',
-                district: c.district || c.city || 'Hà Nội',
-                phone: c.phone || c.hotline || '1900 1081',
-                is_active: true,
-              })));
+            const sanitized = sanitizeCinemas(parsed);
+            setCinemas(sanitized);
+            if (sanitized.length !== parsed.length || (sanitized[0] && sanitized[0].name !== parsed[0]?.name)) {
+              localStorage.setItem('cinemax_cinemas_v2', JSON.stringify(sanitized));
             }
           } catch {}
         }
@@ -330,17 +391,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (localC) {
           try {
             const parsed = JSON.parse(localC);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setCinemas(parsed.map((c: any, idx: number) => ({
-                id: c.id && typeof c.id === 'number' ? c.id : idx + 1,
-                name: c.name,
-                address: c.address || '',
-                city: c.city || 'Hà Nội',
-                district: c.district || c.city || 'Hà Nội',
-                phone: c.phone || c.hotline || '1900 1081',
-                is_active: true,
-              })));
-            }
+            const sanitized = sanitizeCinemas(parsed);
+            setCinemas(sanitized);
           } catch {}
         }
         const localSet = localStorage.getItem('cinemax_site_settings_v2');

@@ -115,7 +115,7 @@ export default function ShowtimeModal({
         {/* Tên Rạp Chiếu ở chính giữa */}
         <div className="text-center space-y-2">
           <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {activeCinema?.name || 'Cinemax Hà Nội Centre'}
+            {activeCinema?.name || cinemas[0]?.name || 'CINEMAX Xuân Thủy'}
           </h3>
           <div className="flex items-center justify-center gap-2 pt-0.5">
             <span className="text-xs text-[#9EA6B8] font-medium">Đổi rạp:</span>

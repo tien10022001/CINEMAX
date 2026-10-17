@@ -25,17 +25,10 @@ import { AdminDataService } from '@/lib/services/admin-data.service';
 const DEFAULT_CINEMAS = [
   {
     id: 'cin-01',
-    name: 'CINEMAX Giải Phóng',
+    name: 'CINEMAX Xuân Thủy',
     city: 'Hà Nội',
-    address: '123 Đường Giải Phóng, Quận Hai Bà Trưng, Hà Nội',
+    address: '144 Xuân Thủy, Cầu Giấy, Hà Nội',
     hotline: '1900 1081'
-  },
-  {
-    id: 'cin-02',
-    name: 'CINEMAX Landmark',
-    city: 'TP. Hồ Chí Minh',
-    address: 'Tầng 4 Landmark 81, Quận Bình Thạnh, TP. HCM',
-    hotline: '1900 1082'
   }
 ];
 

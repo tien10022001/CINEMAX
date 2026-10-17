@@ -48,9 +48,15 @@ export default function QuickBookingBar({ movies, cinemas }: QuickBookingBarProp
               onChange={(e) => setSelectedCinema(e.target.value)}
               className="w-full bg-[#0F1217] border border-[#303645] text-white rounded-xl px-4 py-3 text-xs sm:text-sm font-medium focus:outline-none focus:border-[#E63845] transition-colors cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2210%22%20height%3D%226%22%20viewBox%3D%220%200%2010%206%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M1%201L5%205L9%201%22%20stroke%3D%22%239EA6B8%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_6px] bg-no-repeat bg-[position:right_16px_center]"
             >
-              <option value="1">Cinemax Hà Nội Centre</option>
-              <option value="2">Cinemax Cầu Giấy</option>
-              <option value="3">Cinemax Landmark 81</option>
+              {cinemas && cinemas.length > 0 ? (
+                cinemas.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </option>
+                ))
+              ) : (
+                <option value="1">CINEMAX Xuân Thủy</option>
+              )}
             </select>
           </div>
 

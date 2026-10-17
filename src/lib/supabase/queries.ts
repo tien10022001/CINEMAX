@@ -110,29 +110,36 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
   const cinemaInfoRow = (settingsRes.data || []).find((r: { setting_key: string }) => r.setting_key === 'cinema_info');
   const cinemaInfo = cinemaInfoRow?.setting_value || {};
 
+  const STALE_NAMES = ['cinemax hà nội centre', 'cinemax cầu giấy', 'cinemax landmark 81', 'cinemax giải phóng', 'cinemax landmark'];
   let mergedCinemas: Cinema[] = [];
   if (cinemaListRow?.setting_value && Array.isArray(cinemaListRow.setting_value) && cinemaListRow.setting_value.length > 0) {
-    mergedCinemas = cinemaListRow.setting_value.map((c: any, idx: number) => ({
-      id: idx + 1,
-      name: c.name,
-      address: c.address || '',
-      district: c.city || 'Hà Nội',
-      city: c.city || 'Hà Nội',
-      phone: c.hotline || cinemaInfo.hotline || '1900 1081',
-      is_active: true,
-    }));
-  } else if (cinemaInfo?.name) {
-    mergedCinemas = [{
-      id: 1,
-      name: cinemaInfo.name,
-      address: cinemaInfo.address || '144 Xuân Thủy, Cầu Giấy, Hà Nội',
-      district: cinemaInfo.city || 'Hà Nội',
-      city: cinemaInfo.city || 'Hà Nội',
-      phone: cinemaInfo.hotline || '1900 1081',
-      is_active: true,
-    }];
-  } else {
-    mergedCinemas = MOCK_CINEMAS;
+    const validList = cinemaListRow.setting_value.filter((c: any) => c && c.name && !STALE_NAMES.includes(String(c.name).trim().toLowerCase()));
+    if (validList.length > 0) {
+      mergedCinemas = validList.map((c: any, idx: number) => ({
+        id: idx + 1,
+        name: c.name,
+        address: c.address || '',
+        district: c.city || 'Hà Nội',
+        city: c.city || 'Hà Nội',
+        phone: c.hotline || cinemaInfo.hotline || '1900 1081',
+        is_active: true,
+      }));
+    }
+  }
+  if (mergedCinemas.length === 0) {
+    if (cinemaInfo?.name && !STALE_NAMES.includes(String(cinemaInfo.name).trim().toLowerCase())) {
+      mergedCinemas = [{
+        id: 1,
+        name: cinemaInfo.name,
+        address: cinemaInfo.address || '144 Xuân Thủy, Cầu Giấy, Hà Nội',
+        district: cinemaInfo.city || 'Hà Nội',
+        city: cinemaInfo.city || 'Hà Nội',
+        phone: cinemaInfo.hotline || '1900 1081',
+        is_active: true,
+      }];
+    } else {
+      mergedCinemas = MOCK_CINEMAS;
+    }
   }
   const primaryCinema: Cinema = mergedCinemas[0] || {
     id: 1,

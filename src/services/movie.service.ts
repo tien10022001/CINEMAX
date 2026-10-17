@@ -334,7 +334,7 @@ export class MovieService {
           // Tránh trùng lặp với slot đã có
           if (slots.some((s) => s.id === st.id || s.time === timeStrDb)) continue;
 
-          // Suất chiếu trong DB thuộc rạp 1 (Cinemax Hà Nội Centre)
+          // Suất chiếu trong DB thuộc rạp 1 (CINEMAX Xuân Thủy)
           if (!effectiveCinemaId || effectiveCinemaId === 1) {
             // Lấy số ghế thực tế từ showtime_seats
             const seatRes: any = await supabase

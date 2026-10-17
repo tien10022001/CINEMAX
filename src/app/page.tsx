@@ -251,7 +251,7 @@ function HomeContent() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={`grid grid-cols-1 ${cinemas.length === 1 ? 'max-w-md' : cinemas.length === 2 ? 'md:grid-cols-2 max-w-4xl' : 'md:grid-cols-3'} gap-6`}>
               {cinemas.map((cinema) => (
                 <div
                   key={cinema.id}

@@ -203,23 +203,10 @@ export const MOCK_MOVIES: Movie[] = [
 export const MOCK_CINEMAS: Cinema[] = [
   {
     id: 1,
-    name: 'Cinemax Hà Nội Centre',
-    address: 'Tầng 5, 123 Phố Huế, Hai Bà Trưng, Hà Nội',
+    name: 'CINEMAX Xuân Thủy',
+    address: '144 Xuân Thủy, Cầu Giấy, Hà Nội',
     city: 'Hà Nội',
-    is_active: true,
-  },
-  {
-    id: 2,
-    name: 'Cinemax Cầu Giấy',
-    address: 'Tầng 4, 45 Trần Thái Tông, Cầu Giấy, Hà Nội',
-    city: 'Hà Nội',
-    is_active: true,
-  },
-  {
-    id: 3,
-    name: 'Cinemax Landmark 81',
-    address: 'Tầng B1, Vincom Landmark 81, Bình Thạnh, TP. Hồ Chí Minh',
-    city: 'TP. Hồ Chí Minh',
+    phone: '1900 1081',
     is_active: true,
   },
 ];
