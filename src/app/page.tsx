@@ -262,9 +262,6 @@ function HomeContent() {
                       <div className="w-12 h-12 rounded-2xl bg-[#E63845]/10 border border-[#E63845]/30 flex items-center justify-center text-[#E63845] group-hover:scale-110 transition-transform">
                         <MapPin className="w-6 h-6" />
                       </div>
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#0F1217] border border-[#303645] text-[#FABF2E]">
-                        IMAX Laser
-                      </span>
                     </div>
 
                     <div>
@@ -293,12 +290,19 @@ function HomeContent() {
                   </div>
 
                   <div className="pt-4 border-t border-[#303645]/60">
-                    <Link
-                      href={`/booking?movie=1&cinema=${cinema.id}`}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('movies');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('tab', 'movies');
+                        window.history.pushState({}, '', url.toString());
+                      }}
                       className="w-full bg-[#E63845] hover:bg-[#CC2B37] text-white py-3 rounded-full font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-[#E63845]/25 transition-all cursor-pointer"
                     >
                       Đặt vé tại rạp này <ArrowRight className="w-4 h-4" />
-                    </Link>
+                    </button>
                   </div>
                 </div>
               ))}
