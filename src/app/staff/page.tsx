@@ -177,113 +177,8 @@ const DEFAULT_ROOMS: RoomDefinition[] = [
   },
 ];
 
-const INITIAL_DEMO_ORDERS: SharedTicketOrder[] = [
-  {
-    id: '69b6447c80200b3d4a2df75f',
-    movie_title: 'Thế Lực Đen Tối (Dune 2)',
-    age_rating: 'T16',
-    cinema_name: 'Cinemax Quận 1',
-    room_name: 'Phòng 1',
-    screen_type: 'IMAX Laser',
-    start_time: '2026-10-14T19:30:00',
-    seats: ['F6', 'F7'],
-    checked_in_seats: [],
-    audience_type: 'ADULT',
-    foods: [
-      {
-        name: 'Combo Couple',
-        qty: 1,
-        price: 115000,
-        flavor: 'Vị Phô Mai',
-        drinkSize: 'Coca (L +10K)',
-        fulfilled: false,
-      },
-    ],
-    food_fulfilled: false,
-    promo_code: null,
-    discount_amount: 0,
-    total_amount: 325000,
-    payment_method: 'VNPAY',
-    customer_name: 'Lê Minh Tuấn',
-    customer_phone: '0901234567',
-    customer_email: 'tuan.le@gmail.com',
-    status: 'PAID',
-    created_at: '14/10/2026 18:15',
-    channel: 'ONLINE',
-    showtime_id: 1,
-  },
-  {
-    id: '69a83a91c1149b2e7f1bc820',
-    movie_title: 'Deadpool & Wolverine',
-    age_rating: 'T18',
-    cinema_name: 'Cinemax Quận 1',
-    room_name: 'Phòng 2',
-    screen_type: '2D Dolby',
-    start_time: '2026-10-14T20:15:00',
-    seats: ['E5', 'E6'],
-    checked_in_seats: [],
-    audience_type: 'STUDENT_U22',
-    foods: [
-      {
-        name: 'Combo Solo',
-        qty: 1,
-        price: 89000,
-        flavor: 'Vị Caramel',
-        drinkSize: 'Pepsi (L)',
-        fulfilled: false,
-      },
-    ],
-    food_fulfilled: false,
-    promo_code: null,
-    discount_amount: 0,
-    total_amount: 239000,
-    payment_method: 'MOMO',
-    customer_name: 'Nguyễn Hải Yến',
-    customer_phone: '0918765432',
-    customer_email: 'yen.nguyen@gmail.com',
-    status: 'PAID',
-    created_at: '14/10/2026 18:40',
-    channel: 'ONLINE',
-    showtime_id: 2,
-  },
-  {
-    id: '69c19f44d8230a1c9e4fa109',
-    movie_title: 'Thế Lực Đen Tối (Dune 2)',
-    age_rating: 'T13',
-    cinema_name: 'Cinemax Quận 1',
-    room_name: 'Phòng 1',
-    screen_type: 'IMAX Laser',
-    start_time: '2026-10-14T19:30:00',
-    seats: ['D4', 'D5'],
-    checked_in_seats: ['D4', 'D5'],
-    audience_type: 'ADULT',
-    foods: [
-      {
-        name: 'Bắp Ngọt',
-        qty: 1,
-        price: 49000,
-        flavor: 'Vị Ngọt',
-        drinkSize: 'Coca (M)',
-        fulfilled: true,
-      },
-    ],
-    food_fulfilled: true,
-    promo_code: null,
-    discount_amount: 0,
-    total_amount: 194000,
-    payment_method: 'CASH',
-    customer_name: 'Khách vãng lai (POS)',
-    customer_phone: 'Tại quầy POS',
-    customer_email: 'pos@cinemax.vn',
-    status: 'USED',
-    age_check_passed: true,
-    created_at: '14/10/2026 19:05',
-    checked_in_at: '19:06 - 14/10/2026',
-    checked_in_by: 'Nguyễn Văn An',
-    channel: 'POS',
-    showtime_id: 1,
-  },
-];
+// Nguồn dữ liệu đơn hàng lấy trực tiếp từ Supabase Database (không hardcode)
+const INITIAL_DEMO_ORDERS: SharedTicketOrder[] = [];
 
 function getCouplePartnerSeat(seatCode: string): string | null {
   if (seatCode.charAt(0) !== 'H') return null;
@@ -402,22 +297,21 @@ export default function StaffWorkspacePage() {
 
   const loadSynchronizedData = useCallback(async () => {
     try {
-      let currentOrders: SharedTicketOrder[] = [...INITIAL_DEMO_ORDERS];
+      const DEMO_IDS = new Set(['69b6447c80200b3d4a2df75f', '69a83a91c1149b2e7f1bc820', '69c19f44d8230a1c9e4fa109']);
+      let currentOrders: SharedTicketOrder[] = [];
       const rawTickets = localStorage.getItem('cinemax_my_tickets_v2');
       if (rawTickets) {
         const parsed: SharedTicketOrder[] = JSON.parse(rawTickets);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingIds = new Set(parsed.map((o) => o.id));
-          currentOrders = [
-            ...parsed.map((p) => ({
+          currentOrders = parsed
+            .filter((p) => !DEMO_IDS.has(p.id))
+            .map((p) => ({
               ...p,
               age_rating: p.age_rating || 'T16',
               checked_in_seats: p.checked_in_seats || (p.status === 'USED' ? p.seats : []),
               audience_type: p.audience_type || 'ADULT',
               food_fulfilled: Boolean(p.food_fulfilled),
-            })),
-            ...INITIAL_DEMO_ORDERS.filter((d) => !existingIds.has(d.id)),
-          ];
+            }));
         }
       }
 
@@ -515,9 +409,9 @@ export default function StaffWorkspacePage() {
         const supabase = createClient();
         const { data: supaOrders } = await supabase
           .from('orders')
-          .select('*')
+          .select('*, items:order_items(*)')
           .order('created_at', { ascending: false })
-          .limit(50);
+          .limit(200);
 
         if (supaOrders && supaOrders.length > 0) {
           const mappedSupa: SharedTicketOrder[] = supaOrders.map((o: any) => {
@@ -525,40 +419,62 @@ export default function StaffWorkspacePage() {
             const statusMapped: SharedTicketOrder['status'] =
               rawStatus === 'USED' || rawStatus === 'CHECKED_IN'
                 ? 'USED'
-                : rawStatus === 'CANCELLED'
+                : rawStatus === 'CANCELLED' || rawStatus === 'REFUNDED'
                 ? 'CANCELLED'
                 : 'PAID';
 
+            const ticketItems = (o.items || []).filter((i: any) => i.item_type === 'ticket');
+            const foodItems = (o.items || []).filter((i: any) => i.item_type === 'product');
+
+            const seats = ticketItems
+              .map((ti: any) => ti.item_snapshot?.seat_label || ti.item_snapshot?.seatCode)
+              .filter(Boolean);
+            const firstSnap = ticketItems[0]?.item_snapshot || {};
+            const movieTitle = firstSnap.movieTitle || 'Dune: Hành Tinh Cát 2';
+            const roomName = firstSnap.roomName || firstSnap.auditoriumName || 'Phòng 1 (2D Tiêu Chuẩn)';
+            const cinemaName = firstSnap.cinemaName || 'CINEMAX Plaza';
+            const isPos = String(o.channel || 'online').toLowerCase() === 'pos';
+
+            const parsedFoods: FoodOrderItem[] = foodItems.map((fi: any) => ({
+              name: fi.item_snapshot?.productName || 'Bắp nước',
+              qty: Number(fi.quantity) || 1,
+              price: Number(fi.unit_price) || 0,
+              flavor: 'Vị Phô Mai',
+              drinkSize: 'Coca (L +10K)',
+              fulfilled: true,
+            }));
+
             return {
               id: o.order_code || o.id,
-              movie_title: 'Dune: Hành Tinh Cát - Phần 2',
-              age_rating: 'T16',
-              cinema_name: 'CINEMAX Plaza',
-              room_name: 'Phòng 1 (2D Tiêu Chuẩn)',
-              screen_type: '2D',
-              start_time: o.created_at || new Date().toISOString(),
-              seats: ['E5', 'E6'],
-              checked_in_seats: statusMapped === 'USED' ? ['E5', 'E6'] : [],
-              audience_type: 'ADULT',
-              foods: [],
-              food_fulfilled: false,
+              movie_title: movieTitle,
+              age_rating: firstSnap.ageRating || 'T16',
+              cinema_name: cinemaName,
+              room_name: roomName,
+              screen_type: firstSnap.screenType || '2D',
+              start_time: firstSnap.showTime || o.created_at || new Date().toISOString(),
+              seats: seats.length > 0 ? seats : ['E5'],
+              checked_in_seats: statusMapped === 'USED' ? (seats.length > 0 ? seats : ['E5']) : [],
+              audience_type: firstSnap.audienceType || 'ADULT',
+              foods: parsedFoods,
+              food_fulfilled: Boolean(parsedFoods.length > 0),
               promo_code: null,
               discount_amount: Number(o.discount_amount || 0),
               total_amount: Number(o.total_amount || 85000),
-              payment_method: (o.channel || 'online') === 'pos' ? 'TIỀN MẶT (POS)' : 'VIETQR',
-              customer_name: o.contact_name || 'Khách hàng',
+              payment_method: isPos ? 'CASH' : 'VIETQR',
+              customer_name: o.contact_name || (isPos ? 'Khách tại quầy (POS)' : 'Khách hàng'),
               customer_phone: o.contact_phone || '0901234567',
               customer_email: o.contact_email || 'khach@cinemax.vn',
               status: statusMapped,
               created_at: new Date(o.created_at).toLocaleString('vi-VN'),
-              channel: (o.channel || 'online').toUpperCase() === 'POS' ? 'POS' : 'ONLINE',
+              channel: isPos ? 'POS' : 'ONLINE',
               showtime_id: 1,
             };
           });
 
-          const existingIds = new Set(currentOrders.map((c) => c.id));
-          const uniqueSupa = mappedSupa.filter((m) => !existingIds.has(m.id));
-          currentOrders = [...uniqueSupa, ...currentOrders];
+          // Supabase DB là nguồn cơ sở sự thật (Single Source of Truth)
+          const supaIds = new Set(mappedSupa.map((s) => s.id));
+          const localOnly = currentOrders.filter((c) => !supaIds.has(c.id) && !DEMO_IDS.has(c.id));
+          currentOrders = [...mappedSupa, ...localOnly];
         }
       } catch (err) {
         console.warn('Could not query orders from Supabase:', err);
@@ -1862,7 +1778,10 @@ export default function StaffWorkspacePage() {
     );
     const posOrders = validOrders.filter((o) => o.channel === 'POS');
     const posCashRevenue = posOrders
-      .filter((o) => o.payment_method === 'CASH')
+      .filter((o) => {
+        const pm = String(o.payment_method || '').toUpperCase();
+        return pm === 'CASH' || pm.includes('TIỀN MẶT') || pm === 'POS';
+      })
       .reduce((sum, o) => sum + o.total_amount, 0);
     const posTotalRevenue = posOrders.reduce((sum, o) => sum + o.total_amount, 0);
     const posTicketsSoldCount = posOrders.length;
@@ -1894,14 +1813,17 @@ export default function StaffWorkspacePage() {
       return;
     }
 
+    const shortShiftType = shiftLabel.includes('Tối') ? 'EVENING' : shiftLabel.includes('Chiều') ? 'AFTERNOON' : 'MORNING';
+
     await syncShiftToSupabase({
       posTerminal,
-      shiftType: shiftLabel,
+      shiftType: shortShiftType,
       openingCash,
       expectedCash: expectedDrawerCash,
       countedCash: parsedCountedCash,
       varianceReason: varianceReasonInput.trim() || 'Khớp tiền mặt tại két',
       status: staffRole === 'SUPERVISOR' ? 'closed' : 'submitted',
+      staffName,
     });
 
     setShiftApprovedStatus(staffRole === 'SUPERVISOR' ? 'APPROVED' : 'SUBMITTED');

@@ -18,6 +18,7 @@ interface StoreData {
   cinemas?: any[];
   news?: any[];
   orders?: any[];
+  shifts?: any[];
   deleted_ids?: string[];
   last_updated?: string;
 }
@@ -173,6 +174,22 @@ async function syncToSupabaseIfConfigured(entityOrAction: string, data: any) {
             ]
           : [])
       ]);
+    } else if ((entityOrAction === 'shifts' || entityOrAction === 'save_shift') && data) {
+      const shiftData = Array.isArray(data) ? data[0] : data;
+      if (shiftData) {
+        const { data: prof } = await supabase.from('profiles').select('id').limit(1);
+        const staffId = shiftData.staff_id || prof?.[0]?.id || '67de8101-c50f-426c-846a-f3866de62e1b';
+        await supabase.from('shifts').upsert([{
+          pos_terminal: shiftData.pos_terminal || 'POS-01',
+          staff_id: staffId,
+          shift_type: String(shiftData.shift_type || 'MORNING').slice(0, 20),
+          opening_cash: Number(shiftData.opening_cash || 2000000),
+          expected_cash: Number(shiftData.expected_cash || 2000000),
+          counted_cash: shiftData.counted_cash != null ? Number(shiftData.counted_cash) : null,
+          variance_reason: shiftData.variance_reason || null,
+          status: shiftData.status || 'open'
+        }]);
+      }
     }
   } catch (err) {
     console.warn('Supabase Cloud sync note:', err);
@@ -308,6 +325,32 @@ export async function POST(request: NextRequest) {
       }
       writeStoreFile(store);
       return NextResponse.json({ success: true, order: orderItem });
+    }
+
+    if (action === 'save_shift' || entity === 'shifts') {
+      store.shifts = store.shifts || [];
+      const shiftItem = {
+        id: data.id || ('shift-' + Date.now()),
+        pos_terminal: data.pos_terminal || data.posTerminal || 'POS-01',
+        shift_type: String(data.shift_type || data.shiftType || 'MORNING').slice(0, 20),
+        opened_at: data.opened_at || data.openedAt || new Date().toISOString(),
+        opening_cash: Number(data.opening_cash || data.openingCash || 2000000),
+        expected_cash: Number(data.expected_cash || data.expectedCash || 2000000),
+        counted_cash: data.counted_cash != null ? Number(data.counted_cash) : (data.countedCash != null ? Number(data.countedCash) : null),
+        variance_reason: data.variance_reason || data.varianceReason || null,
+        status: data.status || 'open',
+        closed_at: data.closed_at || (data.status !== 'open' ? new Date().toISOString() : null),
+        staff_name: data.staff_name || data.staffName || 'Thu ngân'
+      };
+      const idx = store.shifts.findIndex((s: any) => s.id === shiftItem.id || (s.pos_terminal === shiftItem.pos_terminal && s.status === 'open'));
+      if (idx >= 0) {
+        store.shifts[idx] = { ...store.shifts[idx], ...shiftItem };
+      } else {
+        store.shifts.unshift(shiftItem);
+      }
+      writeStoreFile(store);
+      syncToSupabaseIfConfigured('shifts', shiftItem).catch(() => {});
+      return NextResponse.json({ success: true, shift: shiftItem });
     }
 
     if (entity && data) {

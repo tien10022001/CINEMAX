@@ -905,45 +905,85 @@ export async function syncShiftToSupabase(params: {
   countedCash?: number | null;
   varianceReason?: string | null;
   status: 'open' | 'submitted' | 'closed';
+  staffName?: string;
+  staffId?: string;
 }) {
   const supabase = createClient();
-  const { data: existing } = await supabase
-    .from('shifts')
-    .select('id')
-    .eq('pos_terminal', params.posTerminal)
-    .order('opened_at', { ascending: false })
-    .limit(1);
+  const safeShiftType = (params.shiftType || 'MORNING').slice(0, 20);
 
-  if (existing && existing[0] && params.status !== 'open') {
-    await supabase
+  // Đồng bộ qua /api/sync để cập nhật toàn bộ hệ thống
+  if (typeof window !== 'undefined') {
+    try {
+      await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_shift',
+          data: {
+            pos_terminal: params.posTerminal,
+            shift_type: safeShiftType,
+            opening_cash: params.openingCash,
+            expected_cash: params.expectedCash,
+            counted_cash: params.countedCash ?? null,
+            variance_reason: params.varianceReason ?? null,
+            status: params.status,
+            staff_name: params.staffName || 'Thu ngân'
+          }
+        })
+      });
+    } catch (err) {
+      console.warn('Sync shift to /api/sync error:', err);
+    }
+  }
+
+  try {
+    let effectiveStaffId = params.staffId;
+    if (!effectiveStaffId) {
+      const { data: prof } = await supabase.from('profiles').select('id').limit(1);
+      effectiveStaffId = prof?.[0]?.id || '67de8101-c50f-426c-846a-f3866de62e1b';
+    }
+
+    const { data: existing } = await supabase
       .from('shifts')
-      .update({
+      .select('id')
+      .eq('pos_terminal', params.posTerminal)
+      .order('opened_at', { ascending: false })
+      .limit(1);
+
+    if (existing && existing[0] && params.status !== 'open') {
+      await supabase
+        .from('shifts')
+        .update({
+          expected_cash: params.expectedCash,
+          counted_cash: params.countedCash ?? null,
+          variance_reason: params.varianceReason ?? null,
+          status: params.status,
+          closed_at: new Date().toISOString(),
+          approved_at: params.status === 'closed' ? new Date().toISOString() : null,
+        })
+        .eq('id', existing[0].id);
+    } else {
+      await supabase.from('shifts').insert({
+        staff_id: effectiveStaffId,
+        pos_terminal: params.posTerminal,
+        shift_type: safeShiftType,
+        opening_cash: params.openingCash,
         expected_cash: params.expectedCash,
         counted_cash: params.countedCash ?? null,
         variance_reason: params.varianceReason ?? null,
         status: params.status,
-        closed_at: new Date().toISOString(),
-        approved_at: params.status === 'closed' ? new Date().toISOString() : null,
-      })
-      .eq('id', existing[0].id);
-  } else {
-    await supabase.from('shifts').insert({
-      pos_terminal: params.posTerminal,
-      shift_type: params.shiftType,
-      opening_cash: params.openingCash,
-      expected_cash: params.expectedCash,
-      counted_cash: params.countedCash ?? null,
-      variance_reason: params.varianceReason ?? null,
-      status: params.status,
-    });
-  }
+      });
+    }
 
-  await supabase.from('audit_logs').insert({
-    action: `SHIFT_${params.status.toUpperCase()}`,
-    entity_type: 'shifts',
-    entity_id: params.posTerminal,
-    after_data: params,
-  });
+    await supabase.from('audit_logs').insert({
+      action: `SHIFT_${params.status.toUpperCase()}`,
+      entity_type: 'shifts',
+      entity_id: params.posTerminal,
+      after_data: params,
+    });
+  } catch (err) {
+    console.warn('Supabase shift sync note:', err);
+  }
 }
 
 // Sync Refund to Supabase

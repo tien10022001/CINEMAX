@@ -254,19 +254,7 @@ export default function AdminPage() {
   const [components, setComponents] = useState<ProductComponent[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [settings, setSettings] = useState<CinemaSetting[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([
-    {
-      id: 'shift-01',
-      staff_id: 'staff-01',
-      staff_name: 'Admin',
-      pos_terminal: 'POS-01',
-      shift_type: 'MORNING',
-      opened_at: new Date().toISOString(),
-      opening_cash: 2000000,
-      expected_cash: 2000000,
-      status: 'open'
-    }
-  ]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [refunds, setRefunds] = useState<Refund[]>([]);
