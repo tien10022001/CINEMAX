@@ -42,7 +42,7 @@ interface StoredTicket {
 }
 
 export default function MyTicketsPage() {
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, openAuthModal, isLoading } = useAuth();
   const [allTickets, setAllTickets] = useState<StoredTicket[]>([]);
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'HISTORY'>('UPCOMING');
   const [selectedQrTicket, setSelectedQrTicket] = useState<StoredTicket | null>(null);
@@ -319,21 +319,35 @@ export default function MyTicketsPage() {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : !isLoading ? (
             <button
               onClick={() => openAuthModal('LOGIN')}
               className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-5 py-2 rounded-full text-xs font-bold transition-all cursor-pointer"
             >
               Đăng nhập để xem vé
             </button>
+          ) : (
+            <div className="w-36 h-8 rounded-full bg-[#1A1C26] animate-pulse" />
           )}
         </div>
+
+        {/* Loading state while checking active auth session */}
+        {isLoading && (
+          <div className="max-w-4xl mx-auto space-y-4 pt-4">
+            <div className="h-44 rounded-3xl bg-[#1A1C26]/60 border border-[#303645]/40 flex items-center justify-center">
+              <div className="flex items-center gap-3 text-[#9EA6B8] text-sm">
+                <div className="w-5 h-5 border-2 border-[#E63845] border-t-transparent rounded-full animate-spin" />
+                <span>Đang tải thông tin vé của bạn...</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ======================================================== */}
         {/* CASE 1: UNLOGGED GUEST (Khách chưa đăng nhập) */}
         {/* Bảo mật thông tin, không tự động rò rỉ vé của người khác */}
         {/* ======================================================== */}
-        {!currentUser && (
+        {!isLoading && !currentUser && (
           <div className="max-w-2xl mx-auto space-y-8 pt-4">
             {/* Banner yêu cầu đăng nhập */}
             <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl p-8 text-center space-y-4 shadow-xl">
