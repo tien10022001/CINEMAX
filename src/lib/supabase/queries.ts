@@ -477,6 +477,43 @@ export async function syncOrderToSupabase(params: {
         .filter((id): id is string => Boolean(id));
     }
 
+    // 0. Check if an order with this orderCode already exists (e.g. held previously)
+    const { data: existingOrder } = await supabase
+      .from('orders')
+      .select('id, status, order_code')
+      .eq('order_code', params.orderCode)
+      .maybeSingle();
+
+    if (existingOrder && existingOrder.id) {
+      const existingOrderId = String(existingOrder.id);
+      await supabase
+        .from('orders')
+        .update({
+          status: 'paid',
+          subtotal: params.subtotal,
+          discount_amount: params.discountAmount,
+          total_amount: params.totalAmount,
+          contact_name: params.contactName || 'Khách hàng CINEMAX',
+          contact_email: params.contactEmail || 'guest@cinemax.vn',
+          contact_phone: params.contactPhone || '0900000000',
+        })
+        .eq('id', existingOrderId);
+
+      try {
+        await supabase.rpc('confirm_order_payment', {
+          p_order_id: existingOrderId,
+          p_provider: params.paymentProvider,
+          p_provider_txn_id: `TXN-${params.orderCode}-${Date.now().toString().slice(-4)}`,
+          p_shift_id: null,
+          p_received_by: null,
+        });
+      } catch (payErr) {
+        console.warn('confirm_order_payment fallback for existing order:', payErr);
+      }
+
+      return { synced: true, orderUuid: existingOrderId, orderCode: params.orderCode };
+    }
+
     // 1. Primary path: Use SECURITY DEFINER atomic RPCs if showtimeUuid & seatIds match exactly
     let holdRes: any = null;
     let holdErr: any = null;

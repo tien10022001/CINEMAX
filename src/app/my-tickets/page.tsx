@@ -58,13 +58,44 @@ export default function MyTicketsPage() {
       .catch(() => setQrDataUrl(''));
   }, [selectedQrTicket]);
 
+  const deduplicateTickets = (tickets: StoredTicket[]): StoredTicket[] => {
+    const seenCodes = new Set<string>();
+    const seenIds = new Set<string | number>();
+    const seenSignatures = new Set<string>();
+    const unique: StoredTicket[] = [];
+
+    for (const t of tickets) {
+      if (!t) continue;
+      const code = (t.bookingCode || '').trim().toUpperCase();
+      const id = t.id;
+      const sig = `${(t.movieTitle || '').trim().toLowerCase()}_${(t.showtime || '').trim()}_${(t.seats || '').trim().toLowerCase()}_${(t.customerPhone || t.customerEmail || '').trim()}`;
+
+      if (code) {
+        if (seenCodes.has(code)) continue;
+        seenCodes.add(code);
+      }
+      if (id) {
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+      }
+      if (sig && t.seats) {
+        if (seenSignatures.has(sig)) continue;
+        seenSignatures.add(sig);
+      }
+      unique.push(t);
+    }
+    return unique;
+  };
+
   useEffect(() => {
     try {
       const stored = localStorage.getItem('cinemax_user_tickets');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          setAllTickets(parsed);
+          const cleaned = deduplicateTickets(parsed);
+          setAllTickets(cleaned);
+          localStorage.setItem('cinemax_user_tickets', JSON.stringify(cleaned));
         }
       }
     } catch (e) {
@@ -95,7 +126,7 @@ export default function MyTicketsPage() {
             const statusMapped =
               rawStatus === 'USED' || rawStatus === 'CHECKED_IN'
                 ? 'ĐÃ XEM'
-                : rawStatus === 'CANCELLED'
+                : rawStatus === 'CANCELLED' || rawStatus === 'EXPIRED' || rawStatus === 'REFUNDED'
                 ? 'HẾT HẠN'
                 : 'ĐÃ THANH TOÁN';
 
@@ -119,9 +150,7 @@ export default function MyTicketsPage() {
           });
 
           setAllTickets((prev) => {
-            const existingCodes = new Set(prev.map((p) => p.bookingCode));
-            const newFromDb = mapped.filter((m) => !existingCodes.has(m.bookingCode));
-            const combined = [...newFromDb, ...prev];
+            const combined = deduplicateTickets([...prev, ...mapped]);
             localStorage.setItem('cinemax_user_tickets', JSON.stringify(combined));
             return combined;
           });
@@ -368,9 +397,9 @@ export default function MyTicketsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {filteredTickets.map((ticket) => (
+                {filteredTickets.map((ticket, idx) => (
                   <div
-                    key={ticket.id}
+                    key={`${ticket.bookingCode || ticket.id}-${idx}`}
                     className="bg-[#1A1C26] border border-[#303645] rounded-3xl overflow-hidden flex flex-col sm:flex-row hover:border-[#E63845]/50 transition-all shadow-xl group"
                   >
                     {/* Poster */}

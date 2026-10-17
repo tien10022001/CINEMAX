@@ -941,8 +941,14 @@ function BookingContent() {
           status: 'ĐÃ THANH TOÁN',
         };
 
-        list.unshift(ticketRecord);
-        localStorage.setItem('cinemax_user_tickets', JSON.stringify(list));
+        const dedupedList = list.filter(
+          (t: any) =>
+            t.bookingCode !== generatedCode &&
+            t.id !== orderId &&
+            !(t.showtimeId === (selectedShowtime?.id || queryShowtimeId) && t.seats === seatsStr)
+        );
+        dedupedList.unshift(ticketRecord);
+        localStorage.setItem('cinemax_user_tickets', JSON.stringify(dedupedList));
         localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
 
         // Cập nhật số ghế trống khả dụng của suất chiếu trong cinemax_showtimes_v2
@@ -1114,8 +1120,14 @@ function BookingContent() {
         paidAt: paidTime,
       };
 
-      list.unshift(ticketRecord);
-      localStorage.setItem('cinemax_user_tickets', JSON.stringify(list));
+      const dedupedList = list.filter(
+        (t: any) =>
+          t.bookingCode !== pendingVietQROrder.orderCode &&
+          t.id !== pendingVietQROrder.orderId &&
+          !(t.showtimeId === (selectedShowtime?.id || queryShowtimeId) && t.seats === pendingVietQROrder.seatsStr)
+      );
+      dedupedList.unshift(ticketRecord);
+      localStorage.setItem('cinemax_user_tickets', JSON.stringify(dedupedList));
       localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
 
       // Cập nhật số ghế trống khả dụng của suất chiếu trong cinemax_showtimes_v2
