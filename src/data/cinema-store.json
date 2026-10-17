@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-10-17T09:40:23.656Z",
+  "last_updated": "2026-10-17T12:29:29.913Z",
   "movies": [
     {
       "id": "a7b8c9d0-e1f2-4a3b-4c5d-6e7f8a9b0c1d",
@@ -21732,11 +21732,180 @@
   ],
   "orders": [
     {
-      "id": "54211f3f-c134-4a73-9ffb-cb7f9bb3ea68",
+      "id": "CNM261017-77DXD",
+      "order_code": "CNM261017-77DXD",
+      "channel": "online",
+      "status": "paid",
+      "contact_name": "nguyen van test 1",
+      "contact_phone": "0982221111",
+      "contact_email": "212221@gmail.com",
+      "total_amount": 359000,
+      "subtotal": 359000,
+      "created_at": "19:10 • 17/10/2026",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 179500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 5 (IMAX Laser)",
+            "showTime": "20:08 • 2026-10-17",
+            "seatCode": "D7"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 179500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 5 (IMAX Laser)",
+            "showTime": "20:08 • 2026-10-17",
+            "seatCode": "D6"
+          }
+        }
+      ]
+    },
+    {
+      "id": "CNM261017-NVQNB",
+      "order_code": "CNM261017-NVQNB",
+      "channel": "online",
+      "status": "paid",
+      "contact_name": "hoan",
+      "contact_phone": "0325761796",
+      "contact_email": "truonghoan260431@gmail.com",
+      "total_amount": 498000,
+      "subtotal": 498000,
+      "created_at": "16:30:28 17/10/2026",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 249000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "16:30:28 17/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 249000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "16:30:28 17/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
+    },
+    {
+      "id": "CMX-20260930-8PHN",
+      "order_code": "CMX-20260930-8PHN",
+      "channel": "online",
+      "status": "paid",
+      "contact_name": "Khách Đặt Online",
+      "contact_phone": "0900000000",
+      "contact_email": "khachhang@cinemax.vn",
+      "total_amount": 180000,
+      "subtotal": 180000,
+      "created_at": "16:23 • 29/9/2026",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 90000,
+          "item_snapshot": {
+            "movieTitle": "Mai",
+            "cinemaName": "Cinemax Hà Nội Centre",
+            "roomName": "Phòng 3 - 2D",
+            "showTime": "10:00 • 29/09/2026",
+            "seatCode": "B9"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 90000,
+          "item_snapshot": {
+            "movieTitle": "Mai",
+            "cinemaName": "Cinemax Hà Nội Centre",
+            "roomName": "Phòng 3 - 2D",
+            "showTime": "10:00 • 29/09/2026",
+            "seatCode": "B10"
+          }
+        }
+      ]
+    },
+    {
+      "id": "CNM261017-G09HA",
+      "order_code": "CNM261017-G09HA",
+      "channel": "online",
+      "status": "paid",
+      "contact_name": "Quản trị viên Cinemax",
+      "contact_phone": "0988888888",
+      "contact_email": "admin@cinemax.vn",
+      "total_amount": 120000,
+      "subtotal": 120000,
+      "created_at": "2026-10-17T12:29:29.846Z",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 120000,
+          "item_snapshot": {
+            "movieTitle": "Deadpool & Wolverine",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 6 (2D Digital)",
+            "showTime": "21:42 • 2026-10-17",
+            "seatCode": "C2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "CNM261017-M2R4M",
+      "order_code": "CNM261017-M2R4M",
+      "channel": "online",
+      "status": "used",
+      "contact_name": "Quản trị viên Cinemax",
+      "contact_phone": "0988888888",
+      "contact_email": "admin@cinemax.vn",
+      "total_amount": 254000,
+      "subtotal": 254000,
+      "created_at": "10:08:01 17/10/2026",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 127000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:08:01 17/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 127000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:08:01 17/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
+    },
+    {
+      "id": "696ad2d1e79fea3eaabc",
       "order_code": "696ad2d1e79fea3eaabc",
       "user_id": null,
       "guest_access_hash": null,
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -21749,11 +21918,57 @@
       "total_amount": 300000,
       "coupon_id": null,
       "expires_at": null,
-      "created_at": "2026-10-17T01:39:51.749538+00:00",
-      "updated_at": "2026-10-17T01:39:51.749538+00:00"
+      "created_at": "08:39:51 17/10/2026",
+      "updated_at": "2026-10-17T01:39:51.749538+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 75000,
+          "item_snapshot": {
+            "movieTitle": "Chúa Tể Godzilla x Kong: Đế Chế Mới",
+            "cinemaName": "Cinemax Quận 1",
+            "roomName": "Phòng 3 - 2D",
+            "showTime": "10:00 - 17/10/2026",
+            "seatCode": "D6"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 75000,
+          "item_snapshot": {
+            "movieTitle": "Chúa Tể Godzilla x Kong: Đế Chế Mới",
+            "cinemaName": "Cinemax Quận 1",
+            "roomName": "Phòng 3 - 2D",
+            "showTime": "10:00 - 17/10/2026",
+            "seatCode": "D8"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 75000,
+          "item_snapshot": {
+            "movieTitle": "Chúa Tể Godzilla x Kong: Đế Chế Mới",
+            "cinemaName": "Cinemax Quận 1",
+            "roomName": "Phòng 3 - 2D",
+            "showTime": "10:00 - 17/10/2026",
+            "seatCode": "E8"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 75000,
+          "item_snapshot": {
+            "movieTitle": "Chúa Tể Godzilla x Kong: Đế Chế Mới",
+            "cinemaName": "Cinemax Quận 1",
+            "roomName": "Phòng 3 - 2D",
+            "showTime": "10:00 - 17/10/2026",
+            "seatCode": "D7"
+          }
+        }
+      ]
     },
     {
-      "id": "1e45cf37-70d4-4f00-bf22-81aa1397d7bf",
+      "id": "CNM261017-PNSNE",
       "order_code": "CNM261017-PNSNE",
       "user_id": null,
       "guest_access_hash": null,
@@ -21770,8 +21985,21 @@
       "total_amount": 134000,
       "coupon_id": null,
       "expires_at": null,
-      "created_at": "2026-10-17T01:38:54.965891+00:00",
-      "updated_at": "2026-10-17T01:38:54.965891+00:00"
+      "created_at": "08:38:54 17/10/2026",
+      "updated_at": "2026-10-17T01:38:54.965891+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 134000,
+          "item_snapshot": {
+            "movieTitle": "Inside Out 2: Cảm Xúc Mới",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "23:33 - 17/10/2026",
+            "seatCode": "D10"
+          }
+        }
+      ]
     },
     {
       "id": "39c7d989-3fec-427e-baa2-4cd6326547f7",
@@ -21795,11 +22023,11 @@
       "updated_at": "2026-10-17T01:38:54.794839+00:00"
     },
     {
-      "id": "51cda921-1319-4e5c-bfbe-b4c98e40170e",
+      "id": "696ad2cf590b0b7de32f",
       "order_code": "696ad2cf590b0b7de32f",
       "user_id": null,
       "guest_access_hash": null,
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -21812,17 +22040,30 @@
       "total_amount": 95000,
       "coupon_id": null,
       "expires_at": null,
-      "created_at": "2026-10-17T01:28:57.641328+00:00",
-      "updated_at": "2026-10-17T01:28:57.641328+00:00"
+      "created_at": "08:28:57 17/10/2026",
+      "updated_at": "2026-10-17T01:28:57.641328+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 95000,
+          "item_snapshot": {
+            "movieTitle": "Chúa Tể Godzilla x Kong: Đế Chế Mới",
+            "cinemaName": "Cinemax Quận 1",
+            "roomName": "Phòng 3 - 2D",
+            "showTime": "10:00 - 17/10/2026",
+            "seatCode": "F5"
+          }
+        }
+      ]
     },
     {
-      "id": "1a00a418-7309-481c-92bc-0af764eb2101",
+      "id": "CNM261016-54ADD",
       "order_code": "CNM261016-54ADD",
       "user_id": null,
       "guest_access_hash": "4fb20f10672d0725d9c29b7a87d447599d6a3fcb93a254930ffc44180d00b7ef",
       "channel": "online",
       "created_by": null,
-      "status": "expired",
+      "status": "used",
       "contact_name": "1",
       "contact_email": "1",
       "contact_phone": "1",
@@ -21833,17 +22074,41 @@
       "total_amount": 105000,
       "coupon_id": null,
       "expires_at": "2026-10-16T15:05:17.366059+00:00",
-      "created_at": "2026-10-16T14:55:17.366059+00:00",
-      "updated_at": "2026-10-16T15:17:55.008059+00:00"
+      "created_at": "21:55:17 16/10/2026",
+      "updated_at": "2026-10-16T15:17:55.008059+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 52500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:55:17 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 52500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:55:17 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "b73a5109-650c-4778-80c7-9d777a45e740",
+      "id": "CNM261016-FF7C0",
       "order_code": "CNM261016-FF7C0",
       "user_id": null,
       "guest_access_hash": "93d89879b117dec780658dc48e83c06e71f12e385d32c907105fbc92c07fcb45",
       "channel": "online",
       "created_by": null,
-      "status": "expired",
+      "status": "paid",
       "contact_name": "Nguyễn Văn A",
       "contact_email": "user@cinemax.vn",
       "contact_phone": "0912345678",
@@ -21854,17 +22119,41 @@
       "total_amount": 170000,
       "coupon_id": null,
       "expires_at": "2026-10-16T14:57:54.990625+00:00",
-      "created_at": "2026-10-16T14:47:54.990625+00:00",
-      "updated_at": "2026-10-16T15:03:19.269215+00:00"
+      "created_at": "21:47:54 16/10/2026",
+      "updated_at": "2026-10-16T15:03:19.269215+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 85000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:47:54 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 85000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:47:54 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "01977b51-457f-4bb3-a325-96c5298a44fa",
+      "id": "CNM261016-BCED0",
       "order_code": "CNM261016-BCED0",
       "user_id": null,
       "guest_access_hash": "8286135ff451d67aaa014f488c4ce7a052d517c375a2401ba12b1541a55a2bf2",
       "channel": "online",
       "created_by": null,
-      "status": "expired",
+      "status": "paid",
       "contact_name": "Nguyễn Văn A",
       "contact_email": "user@cinemax.vn",
       "contact_phone": "0912345678",
@@ -21875,17 +22164,41 @@
       "total_amount": 210000,
       "coupon_id": null,
       "expires_at": "2026-10-16T14:10:25.491221+00:00",
-      "created_at": "2026-10-16T14:00:25.491221+00:00",
-      "updated_at": "2026-10-16T14:11:38.893452+00:00"
+      "created_at": "21:00:25 16/10/2026",
+      "updated_at": "2026-10-16T14:11:38.893452+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 105000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:00:25 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 105000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:00:25 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "79b25912-8637-4f68-a040-ea94cef7a27e",
+      "id": "CNM261016-86082",
       "order_code": "CNM261016-86082",
       "user_id": null,
       "guest_access_hash": "a3a6b4b9828a68e2e42ea7d8db5068b6270ee272d5b143faa043ffbd20118e73",
       "channel": "online",
       "created_by": null,
-      "status": "expired",
+      "status": "paid",
       "contact_name": "Nguyễn Văn A",
       "contact_email": "user@cinemax.vn",
       "contact_phone": "0912345678",
@@ -21896,15 +22209,39 @@
       "total_amount": 210000,
       "coupon_id": null,
       "expires_at": "2026-10-16T14:09:28.234841+00:00",
-      "created_at": "2026-10-16T13:59:28.234841+00:00",
-      "updated_at": "2026-10-16T14:11:38.893452+00:00"
+      "created_at": "20:59:28 16/10/2026",
+      "updated_at": "2026-10-16T14:11:38.893452+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 105000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "20:59:28 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 105000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "20:59:28 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "203723ca-b750-4321-a9ba-677854677436",
+      "id": "CNM261016-D2ED9",
       "order_code": "CNM261016-D2ED9",
       "user_id": null,
       "guest_access_hash": "edce229ba4050bef6e039ac51419ef2488c8e319931ea434553a0391f432865e",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -21917,17 +22254,41 @@
       "total_amount": 420000,
       "coupon_id": null,
       "expires_at": "2026-10-16T09:40:39.304126+00:00",
-      "created_at": "2026-10-16T09:30:39.304126+00:00",
-      "updated_at": "2026-10-16T09:30:39.458214+00:00"
+      "created_at": "16:30:39 16/10/2026",
+      "updated_at": "2026-10-16T09:30:39.458214+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 210000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "16:30:39 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 210000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "16:30:39 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "47ae03d7-833d-43d2-adca-fb73d15473f5",
+      "id": "CNM261016-7FE21",
       "order_code": "CNM261016-7FE21",
       "user_id": null,
       "guest_access_hash": "99f20771f267144185aa1f55c2aaef723dc77c6a723cc09fd695d12411f00add",
       "channel": "online",
       "created_by": null,
-      "status": "expired",
+      "status": "paid",
       "contact_name": "d",
       "contact_email": "thetrac44@gmail.com",
       "contact_phone": "123",
@@ -21938,17 +22299,41 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-16T09:15:43.539405+00:00",
-      "created_at": "2026-10-16T09:05:43.539405+00:00",
-      "updated_at": "2026-10-16T09:15:43.97489+00:00"
+      "created_at": "16:05:43 16/10/2026",
+      "updated_at": "2026-10-16T09:15:43.97489+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "16:05:43 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "16:05:43 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "fadb31c0-8d24-4013-b8c3-2549bdb27f51",
+      "id": "CNM261016-2E5B7",
       "order_code": "CNM261016-2E5B7",
       "user_id": null,
       "guest_access_hash": "9fe0cf2e01a0d19b90b0c2f38aea2ac6257f8287fae0531c97f35bba4573132e",
       "channel": "online",
       "created_by": null,
-      "status": "expired",
+      "status": "paid",
       "contact_name": "d",
       "contact_email": "thetrac44@gmail.com",
       "contact_phone": "123",
@@ -21959,8 +22344,32 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-16T09:15:42.54192+00:00",
-      "created_at": "2026-10-16T09:05:42.54192+00:00",
-      "updated_at": "2026-10-16T09:15:42.922152+00:00"
+      "created_at": "16:05:42 16/10/2026",
+      "updated_at": "2026-10-16T09:15:42.922152+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "16:05:42 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "16:05:42 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
       "id": "f22d05b7-6fe9-4775-b491-9cb7315a9438",
@@ -21984,13 +22393,13 @@
       "updated_at": "2026-10-16T09:15:42.338839+00:00"
     },
     {
-      "id": "86902737-981f-44b3-ba69-88d10efa38cb",
+      "id": "CNM261016-0DDCE",
       "order_code": "CNM261016-0DDCE",
       "user_id": null,
       "guest_access_hash": "84180dc7b824ff6cffc12178687e765815cdd36594845d131a2f2c02166d7fae",
       "channel": "online",
       "created_by": null,
-      "status": "expired",
+      "status": "paid",
       "contact_name": "d",
       "contact_email": "thetrac44@gmail.com",
       "contact_phone": "123",
@@ -22001,15 +22410,39 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-16T09:15:41.679827+00:00",
-      "created_at": "2026-10-16T09:05:41.679827+00:00",
-      "updated_at": "2026-10-16T09:15:42.338839+00:00"
+      "created_at": "16:05:41 16/10/2026",
+      "updated_at": "2026-10-16T09:15:42.338839+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "16:05:41 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "16:05:41 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "f847d251-881c-4518-b59a-913da243db60",
+      "id": "CNM261016-3367D",
       "order_code": "CNM261016-3367D",
       "user_id": null,
       "guest_access_hash": "50c2a29358c4b6f05f97d398e626c94c4fdc6d9a34ed08f1a1fdfed914c64e4e",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22022,15 +22455,39 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-16T03:35:02.645728+00:00",
-      "created_at": "2026-10-16T03:25:02.645728+00:00",
-      "updated_at": "2026-10-16T03:25:03.001268+00:00"
+      "created_at": "10:25:02 16/10/2026",
+      "updated_at": "2026-10-16T03:25:03.001268+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:25:02 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:25:02 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "fe9c8b6b-181d-400d-ba2a-b565be98650a",
+      "id": "CNM261016-02020",
       "order_code": "CNM261016-02020",
       "user_id": null,
       "guest_access_hash": "5d3616fd68309ec62a899a95c3fcf5e3a07091bc368f19b0dd5e080cd3864334",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22043,15 +22500,39 @@
       "total_amount": 105000,
       "coupon_id": null,
       "expires_at": "2026-10-16T03:26:43.607878+00:00",
-      "created_at": "2026-10-16T03:16:43.607878+00:00",
-      "updated_at": "2026-10-16T03:16:43.800666+00:00"
+      "created_at": "10:16:43 16/10/2026",
+      "updated_at": "2026-10-16T03:16:43.800666+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 52500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:16:43 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 52500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:16:43 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "4f812088-9220-4558-a49e-c4e7684166b6",
+      "id": "CNM261016-3D08D",
       "order_code": "CNM261016-3D08D",
       "user_id": null,
       "guest_access_hash": "fa90a22637d6f9808caf165fac0baae6b23a36eee7c401a79452b9bae647abed",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22064,15 +22545,39 @@
       "total_amount": 105000,
       "coupon_id": null,
       "expires_at": "2026-10-16T03:22:28.284325+00:00",
-      "created_at": "2026-10-16T03:12:28.284325+00:00",
-      "updated_at": "2026-10-16T03:12:28.461981+00:00"
+      "created_at": "10:12:28 16/10/2026",
+      "updated_at": "2026-10-16T03:12:28.461981+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 52500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:12:28 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 52500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:12:28 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "04f4dcba-13e3-4e02-9659-830e729dc48a",
+      "id": "CNM261016-8F3C2",
       "order_code": "CNM261016-8F3C2",
       "user_id": null,
       "guest_access_hash": "1434ca03df174a09f6fbf8137a3199dd92f1b37551bffc9ac3a3ac8684cdf8c3",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22085,15 +22590,39 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-16T03:19:25.427653+00:00",
-      "created_at": "2026-10-16T03:09:25.427653+00:00",
-      "updated_at": "2026-10-16T03:09:25.556307+00:00"
+      "created_at": "10:09:25 16/10/2026",
+      "updated_at": "2026-10-16T03:09:25.556307+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:09:25 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:09:25 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "85727378-2525-425b-bc4d-d5cadec129c1",
+      "id": "CNM261016-39DF6",
       "order_code": "CNM261016-39DF6",
       "user_id": null,
       "guest_access_hash": "d655bd449c8ef4752f3f0619c1675cf1ffd52c7a3bd4809fd778f4644985544c",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Test POS",
@@ -22106,15 +22635,39 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-16T03:16:49.628063+00:00",
-      "created_at": "2026-10-16T03:06:49.628063+00:00",
-      "updated_at": "2026-10-16T03:06:57.39818+00:00"
+      "created_at": "10:06:49 16/10/2026",
+      "updated_at": "2026-10-16T03:06:57.39818+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:06:49 16/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "10:06:49 16/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "4777f76e-b598-4c27-916e-98f335f08da7",
+      "id": "CNM261015-954DB",
       "order_code": "CNM261015-954DB",
       "user_id": null,
       "guest_access_hash": "f89056097e1637af36eac00efac3a537cc744345ecaf2b58ca53736b61072f4f",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22127,15 +22680,39 @@
       "total_amount": 210000,
       "coupon_id": null,
       "expires_at": "2026-10-15T15:14:17.646362+00:00",
-      "created_at": "2026-10-15T15:04:17.646362+00:00",
-      "updated_at": "2026-10-15T15:04:17.766774+00:00"
+      "created_at": "22:04:17 15/10/2026",
+      "updated_at": "2026-10-15T15:04:17.766774+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 105000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "22:04:17 15/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 105000,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "22:04:17 15/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "b7ad4b1b-1a1b-4456-ad4f-fe20b3fc3cb3",
+      "id": "CNM261015-DA2FE",
       "order_code": "CNM261015-DA2FE",
       "user_id": null,
       "guest_access_hash": "f4f325e1db65b1359235157ea621c7e367020fcacf8ae31ba580f32df5df3ceb",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22148,15 +22725,39 @@
       "total_amount": 105000,
       "coupon_id": null,
       "expires_at": "2026-10-15T15:13:57.854796+00:00",
-      "created_at": "2026-10-15T15:03:57.854796+00:00",
-      "updated_at": "2026-10-15T15:03:58.318738+00:00"
+      "created_at": "22:03:57 15/10/2026",
+      "updated_at": "2026-10-15T15:03:58.318738+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 52500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "22:03:57 15/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 52500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "22:03:57 15/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "baca6438-da92-4709-a1c8-28a32dec4d6c",
+      "id": "CNM261015-F2477",
       "order_code": "CNM261015-F2477",
       "user_id": null,
       "guest_access_hash": "53cc7fa681da9f153dea4f49730c865f56fcee6359e3637150bf02743ca8286d",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22169,15 +22770,39 @@
       "total_amount": 105000,
       "coupon_id": null,
       "expires_at": "2026-10-15T15:12:53.767439+00:00",
-      "created_at": "2026-10-15T15:02:53.767439+00:00",
-      "updated_at": "2026-10-15T15:02:53.920745+00:00"
+      "created_at": "22:02:53 15/10/2026",
+      "updated_at": "2026-10-15T15:02:53.920745+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 52500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "22:02:53 15/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 52500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "22:02:53 15/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "27375894-56cd-4f16-90a9-39d187e7d900",
+      "id": "CNM261015-B58B2",
       "order_code": "CNM261015-B58B2",
       "user_id": null,
       "guest_access_hash": "d8eb9ec35b3672d028feee2ac727ef6d1c1deeeff30cd9f4650bb737aa1cc401",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22190,15 +22815,39 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-15T15:05:19.083454+00:00",
-      "created_at": "2026-10-15T14:55:19.083454+00:00",
-      "updated_at": "2026-10-15T14:55:19.278539+00:00"
+      "created_at": "21:55:19 15/10/2026",
+      "updated_at": "2026-10-15T14:55:19.278539+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:55:19 15/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:55:19 15/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "f5842729-14d2-4add-b967-0451a5965bef",
+      "id": "CNM261015-EA7DF",
       "order_code": "CNM261015-EA7DF",
       "user_id": null,
       "guest_access_hash": "65ecfdd1bac7762a2e9a31604ecc1acbba14ef54c00048cbcfc994dbe19e09ee",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22211,15 +22860,39 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-15T14:55:28.485256+00:00",
-      "created_at": "2026-10-15T14:45:28.485256+00:00",
-      "updated_at": "2026-10-15T14:45:28.803365+00:00"
+      "created_at": "21:45:28 15/10/2026",
+      "updated_at": "2026-10-15T14:45:28.803365+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:45:28 15/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:45:28 15/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "8c5e74f0-a1b3-4c9a-b17d-ab13f25f8856",
+      "id": "CNM261015-00F66",
       "order_code": "CNM261015-00F66",
       "user_id": null,
       "guest_access_hash": "60a7bf585eb9b6f36e7642e4ece9197e3d3431d2b0d8552084221bb33218a6e0",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22232,15 +22905,39 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-15T14:48:44.77054+00:00",
-      "created_at": "2026-10-15T14:38:44.77054+00:00",
-      "updated_at": "2026-10-15T14:38:45.304346+00:00"
+      "created_at": "21:38:44 15/10/2026",
+      "updated_at": "2026-10-15T14:38:45.304346+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:38:44 15/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:38:44 15/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "8a77947e-b7a9-4816-acd6-858974dfb618",
+      "id": "CNM261015-99D5B",
       "order_code": "CNM261015-99D5B",
       "user_id": null,
       "guest_access_hash": "5f2d825591635f9c79bb2b149465a856d67b3f5782c57f6cb932e7556f017184",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22253,15 +22950,39 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-15T14:42:27.831834+00:00",
-      "created_at": "2026-10-15T14:32:27.831834+00:00",
-      "updated_at": "2026-10-15T14:32:28.072384+00:00"
+      "created_at": "21:32:27 15/10/2026",
+      "updated_at": "2026-10-15T14:32:28.072384+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:32:27 15/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "21:32:27 15/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "04f22ed8-5bb1-4ee0-a4a5-55f625c4b3a7",
+      "id": "CNM261015-1582C",
       "order_code": "CNM261015-1582C",
       "user_id": null,
       "guest_access_hash": "547ded4ce24af7107eeecab716e67d6bb2dc815f823037b035fa9578fa4f45b9",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khách vãng lai (POS)",
@@ -22274,15 +22995,39 @@
       "total_amount": 275000,
       "coupon_id": null,
       "expires_at": "2026-10-15T00:51:53.404466+00:00",
-      "created_at": "2026-10-15T00:41:53.404466+00:00",
-      "updated_at": "2026-10-15T00:41:53.597945+00:00"
+      "created_at": "07:41:53 15/10/2026",
+      "updated_at": "2026-10-15T00:41:53.597945+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 137500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "07:41:53 15/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 137500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "07:41:53 15/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     },
     {
-      "id": "6349a247-16ab-44dc-811b-5009c30b1ec7",
+      "id": "CNM261014-EC244",
       "order_code": "CNM261014-EC244",
       "user_id": null,
       "guest_access_hash": "4c420894257cd8465e51c90613c8dce1a2a2f0fd84913264fc1ae1b26c6ea346",
-      "channel": "pos",
+      "channel": "online",
       "created_by": null,
       "status": "paid",
       "contact_name": "Khach Test POS",
@@ -22295,8 +23040,32 @@
       "total_amount": 85000,
       "coupon_id": null,
       "expires_at": "2026-10-14T13:55:39.850121+00:00",
-      "created_at": "2026-10-14T13:45:39.850121+00:00",
-      "updated_at": "2026-10-14T13:46:03.205512+00:00"
+      "created_at": "20:45:39 14/10/2026",
+      "updated_at": "2026-10-14T13:46:03.205512+00:00",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "20:45:39 14/10/2026",
+            "seatCode": "E5"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 42500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Plaza",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "20:45:39 14/10/2026",
+            "seatCode": "E6"
+          }
+        }
+      ]
     }
   ],
   "tickets": [

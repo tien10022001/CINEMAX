@@ -409,6 +409,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       bc = new BroadcastChannel('cinemax_sync_channel');
       bc.onmessage = (msg) => {
+        if (msg?.data?.promotions && Array.isArray(msg.data.promotions)) {
+          setPromotions(msg.data.promotions);
+          localStorage.setItem('cinemax_promotions_v2', JSON.stringify(msg.data.promotions));
+        }
         if (msg?.data?.cinemas && Array.isArray(msg.data.cinemas)) {
           setCinemas(msg.data.cinemas);
         }

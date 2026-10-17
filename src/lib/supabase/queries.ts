@@ -381,11 +381,9 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
     is_active: Boolean(c.active ?? true),
   }));
 
-  const dbPromoCodes = new Set(dbPromotions.map((p) => p.code));
-  const mergedPromotions = [
-    ...dbPromotions,
-    ...MOCK_PROMOTIONS.filter((p) => !dbPromoCodes.has(p.code)),
-  ];
+  // Use Supabase Database coupons as authoritative source of truth.
+  // Only fall back to MOCK_PROMOTIONS if database returned zero coupons.
+  const mergedPromotions = dbPromotions.length > 0 ? dbPromotions : MOCK_PROMOTIONS;
 
   return {
     connected: true,

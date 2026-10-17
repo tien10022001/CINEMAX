@@ -112,7 +112,21 @@ async function syncToSupabaseIfConfigured(entityOrAction: string, data: any) {
     } else if ((entityOrAction === 'delete_product' || entityOrAction === 'delete_food') && data?.id) {
       await supabase.from('products').delete().eq('id', data.id);
     } else if ((entityOrAction === 'coupons' || entityOrAction === 'promotions') && Array.isArray(data)) {
-      await supabase.from('coupons').upsert(data);
+      const cleanCoupons = data.map((c: any) => ({
+        id: c.id && String(c.id).length === 36 ? c.id : undefined,
+        code: String(c.code).trim().toUpperCase(),
+        discount_type: c.discount_type || 'FIXED',
+        discount_value: Number(c.discount_value || 0),
+        max_discount: c.max_discount != null ? Number(c.max_discount) : null,
+        min_order_amount: Number(c.min_order_amount ?? c.min_order ?? 0),
+        apply_scope: c.apply_scope || 'ALL',
+        starts_at: c.starts_at || c.valid_from || new Date().toISOString(),
+        ends_at: c.ends_at || c.valid_to || new Date(Date.now() + 90 * 86400000).toISOString(),
+        usage_limit: c.usage_limit != null ? Number(c.usage_limit) : null,
+        per_user_limit: Number(c.per_user_limit || 1),
+        active: c.active ?? c.is_active ?? true
+      }));
+      await supabase.from('coupons').upsert(cleanCoupons);
     } else if ((entityOrAction === 'delete_coupon' || entityOrAction === 'delete_promotion') && (data?.id || data?.code)) {
       if (data?.id) await supabase.from('coupons').delete().eq('id', data.id);
       if (data?.code) await supabase.from('coupons').delete().eq('code', data.code);

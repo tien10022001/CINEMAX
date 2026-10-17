@@ -600,6 +600,15 @@ export default function AdminPage() {
       window.dispatchEvent(
         new CustomEvent('cinemax_db_updated', { detail: { promotions: promoFormat } })
       );
+      window.dispatchEvent(new Event('cinemax_data_updated'));
+      window.dispatchEvent(new Event('storage'));
+
+      try {
+        const bc = new BroadcastChannel('cinemax_sync_channel');
+        bc.postMessage({ type: 'COUPONS_UPDATED', promotions: promoFormat, timestamp: Date.now() });
+        bc.close();
+      } catch {}
+
       await AdminDataService.saveEntity('coupons', updatedCoupons);
       await AdminDataService.saveEntity('promotions', promoFormat);
     } catch (e) {
