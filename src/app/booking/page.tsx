@@ -409,16 +409,45 @@ function BookingContent() {
       seat.status === 'blocked';
     if (isUnavailable) return;
 
+    // Logic Quách Khánh: Ghế đôi (COUPLE / hàng H) phải tự động chọn theo cặp
+    const isCouple = seat.row_label === 'H' || seat.seat_type?.code === 'COUPLE';
+    let partnerSeat: Seat | undefined;
+    if (isCouple) {
+      const partnerNum = seat.seat_number % 2 === 1 ? seat.seat_number + 1 : seat.seat_number - 1;
+      partnerSeat = seats.find(
+        (s) => s.row_label === seat.row_label && s.seat_number === partnerNum
+      );
+      if (partnerSeat) {
+        const partnerUnavailable =
+          partnerSeat.status === 'SOLD' ||
+          partnerSeat.status === 'sold' ||
+          partnerSeat.status === 'BOOKED' ||
+          partnerSeat.status === 'booked' ||
+          partnerSeat.status === 'HELD' ||
+          partnerSeat.status === 'held' ||
+          partnerSeat.status === 'BLOCKED' ||
+          partnerSeat.status === 'blocked';
+        if (partnerUnavailable && !selectedSeats.some((s) => s.id === seat.id)) {
+          alert(`Ghế đôi ${seat.row_label}${partnerNum} đã không còn trống để chọn theo cặp.`);
+          return;
+        }
+      }
+    }
+
     const isSelected = selectedSeats.some((s) => s.id === seat.id);
     let nextSelected: Seat[];
     if (isSelected) {
-      nextSelected = selectedSeats.filter((s) => s.id !== seat.id);
+      // Hủy chọn cả ghế chính và ghế cặp
+      nextSelected = selectedSeats.filter(
+        (s) => s.id !== seat.id && (!partnerSeat || s.id !== partnerSeat.id)
+      );
     } else {
-      if (selectedSeats.length >= 8) {
+      const seatsToAdd = partnerSeat ? [seat, partnerSeat] : [seat];
+      if (selectedSeats.length + seatsToAdd.length > 8) {
         alert('Bạn chỉ có thể chọn tối đa 8 ghế trong một đơn đặt');
         return;
       }
-      nextSelected = [...selectedSeats, seat];
+      nextSelected = [...selectedSeats, ...seatsToAdd.filter((s) => !selectedSeats.some((sel) => sel.id === s.id))];
     }
 
     setSelectedSeats(nextSelected);
@@ -498,6 +527,18 @@ function BookingContent() {
       alert(holdRes.error || 'Ghế vừa được người khác giữ chỗ. Vui lòng chọn ghế khác!');
       return;
     }
+
+    // Đồng bộ trạng thái giữ ghế lên server API (/api/seats/hold - Logic Quách Khánh)
+    fetch('/api/seats/hold', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        showtimeId: String(selectedShowtime?.id || queryShowtimeId),
+        seatCodes: seatLabels,
+        sessionId,
+        userId: currentUser?.id,
+      }),
+    }).catch((err) => console.warn('API Hold sync:', err));
 
     setTimeLeft(600);
     setCurrentStep(2);
