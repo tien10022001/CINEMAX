@@ -1,9 +1,36 @@
 -- ====================================================================
--- CINEMAX SUPABASE MIGRATION 06: FULL DATABASE SYNC & DEV POLICIES
--- Đồng bộ 100% dữ liệu thực tế: Phim, Phòng chiếu, Sơ đồ ghế, F&B, Suất chiếu
+-- CINEMAX SUPABASE MIGRATION 06: FULL DATABASE SYNC & DEV POLICIES (FIXED)
+-- Tự động bổ sung các cột mở rộng, mở quyền RLS và nạp toàn bộ dữ liệu mẫu thực tế
 -- ====================================================================
 
--- 1. MỞ QUYỀN TRUY CẬP RLS ĐỂ ADMIN WEB CÓ THỂ ĐỌC/GHI VÀO SUPABASE
+-- 1. BỔ SUNG CÁC CỘT MỞ RỘNG CHO BẢNG MOVIES (TRÁNH LỖI CỘT KHÔNG TỒN TẠI)
+ALTER TABLE public.movies 
+    ADD COLUMN IF NOT EXISTS end_date date,
+    ADD COLUMN IF NOT EXISTS banner_url text,
+    ADD COLUMN IF NOT EXISTS trailer_url text,
+    ADD COLUMN IF NOT EXISTS country varchar(100) DEFAULT 'Việt Nam',
+    ADD COLUMN IF NOT EXISTS studio varchar(150),
+    ADD COLUMN IF NOT EXISTS meta_title varchar(200),
+    ADD COLUMN IF NOT EXISTS meta_description text,
+    ADD COLUMN IF NOT EXISTS imdb_score numeric(3,1) DEFAULT 8.0,
+    ADD COLUMN IF NOT EXISTS formats text[] DEFAULT ARRAY['2D'];
+
+-- 2. ĐẢM BẢO BẢNG THỂ LOẠI ĐẦY ĐỦ
+INSERT INTO public.genres (name, slug, active)
+VALUES 
+    ('Hành Động', 'hanh-dong', true),
+    ('Khoa Học Viễn Tưởng', 'khoa-hoc-vien-tuong', true),
+    ('Phiêu Lưu', 'phieu-luu', true),
+    ('Hài Kịch', 'hai-kich', true),
+    ('Kinh Dị', 'kinh-di', true),
+    ('Tâm Lý', 'tam-ly', true),
+    ('Hoạt Hình', 'hoat-hinh', true),
+    ('Tình Cảm', 'tinh-cam', true),
+    ('Gia Đình', 'gia-dinh', true),
+    ('Tài Liệu', 'tai-lieu', true)
+ON CONFLICT (slug) DO NOTHING;
+
+-- 3. MỞ QUYỀN TRUY CẬP RLS ĐỂ ADMIN WEB CÓ THỂ ĐỌC/GHI VÀO SUPABASE
 DROP POLICY IF EXISTS "dev_anon_movies_all" ON public.movies;
 CREATE POLICY "dev_anon_movies_all" ON public.movies FOR ALL USING (true) WITH CHECK (true);
 
@@ -46,7 +73,7 @@ CREATE POLICY "dev_anon_tickets_all" ON public.tickets FOR ALL USING (true) WITH
 DROP POLICY IF EXISTS "dev_anon_cinema_settings_all" ON public.cinema_settings;
 CREATE POLICY "dev_anon_cinema_settings_all" ON public.cinema_settings FOR ALL USING (true) WITH CHECK (true);
 
--- 2. ĐỒNG BỘ 10 BỘ PHIM BOM TẤN THỰC TẾ
+-- 4. ĐỒNG BỘ 10 BỘ PHIM BOM TẤN THỰC TẾ
 INSERT INTO public.movies (id, title, slug, synopsis, director, duration_minutes, age_rating, poster_url, banner_url, trailer_url, status, release_date, country, imdb_score, formats)
 VALUES
   ('c1da65d7-b688-4bcc-9fb8-75efb28e319f', 'Dune: Hành Tinh Cát - Phần 2', 'dune-hanh-tinh-cat-phan-2', 'Paul Atreides hợp nhất với Chani và người Fremen trên con đường báo thù những kẻ đã hủy hoại gia đình mình.', 'Denis Villeneuve', 166, 'T16', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1440', 'https://www.youtube.com/watch?v=Way9Dexny3w', 'now_showing', '2026-03-01', 'Mỹ', 8.7, ARRAY['2D', 'IMAX']),
@@ -74,7 +101,7 @@ ON CONFLICT (id) DO UPDATE SET
   imdb_score = EXCLUDED.imdb_score,
   formats = EXCLUDED.formats;
 
--- 3. ĐỒNG BỘ 6 PHÒNG CHIẾU CHUẨN
+-- 5. ĐỒNG BỘ 6 PHÒNG CHIẾU CHUẨN
 INSERT INTO public.auditoriums (id, name, screen_type, sound_system, total_seats, cleaning_buffer_minutes)
 VALUES
   ('d8eae7e2-cf8d-40c6-96d2-bc690626e180', 'Phòng 1 (2D Tiêu Chuẩn)', '2D', 'Dolby 7.1', 80, 15),
@@ -90,7 +117,7 @@ ON CONFLICT (id) DO UPDATE SET
   total_seats = EXCLUDED.total_seats,
   cleaning_buffer_minutes = EXCLUDED.cleaning_buffer_minutes;
 
--- 4. ĐỒNG BỘ 9 SẢN PHẨM BẮP NƯỚC (F&B)
+-- 6. ĐỒNG BỘ 9 SẢN PHẨM BẮP NƯỚC (F&B)
 INSERT INTO public.products (id, name, product_type, base_price, available_stock, active, image_url)
 VALUES
   ('6bf3dc87-4194-4a5c-95ff-c8944bbcbd42', 'Combo Solo (1 Bắp + 1 Nước)', 'COMBO', 79000, 150, true, 'https://images.unsplash.com/photo-1572177812156-58036aae439c?w=600'),
@@ -110,7 +137,7 @@ ON CONFLICT (id) DO UPDATE SET
   active = EXCLUDED.active,
   image_url = EXCLUDED.image_url;
 
--- 5. ĐỒNG BỘ MÃ GIẢM GIÁ
+-- 7. ĐỒNG BỘ MÃ GIẢM GIÁ
 INSERT INTO public.coupons (code, discount_type, discount_value, max_discount, min_order_amount, apply_scope, starts_at, ends_at, active)
 VALUES
   ('CINEMAX50K', 'FIXED', 50000, 50000, 150000, 'ALL', now() - interval '30 days', now() + interval '90 days', true),
@@ -124,7 +151,9 @@ ON CONFLICT (code) DO UPDATE SET
   apply_scope = EXCLUDED.apply_scope,
   active = EXCLUDED.active;
 
--- 6. ĐỒNG BỘ PROFILES MẪU (ADMIN, STAFF, USER)
+-- 8. GỠ RÀNG BUỘC AUTH.USERS ĐỂ CHO PHÉP TÀI KHOẢN MẪU HOẠT ĐỘNG
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+
 INSERT INTO public.profiles (id, full_name, role, loyalty_points, membership_tier, status)
 VALUES
   ('00000000-0000-0000-0000-000000000001', 'Quản trị viên Cinemax', 'admin', 9999, 'VVIP', 'active'),
@@ -137,7 +166,7 @@ ON CONFLICT (id) DO UPDATE SET
   membership_tier = EXCLUDED.membership_tier,
   status = EXCLUDED.status;
 
--- 7. TỰ ĐỘNG SINH SƠ ĐỒ GHẾ CHO 6 PHÒNG CHIẾU (80 GHẾ/PHÒNG)
+-- 9. TỰ ĐỘNG SINH SƠ ĐỒ GHẾ CHO CẢ 6 PHÒNG CHIẾU (80 GHẾ/PHÒNG)
 DO $$
 DECLARE
     v_aud RECORD;
