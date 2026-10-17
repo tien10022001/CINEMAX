@@ -3335,8 +3335,8 @@ export default function StaffWorkspacePage() {
               {/* Header & Sub-tab Switcher */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[#11141D] border border-[#1E2433] rounded-xl p-4">
                 <div>
-                  <h1 className="text-base font-extrabold text-white flex items-center gap-2">
-                    <span>🍿</span> Quầy Bắp Nước &amp; Bán Hàng
+                  <h1 className="text-base font-extrabold text-white">
+                    Quầy Bắp Nước &amp; Bán Hàng
                   </h1>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Quét vé xem phim trả combo, bán lẻ bắp nước tại quầy và kiểm kê kho hàng
@@ -3347,35 +3347,35 @@ export default function StaffWorkspacePage() {
                   <button
                     type="button"
                     onClick={() => setConcessionSubTab('redeem')}
-                    className={`px-3.5 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 ${
+                    className={`px-3.5 py-1.5 rounded text-xs font-bold transition ${
                       concessionSubTab === 'redeem'
                         ? 'bg-[#E63845] text-white shadow'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    <span>📷</span> Quét Vé &amp; Trả Combo
+                    Quét Vé &amp; Trả Combo
                   </button>
                   <button
                     type="button"
                     onClick={() => setConcessionSubTab('pos')}
-                    className={`px-3.5 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 ${
+                    className={`px-3.5 py-1.5 rounded text-xs font-bold transition ${
                       concessionSubTab === 'pos'
                         ? 'bg-[#E63845] text-white shadow'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    <span>🛒</span> Bán Lẻ Tại Quầy
+                    Bán Lẻ Tại Quầy
                   </button>
                   <button
                     type="button"
                     onClick={() => setConcessionSubTab('inventory')}
-                    className={`px-3.5 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 ${
+                    className={`px-3.5 py-1.5 rounded text-xs font-bold transition ${
                       concessionSubTab === 'inventory'
                         ? 'bg-[#E63845] text-white shadow'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    <span>📦</span> Kiểm Kê Kho
+                    Kiểm Kê Kho
                   </button>
                 </div>
               </div>
@@ -3390,8 +3390,8 @@ export default function StaffWorkspacePage() {
                     {/* Scanner Card */}
                     <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                          <span>📷</span> Khung Quét QR Vé Xem Phim
+                        <span className="text-xs font-bold text-white">
+                          Khung Quét QR Vé Xem Phim
                         </span>
                         <div className="flex items-center gap-1.5">
                           <button
@@ -3414,26 +3414,30 @@ export default function StaffWorkspacePage() {
                         </div>
                       </div>
 
-                      {/* Webcam Viewfinder Box */}
+                      {/* Hidden canvas for jsQR frame decoding */}
+                      <canvas ref={canvasRef} className="hidden" />
+
+                      {/* Webcam Viewfinder Box - Centered with absolute inset-0 */}
                       <div
                         onClick={() => {
                           if (!cameraActive) setCameraActive(true);
                         }}
-                        className="relative aspect-video w-full bg-black rounded-lg overflow-hidden border border-[#22283A] flex items-center justify-center cursor-pointer group"
+                        className={`bg-black rounded-xl border border-[#222838] h-[230px] relative overflow-hidden flex flex-col items-center justify-center p-4 ${
+                          !cameraActive ? 'cursor-pointer' : ''
+                        }`}
                       >
                         <video
                           ref={videoRef}
-                          className={`w-full h-full object-cover ${
-                            cameraActive && !cameraError ? 'block' : 'hidden'
-                          }`}
-                          muted
                           autoPlay
                           playsInline
+                          muted
+                          className={`absolute inset-0 w-full h-full object-cover ${
+                            cameraActive && !cameraError ? 'block' : 'hidden'
+                          }`}
                         />
-                        <canvas ref={canvasRef} className="hidden" />
 
                         {/* Scanner Target Reticle */}
-                        <div className="w-[140px] h-[140px] relative z-10 flex flex-col items-center justify-center text-center px-2">
+                        <div className="w-[155px] h-[155px] relative z-10 flex flex-col items-center justify-center text-center px-3">
                           <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-[#E63845]" />
                           <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-[#E63845]" />
                           <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-[#E63845]" />
@@ -3441,7 +3445,7 @@ export default function StaffWorkspacePage() {
 
                           {!cameraActive && (
                             <span className="text-xs text-slate-400">
-                              Camera đang tắt (Bấm để bật)
+                              Camera đang tắt (Bấm vào đây để bật)
                             </span>
                           )}
 
@@ -3587,8 +3591,8 @@ export default function StaffWorkspacePage() {
                     <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-5 min-h-[460px] flex flex-col justify-between">
                       {!inspectedConcessionOrder ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center py-16 space-y-3">
-                          <div className="w-16 h-16 rounded-2xl bg-[#171C28] border border-[#252C3E] flex items-center justify-center text-3xl">
-                            🍿
+                          <div className="w-14 h-14 rounded-2xl bg-[#171C28] border border-[#252C3E] flex items-center justify-center text-xs font-bold text-slate-400">
+                            CINEMAX
                           </div>
                           <div className="space-y-1">
                             <h3 className="text-sm font-bold text-white">
@@ -3617,17 +3621,17 @@ export default function StaffWorkspacePage() {
                                 {inspectedConcessionOrder.foods &&
                                 inspectedConcessionOrder.foods.length > 0 ? (
                                   inspectedConcessionOrder.food_fulfilled ? (
-                                    <span className="px-3 py-1 rounded-full bg-[#132E1F] border border-[#22C55E]/60 text-[#4ADE80] text-xs font-bold flex items-center gap-1.5">
-                                      <span>✓</span> ĐÃ GIAO BẮP NƯỚC
+                                    <span className="px-3 py-1 rounded-full bg-[#132E1F] border border-[#22C55E]/60 text-[#4ADE80] text-xs font-bold">
+                                      ĐÃ GIAO BẮP NƯỚC
                                     </span>
                                   ) : (
-                                    <span className="px-3 py-1 rounded-full bg-[#2E2013] border border-[#F59E0B]/60 text-[#FBBF24] text-xs font-bold flex items-center gap-1.5">
-                                      <span>⏳</span> CHỜ TRẢ COMBO BẮP NƯỚC
+                                    <span className="px-3 py-1 rounded-full bg-[#2E2013] border border-[#F59E0B]/60 text-[#FBBF24] text-xs font-bold">
+                                      CHỜ TRẢ COMBO BẮP NƯỚC
                                     </span>
                                   )
                                 ) : (
-                                  <span className="px-3 py-1 rounded-full bg-[#1A2634] border border-sky-500/40 text-sky-300 text-xs font-bold flex items-center gap-1.5">
-                                    <span>ℹ️</span> VÉ CHƯA KÈM BẮP NƯỚC
+                                  <span className="px-3 py-1 rounded-full bg-[#1A2634] border border-sky-500/40 text-sky-300 text-xs font-bold">
+                                    VÉ CHƯA KÈM BẮP NƯỚC
                                   </span>
                                 )}
                               </div>
@@ -3682,29 +3686,24 @@ export default function StaffWorkspacePage() {
                                     key={idx}
                                     className="bg-[#161A26] border border-[#242B3D] rounded-lg p-3.5 flex items-center justify-between gap-3"
                                   >
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-9 h-9 rounded-lg bg-[#222838] flex items-center justify-center text-lg">
-                                        🍿
+                                    <div>
+                                      <div className="text-xs font-bold text-white flex items-center gap-2">
+                                        <span>{food.name}</span>
+                                        <span className="text-[#E63845] font-extrabold">
+                                          x{food.qty}
+                                        </span>
                                       </div>
-                                      <div>
-                                        <div className="text-xs font-bold text-white flex items-center gap-2">
-                                          <span>{food.name}</span>
-                                          <span className="text-[#E63845] font-extrabold">
-                                            x{food.qty}
+                                      <div className="flex items-center gap-2 mt-1">
+                                        {food.flavor && (
+                                          <span className="px-2 py-0.5 rounded text-[10px] bg-[#2A2318] text-amber-300 border border-amber-800/40">
+                                            {food.flavor}
                                           </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 mt-1">
-                                          {food.flavor && (
-                                            <span className="px-2 py-0.5 rounded text-[10px] bg-[#2A2318] text-amber-300 border border-amber-800/40">
-                                              {food.flavor}
-                                            </span>
-                                          )}
-                                          {food.drinkSize && (
-                                            <span className="px-2 py-0.5 rounded text-[10px] bg-[#182332] text-sky-300 border border-sky-800/40">
-                                              {food.drinkSize}
-                                            </span>
-                                          )}
-                                        </div>
+                                        )}
+                                        {food.drinkSize && (
+                                          <span className="px-2 py-0.5 rounded text-[10px] bg-[#182332] text-sky-300 border border-sky-800/40">
+                                            {food.drinkSize}
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
 
@@ -3730,16 +3729,13 @@ export default function StaffWorkspacePage() {
 
                               {/* Warning or Fulfillment Action */}
                               {inspectedConcessionOrder.food_fulfilled ? (
-                                <div className="p-3.5 rounded-xl bg-[#2A1C14] border border-amber-600/40 text-amber-200 text-xs flex items-start gap-2.5">
-                                  <span className="text-base">⚠️</span>
-                                  <div>
-                                    <span className="font-bold block">
-                                      Đã nhận đủ bắp nước trước đó
-                                    </span>
-                                    <span>
-                                      Vé này đã hoàn tất nhận combo bắp nước tại quầy. Không giao lần thứ hai để tránh thất thoát kho.
-                                    </span>
-                                  </div>
+                                <div className="p-3.5 rounded-xl bg-[#2A1C14] border border-amber-600/40 text-amber-200 text-xs">
+                                  <span className="font-bold block mb-1">
+                                    Đã nhận đủ bắp nước trước đó
+                                  </span>
+                                  <span>
+                                    Vé này đã hoàn tất nhận combo bắp nước tại quầy. Không giao lần thứ hai để tránh thất thoát kho.
+                                  </span>
                                 </div>
                               ) : (
                                 <button
@@ -3747,25 +3743,22 @@ export default function StaffWorkspacePage() {
                                   onClick={() =>
                                     handleFulfillFoodOrder(inspectedConcessionOrder.id)
                                   }
-                                  className="w-full py-3 rounded-xl bg-[#E63845] hover:bg-[#D02B38] text-white font-extrabold text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                                  className="w-full py-3 rounded-xl bg-[#E63845] hover:bg-[#D02B38] text-white font-extrabold text-xs transition shadow-lg flex items-center justify-center cursor-pointer uppercase tracking-wider"
                                 >
-                                  <span>🍿</span> XÁC NHẬN GIAO BẮP NƯỚC CHO KHÁCH
+                                  Xác nhận giao bắp nước cho khách
                                 </button>
                               )}
                             </div>
                           ) : (
                             /* CASE B: TICKET DOES NOT HAVE FOOD -> SHOW QUICK ADD-ON POS */
                             <div className="space-y-4">
-                              <div className="p-3.5 rounded-xl bg-[#142232] border border-sky-600/40 text-sky-200 text-xs flex items-start gap-2.5">
-                                <span className="text-base">ℹ️</span>
-                                <div>
-                                  <span className="font-bold block">
-                                    Vé này chưa đặt kèm bắp nước online
-                                  </span>
-                                  <span>
-                                    Khách hàng chỉ có vé xem phim. Bạn có thể chọn nhanh các món bắp / nước dưới đây để bán thêm và gán thẳng vào vé này:
-                                  </span>
-                                </div>
+                              <div className="p-3.5 rounded-xl bg-[#142232] border border-sky-600/40 text-sky-200 text-xs">
+                                <span className="font-bold block mb-1">
+                                  Vé này chưa đặt kèm bắp nước online
+                                </span>
+                                <span>
+                                  Khách hàng chỉ có vé xem phim. Bạn có thể chọn nhanh các món bắp / nước dưới đây để bán thêm và gán thẳng vào vé này:
+                                </span>
                               </div>
 
                               <div className="space-y-2">
@@ -3890,9 +3883,9 @@ export default function StaffWorkspacePage() {
                                     type="button"
                                     disabled={concessionSubmitting}
                                     onClick={handleAddFoodToTicket}
-                                    className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow flex items-center justify-center gap-2 cursor-pointer"
+                                    className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow flex items-center justify-center cursor-pointer uppercase tracking-wider"
                                   >
-                                    <span>➕</span> THANH TOÁN &amp; GÁN BẮP NƯỚC VÀO VÉ NÀY
+                                    Thanh toán &amp; Gán bắp nước vào vé này
                                   </button>
                                 </div>
                               )}
@@ -4111,11 +4104,11 @@ export default function StaffWorkspacePage() {
                           !Object.values(directFoodQuantities).some((q) => q > 0)
                         }
                         onClick={handleDirectConcessionSale}
-                        className="w-full py-3 rounded-xl bg-[#E63845] hover:bg-[#D02B38] disabled:bg-[#1E2433] disabled:text-slate-600 text-white font-extrabold text-xs transition shadow cursor-pointer"
+                        className="w-full py-3 rounded-xl bg-[#E63845] hover:bg-[#D02B38] disabled:bg-[#1E2433] disabled:text-slate-600 text-white font-extrabold text-xs transition shadow cursor-pointer uppercase tracking-wider"
                       >
                         {concessionSubmitting
                           ? 'Đang xử lý...'
-                          : '🛒 THANH TOÁN &amp; XUẤT KHO'}
+                          : 'Thanh toán & Xuất kho'}
                       </button>
                     </div>
                   </div>
