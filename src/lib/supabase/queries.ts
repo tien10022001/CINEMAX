@@ -243,10 +243,15 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
   const dbShowtimes: Showtime[] = (showtimesRes.data || []).map((st: Record<string, unknown>, idx: number) => {
     const stUuid = String(st.id);
     const stNumId = uuidToNumId(stUuid, idx + 1);
-    const movieNumId = uuidToNumId(String(st.movie_id));
-    const aud = audMap[String(st.auditorium_id)];
-    const roomNumId = aud ? uuidToNumId(String(aud.id)) : 101;
-    const movieObj = mergedMovies.find((m) => m.id === movieNumId) || mergedMovies[0];
+    const audId = String(st.auditorium_id || '');
+    const aud = audMap[audId];
+    const roomNumId = uuidToNumId(audId, 1);
+    const rawMovieIdStr = String(st.movie_id || '');
+    const movieObj =
+      mergedMovies.find((m) => m.supabase_id === rawMovieIdStr || String(m.id) === rawMovieIdStr) ||
+      mergedMovies.find((m) => m.id === uuidToNumId(rawMovieIdStr)) ||
+      mergedMovies[0];
+    const effectiveMovieId = movieObj ? movieObj.id : (uuidToNumId(rawMovieIdStr) || 1);
     const totalSeats = Number(aud?.total_seats || 80);
     const availSeats =
       availableCountByShowtimeUuid[stUuid] !== undefined
@@ -269,10 +274,11 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
       id: stNumId,
       supabase_id: stUuid,
       auditorium_id: String(st.auditorium_id),
-      movie_id: movieNumId,
+      movie_id: effectiveMovieId,
       room_id: roomNumId,
       start_time: rawStart,
       end_time: rawEnd,
+      format: String(st.format || aud?.screen_type || '2D'),
       language_type: String(st.language_version || '').toLowerCase().includes('lồng') ? 'DUBBED' : 'SUBTITLED',
       status: String(st.status || 'open').toUpperCase() === 'CANCELLED' ? 'CANCELLED' : 'OPEN',
       movie: movieObj,
@@ -307,11 +313,7 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
     };
   });
 
-  const dbShowtimeIds = new Set(dbShowtimes.map((s) => s.id));
-  const mergedShowtimes = [
-    ...dbShowtimes,
-    ...normalizedMockShowtimes.filter((s) => !dbShowtimeIds.has(s.id)),
-  ];
+  const mergedShowtimes = dbShowtimes.length > 0 ? dbShowtimes : normalizedMockShowtimes;
 
   // 5. Map products & product_modifiers -> FoodItem[]
   const defaultFoodImages: Record<string, string> = {

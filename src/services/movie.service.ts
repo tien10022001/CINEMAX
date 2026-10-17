@@ -201,10 +201,12 @@ export class MovieService {
 
     // 2. Lọc showtimes từ local database tuân thủ tuyệt đối dữ liệu trên database
     for (const st of localShowtimes) {
-      // Khớp phim (theo ID số, chuỗi, hoặc slug)
+      // Khớp phim (theo ID số, UUID, supabase_id, hoặc slug)
       const stMovieId = st.movie_id ?? st.movie?.id;
+      const stSupabaseId = st.movie?.supabase_id ?? (typeof st.movie_id === 'string' && st.movie_id.includes('-') ? st.movie_id : undefined);
       const matchMovie =
         stMovieId?.toString() === movieId?.toString() ||
+        (stSupabaseId && stSupabaseId.toString() === movieId?.toString()) ||
         (st.movie?.slug && movieId?.toString().includes(st.movie.slug)) ||
         (st.movie?.title && movieId?.toString().toLowerCase().includes(st.movie.title.toLowerCase()));
 
@@ -258,7 +260,7 @@ export class MovieService {
         }
       }
 
-      // Nếu có dateStr lọc (ví dụ "2026-10-15"), phải khớp đúng ngày này
+      // Nếu có dateStr lọc (ví dụ "2026-10-17"), phải khớp đúng ngày này
       if (dateStr) {
         if (dateKey !== dateStr) {
           continue;
@@ -294,18 +296,18 @@ export class MovieService {
         }
       }
 
-      const screenType = roomObj?.screen_type || '2D';
-      const totalSeats = roomObj?.total_seats ?? 75;
+      const screenType = roomObj?.screen_type || st.format || '2D';
+      const totalSeats = roomObj?.total_seats ?? 80;
       const computedAvailableSeats = Math.max(0, totalSeats - bookedCount);
 
       slots.push({
         id: st.id,
         time: timeStr || '18:30',
-        dateStr: dateDisplay || '15/10',
+        dateStr: dateDisplay || '17/10',
         availableSeats: computedAvailableSeats,
         totalSeats: totalSeats,
         format: screenType === 'IMAX' ? 'IMAX Laser' : screenType,
-        roomName: roomObj?.name || 'Phòng 1',
+        roomName: roomObj?.name || 'Phòng 1 (2D Tiêu Chuẩn)',
         isLate: isLateShowtime(timeStr || '18:30'),
       });
     }
@@ -315,11 +317,20 @@ export class MovieService {
       const supabase = createClient();
       const resShowtimes: any = await supabase
         .from('showtimes')
-        .select('id, movie_id, auditorium_id, format, starts_at, status')
+        .select('id, movie_id, auditorium_id, format, starts_at, status, auditoriums(name, screen_type, total_seats), movies(id, title, slug)')
         .eq('status', 'open');
 
       if (resShowtimes.data && resShowtimes.data.length > 0) {
         for (const st of resShowtimes.data) {
+          // Lọc đúng phim
+          const matchMovie =
+            st.movie_id?.toString() === movieId?.toString() ||
+            st.movies?.id?.toString() === movieId?.toString() ||
+            (st.movies?.slug && movieId?.toString().includes(st.movies.slug)) ||
+            (st.movies?.title && movieId?.toString().toLowerCase().includes(st.movies.title.toLowerCase()));
+
+          if (!matchMovie) continue;
+
           const d = new Date(st.starts_at);
           const dateKeyDb = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
           if (dateStr && dateKeyDb !== dateStr) continue;
@@ -334,47 +345,20 @@ export class MovieService {
           // Tránh trùng lặp với slot đã có
           if (slots.some((s) => s.id === st.id || s.time === timeStrDb)) continue;
 
-          // Suất chiếu trong DB thuộc rạp 1 (CINEMAX Xuân Thủy)
-          if (!effectiveCinemaId || effectiveCinemaId === 1) {
-            // Lấy số ghế thực tế từ showtime_seats
-            const seatRes: any = await supabase
-              .from('showtime_seats')
-              .select('id, status')
-              .eq('showtime_id', st.id);
+          const audName = st.auditoriums?.name || 'Phòng 1 (2D Tiêu Chuẩn)';
+          const audScreen = st.auditoriums?.screen_type || st.format || '2D';
+          const audSeats = Number(st.auditoriums?.total_seats || 80);
 
-            const allSeats: any[] = seatRes.data || [];
-            let localBookedForThisSt = 0;
-            if (typeof window !== 'undefined') {
-              try {
-                const storedTickets = localStorage.getItem('cinemax_user_tickets');
-                if (storedTickets) {
-                  const tickets = JSON.parse(storedTickets);
-                  tickets.forEach((t: any) => {
-                    if (t.showtimeId && t.showtimeId.toString() === st.id.toString()) {
-                      const count = Array.isArray(t.seats) ? t.seats.length : (t.seats?.toString().split(',').filter(Boolean).length || 1);
-                      localBookedForThisSt += count;
-                    }
-                  });
-                }
-              } catch (e) {}
-            }
-
-            const availableCount =
-              allSeats.length > 0
-                ? Math.max(0, allSeats.filter((s) => s.status === 'available').length - localBookedForThisSt)
-                : Math.max(0, 75 - localBookedForThisSt);
-
-            slots.push({
-              id: st.id,
-              time: timeStrDb,
-              dateStr: d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
-              availableSeats: availableCount,
-              totalSeats: 75,
-              format: st.format || '2D',
-              roomName: 'Phòng 1 (2D Tiêu Chuẩn)',
-              isLate: isLateShowtime(timeStrDb),
-            });
-          }
+          slots.push({
+            id: st.id,
+            time: timeStrDb,
+            dateStr: d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+            availableSeats: audSeats,
+            totalSeats: audSeats,
+            format: audScreen === 'IMAX' ? 'IMAX Laser' : audScreen,
+            roomName: audName,
+            isLate: isLateShowtime(timeStrDb),
+          });
         }
       }
     } catch (e) {

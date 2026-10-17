@@ -58,7 +58,15 @@ function BookingContent() {
   const queryShowtimeId = searchParams.get('showtime') || '1001';
   const queryPromoCode = searchParams.get('promo') || '';
   const queryTime = searchParams.get('time') || '15:30';
-  const queryDate = searchParams.get('date') || '15/10/2026';
+  const queryFormat = searchParams.get('format') || '';
+  const queryRoom = searchParams.get('room') || '';
+  const rawQueryDate = searchParams.get('date') || '';
+  const queryDate = rawQueryDate.includes('/')
+    ? (() => {
+        const parts = rawQueryDate.split('/');
+        return parts.length === 3 ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}` : rawQueryDate;
+      })()
+    : (rawQueryDate || new Date().toISOString().slice(0, 10));
   const [isShowtimeChangeOpen, setIsShowtimeChangeOpen] = useState<boolean>(false);
 
   // Steps: 1 = Chọn ghế (Screen 3), 2 = Bắp nước & Thanh toán (Screen 4), 3 = Vé điện tử (Screen 5)
@@ -74,22 +82,39 @@ function BookingContent() {
       ? cinemas.find((c) => c && c.id != null && (String(c.id) === String(queryCinemaId) || c.supabase_id === queryCinemaId))
       : null) || cinemas[0];
   const foundShowtime =
-    queryShowtimeId && queryShowtimeId !== 'undefined'
+    (queryShowtimeId && queryShowtimeId !== 'undefined'
       ? showtimes.find((s) => s && s.id != null && (String(s.id) === String(queryShowtimeId) || s.supabase_id === queryShowtimeId))
-      : null;
+      : null) ||
+    (selectedMovie
+      ? showtimes.find((s) => {
+          const matchMovie =
+            String(s.movie_id) === String(selectedMovie.id) ||
+            (selectedMovie.supabase_id && String(s.movie_id) === selectedMovie.supabase_id);
+          if (!matchMovie) return false;
+          const sDate = s.start_time.slice(0, 10);
+          if (queryDate && sDate !== queryDate) return false;
+          if (queryTime) {
+            const dt = new Date(s.start_time);
+            const timeStr = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+            if (timeStr !== queryTime && !s.start_time.includes(queryTime)) return false;
+          }
+          return true;
+        })
+      : null);
   const selectedShowtime: Showtime = foundShowtime || showtimes[0] || {
     id: queryShowtimeId || 'st-default',
     movie_id: selectedMovie?.id ?? 1,
     room_id: 1,
     start_time: `${queryDate}T${queryTime}:00`,
     end_time: `${queryDate}T${queryTime}:00`,
+    format: queryFormat || '2D',
     status: 'OPEN',
     available_seats: 80,
     room: {
       id: 1,
       cinema_id: Number(selectedCinema?.id) || 1,
-      name: 'Phòng 1 (2D Tiêu Chuẩn)',
-      screen_type: '2D',
+      name: queryRoom || 'Phòng 1 (2D Tiêu Chuẩn)',
+      screen_type: (queryFormat || '2D') as any,
       total_seats: 80,
       status: 'ACTIVE',
     },

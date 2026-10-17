@@ -19,25 +19,24 @@ export default function MovieDetailPage() {
     [movies, slug]
   );
 
-  // Tạo danh sách 6 ngày tính từ hôm nay
+  // Tạo danh sách 7 ngày tính từ hôm nay (17/10 - 23/10) khớp lịch chiếu Admin
   const dates = useMemo(() => {
     const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
     const base = new Date();
-    return Array.from({ length: 6 }, (_, idx) => {
-      const d = new Date(base);
-      d.setDate(base.getDate() + idx);
+    return Array.from({ length: 7 }, (_, idx) => {
+      const d = new Date(base.getTime() + idx * 24 * 60 * 60 * 1000);
       const dd = String(d.getDate()).padStart(2, '0');
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const yyyy = d.getFullYear();
       return {
         label: idx === 0 ? 'Hôm nay' : idx === 1 ? 'Ngày mai' : dayNames[d.getDay()],
-        date: `${dd}/${mm}/${yyyy}`,
+        date: `${yyyy}-${mm}-${dd}`,
         day: `${dd}/${mm}`,
       };
     });
   }, []);
 
-  const [selectedDate, setSelectedDate] = useState<string>(() => dates[0]?.date || '16/10/2026');
+  const [selectedDate, setSelectedDate] = useState<string>(() => dates[0]?.date || '2026-10-17');
   const [isTrailerOpen, setIsTrailerOpen] = useState<boolean>(false);
 
   useEffect(() => {
@@ -183,53 +182,43 @@ export default function MovieDetailPage() {
 
           {/* Cinema Blocks with Showtimes */}
           <div className="space-y-4 pt-2">
-            {cinemas.map((cinema, cIdx) => {
-              // Tìm suất chiếu của phim này hoặc tạo danh sách khung giờ chuẩn cho từng rạp
-              const matchedShowtimes = showtimes.filter(
-                (s) =>
-                  s.status === 'OPEN' &&
-                  (Number(s.movie_id) === Number(movie.id) || Number(movie.id) === 1) &&
-                  (!s.room?.cinema_id || Number(s.room.cinema_id) === Number(cinema.id))
-              );
+            {cinemas.map((cinema) => {
+              // Tìm suất chiếu của phim này và ngày được chọn từ DB/Admin
+              const matchedShowtimes = showtimes.filter((s) => {
+                if (s.status !== 'OPEN') return false;
+                const matchMovie =
+                  String(s.movie_id) === String(movie.id) ||
+                  (movie.supabase_id && String(s.movie_id) === String(movie.supabase_id)) ||
+                  (movie.slug && s.movie?.slug === movie.slug) ||
+                  (movie.title && s.movie?.title?.toLowerCase() === movie.title.toLowerCase());
+                if (!matchMovie) return false;
 
-              const defaultTimeSlots = [
-                { time: '09:30', roomName: 'Phòng 1 (2D Tiêu Chuẩn)', baseSeats: 76 },
-                { time: '12:15', roomName: 'Phòng 2 (2D Phụ đề)', baseSeats: 72 },
-                { time: '15:00', roomName: 'Phòng 1 (IMAX Laser)', baseSeats: 68 },
-                { time: '18:30', roomName: 'Phòng 3 (2D Tiêu Chuẩn)', baseSeats: 64 },
-                { time: '21:15', roomName: 'Phòng 1 (IMAX Laser)', baseSeats: 74 },
-              ];
+                // Khớp ngày đã chọn (YYYY-MM-DD)
+                const stDate = s.start_time?.slice(0, 10);
+                if (selectedDate && stDate && stDate !== selectedDate) return false;
 
-              const slotsToRender =
-                matchedShowtimes.length > 0
-                  ? matchedShowtimes
-                      .map((st) => {
-                        const dt = new Date(st.start_time);
-                        const timeStr = dt.toLocaleTimeString('vi-VN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        });
-                        const soldCount = (soldSeatsByShowtime[Number(st.id)] || []).length;
-                        return {
-                          id: st.id,
-                          time: timeStr,
-                          roomName: st.room?.name || 'Phòng 1 (2D)',
-                          availableSeats: Math.max(0, 80 - soldCount),
-                          sortMinutes: dt.getHours() * 60 + dt.getMinutes(),
-                        };
-                      })
-                      .sort((a, b) => a.sortMinutes - b.sortMinutes)
-                  : defaultTimeSlots.map((slot, sIdx) => {
-                      const syntheticId = Number(movie.id) * 10000 + (cIdx + 1) * 100 + (sIdx + 1);
-                      const soldCount = (soldSeatsByShowtime[syntheticId] || []).length;
-                      return {
-                        id: syntheticId,
-                        time: slot.time,
-                        roomName: slot.roomName,
-                        availableSeats: Math.max(0, 80 - soldCount),
-                        sortMinutes: sIdx,
-                      };
-                    });
+                return true;
+              });
+
+              const slotsToRender = matchedShowtimes
+                .map((st) => {
+                  const dt = new Date(st.start_time);
+                  const timeStr = dt.toLocaleTimeString('vi-VN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
+                  const soldCount = (soldSeatsByShowtime[Number(st.id)] || []).length;
+                  const totalSeats = Number(st.room?.total_seats || 80);
+                  return {
+                    id: st.id,
+                    time: timeStr,
+                    roomName: st.room?.name || 'Phòng 1 (2D Tiêu Chuẩn)',
+                    screenType: st.room?.screen_type || st.format || '2D',
+                    availableSeats: Math.max(0, totalSeats - soldCount),
+                    sortMinutes: dt.getHours() * 60 + dt.getMinutes(),
+                  };
+                })
+                .sort((a, b) => a.sortMinutes - b.sortMinutes);
 
               const isSelectedToday = selectedDate === dates[0]?.date;
               const now = new Date();
@@ -256,53 +245,62 @@ export default function MovieDetailPage() {
                   {/* Showtimes Row */}
                   <div className="pt-3 border-t border-[#303645]/60 space-y-3">
                     <div className="text-xs font-semibold text-white/80">
-                      2D Phụ đề Việt • Chọn giờ chiếu để vào chọn ghế:
+                      Chọn giờ chiếu để vào chọn ghế:
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                      {slotsToRender.map((st) => {
-                        const [slotH, slotM] = st.time.split(':').map(Number);
-                        const slotMinutes = (slotH || 0) * 60 + (slotM || 0);
-                        const isPast = isSelectedToday && slotMinutes <= currentMinutes;
+                    {slotsToRender.length === 0 ? (
+                      <p className="text-xs text-[#9EA6B8] py-2">
+                        Chưa có suất chiếu nào cho ngày đã chọn. Vui lòng chọn ngày chiếu khác ở trên.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-3">
+                        {slotsToRender.map((st) => {
+                          const [slotH, slotM] = st.time.split(':').map(Number);
+                          const slotMinutes = (slotH || 0) * 60 + (slotM || 0);
+                          const isPast = isSelectedToday && slotMinutes <= currentMinutes;
 
-                        return (
-                          <button
-                            key={`${cinema.id}-${st.id}-${st.time}`}
-                            disabled={isPast}
-                            onClick={() => {
-                              if (isPast) return;
-                              router.push(
-                                `/booking?movie=${movie.id}&cinema=${cinema.id}&date=${encodeURIComponent(
-                                  selectedDate
-                                )}&showtime=${st.id}&time=${encodeURIComponent(st.time)}`
-                              );
-                            }}
-                            className={`rounded-xl px-4 py-2.5 text-center transition-all min-w-[105px] ${
-                              isPast
-                                ? 'bg-[#12151D] border border-[#232733] opacity-40 cursor-not-allowed select-none'
-                                : 'bg-[#0F1217] border border-[#303645] hover:border-[#E63845] hover:bg-[#E63845]/10 group transform hover:scale-105 cursor-pointer'
-                            }`}
-                            title={isPast ? 'Suất chiếu này đã qua giờ chiếu' : `Còn ${st.availableSeats}/80 ghế trống`}
-                          >
-                            <div
-                              className={`text-sm font-black transition-colors ${
+                          return (
+                            <button
+                              key={`${cinema.id}-${st.id}-${st.time}`}
+                              disabled={isPast}
+                              onClick={() => {
+                                if (isPast) return;
+                                router.push(
+                                  `/booking?movie=${movie.id}&cinema=${cinema.id}&date=${encodeURIComponent(
+                                    selectedDate
+                                  )}&showtime=${st.id}&time=${encodeURIComponent(st.time)}`
+                                );
+                              }}
+                              className={`rounded-xl px-4 py-2.5 text-center transition-all min-w-[110px] ${
                                 isPast
-                                  ? 'text-slate-500 line-through'
-                                  : 'text-white group-hover:text-[#E63845]'
+                                  ? 'bg-[#12151D] border border-[#232733] opacity-40 cursor-not-allowed select-none'
+                                  : 'bg-[#0F1217] border border-[#303645] hover:border-[#E63845] hover:bg-[#E63845]/10 group transform hover:scale-105 cursor-pointer'
                               }`}
+                              title={isPast ? 'Suất chiếu này đã qua giờ chiếu' : `${st.roomName} • Còn ${st.availableSeats} ghế trống`}
                             >
-                              {st.time}
-                            </div>
-                            <div
-                              className={`text-[11px] font-medium mt-0.5 ${
-                                isPast ? 'text-slate-500' : 'text-[#FABF2E]'
-                              }`}
-                            >
-                              {isPast ? 'Đã chiếu' : `${st.availableSeats}/80 ghế trống`}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                              <div
+                                className={`text-sm font-black transition-colors ${
+                                  isPast
+                                    ? 'text-slate-500 line-through'
+                                    : 'text-white group-hover:text-[#E63845]'
+                                }`}
+                              >
+                                {st.time}
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate max-w-[110px] mt-0.5">
+                                {st.roomName}
+                              </div>
+                              <div
+                                className={`text-[10px] font-medium mt-0.5 ${
+                                  isPast ? 'text-slate-500' : 'text-[#FABF2E]'
+                                }`}
+                              >
+                                {isPast ? 'Đã chiếu' : `Còn ${st.availableSeats} ghế`}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

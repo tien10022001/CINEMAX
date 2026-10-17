@@ -16,24 +16,27 @@ export default function QuickBookingBar({ movies, cinemas }: QuickBookingBarProp
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>('all');
   const [selectedShowtime, setSelectedShowtime] = useState<string>('all');
+  const dateOptions = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const val = `${yyyy}-${mm}-${dd}`;
+    const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+    const label = i === 0 ? `Hôm nay (${dd}/${mm})` : `${dayNames[d.getDay()]} (${dd}/${mm})`;
+    return { val, label };
+  });
 
   const handleShowtimeChange = (value: string) => {
     setSelectedShowtime(value);
     if (value === 'all') return;
 
-    // Map time frames to mock showtime IDs
-    const showtimeMap: Record<string, string> = {
-      morning: '101', // Sáng (10:00)
-      noon: '102',    // Trưa (12:45)
-      afternoon: '103', // Chiều (15:30)
-      evening: '104', // Tối (18:15)
-    };
-
-    const targetShowtime = showtimeMap[value] || '101';
-    const dateParam = selectedDate === 'all' ? '2026-09-29' : selectedDate;
+    const defaultMovieId = movies?.[0]?.id || 1;
+    const dateParam = selectedDate === 'all' ? dateOptions[0]?.val : selectedDate;
 
     router.push(
-      `/booking?movie=1&cinema=${selectedCinema}&date=${dateParam}&showtime=${targetShowtime}`
+      `/booking?movie=${defaultMovieId}&cinema=${selectedCinema}&date=${dateParam}&timeframe=${value}`
     );
   };
 
@@ -84,12 +87,11 @@ export default function QuickBookingBar({ movies, cinemas }: QuickBookingBarProp
               className="w-full bg-[#0F1217] border border-[#303645] text-white rounded-xl px-4 py-3 text-xs sm:text-sm font-medium focus:outline-none focus:border-[#E63845] transition-colors cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2210%22%20height%3D%226%22%20viewBox%3D%220%200%2010%206%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M1%201L5%205L9%201%22%20stroke%3D%22%239EA6B8%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_6px] bg-no-repeat bg-[position:right_16px_center]"
             >
               <option value="all">Tất cả các ngày</option>
-              <option value="2026-09-29">Hôm nay (29/09)</option>
-              <option value="2026-09-30">Thứ tư (30/09)</option>
-              <option value="2026-10-01">Thứ năm (01/10)</option>
-              <option value="2026-10-02">Thứ sáu (02/10)</option>
-              <option value="2026-10-03">Thứ bảy (03/10)</option>
-              <option value="2026-10-04">Chủ nhật (04/10)</option>
+              {dateOptions.map((opt) => (
+                <option key={opt.val} value={opt.val}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
 

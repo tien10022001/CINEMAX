@@ -1327,57 +1327,55 @@ export default function StaffWorkspacePage() {
   // ==========================================================================
   const [posDateFilter, setPosDateFilter] = useState<'today' | 'tomorrow' | 'all'>('today');
   const [posAudienceType, setPosAudienceType] = useState<AudienceType>('ADULT');
-  const [posSelectedMovieId, setPosSelectedMovieId] = useState<number>(Number(movies[0]?.id) || 1);
+  const [posSelectedMovieId, setPosSelectedMovieId] = useState<number | string>(movies[0]?.id || 1);
 
   const movieShowtimes = useMemo(() => {
-    const byMovie = showtimes.filter(
-      (s) => Number(s.movie_id) === posSelectedMovieId && s.status === 'OPEN'
-    );
-    const selectedMovieObj = movies.find((m) => Number(m.id) === posSelectedMovieId) || movies[0];
+    const selectedMovieObj = movies.find(
+      (m) => String(m.id) === String(posSelectedMovieId) || Number(m.id) === Number(posSelectedMovieId)
+    ) || movies[0];
+    const selSupabaseId = selectedMovieObj?.supabase_id;
+    const selSlug = selectedMovieObj?.slug;
 
-    // If this movie does not have dedicated showtime rows yet, generate distinct showtime IDs per movie
-    // so seats booked for Movie A never appear on Movie B
-    const baseList =
-      byMovie.length > 0
-        ? byMovie
-        : showtimes.slice(0, 4).map((st, idx) => ({
-            ...st,
-            id: posSelectedMovieId * 10000 + (idx + 1),
-            movie_id: posSelectedMovieId,
-            movie: selectedMovieObj,
-          }));
+    const byMovie = showtimes.filter((s) => {
+      if (s.status !== 'OPEN') return false;
+      const match =
+        String(s.movie_id) === String(posSelectedMovieId) ||
+        (selectedMovieObj && String(s.movie_id) === String(selectedMovieObj.id)) ||
+        (selSupabaseId && (String(s.movie_id) === selSupabaseId || s.movie?.supabase_id === selSupabaseId)) ||
+        (selSlug && s.movie?.slug === selSlug);
+      return match;
+    });
+
+    const getVNDate = (d: Date | string) => {
+      try {
+        const dateObj = typeof d === 'string' ? new Date(d) : d;
+        return dateObj.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+      } catch {
+        return typeof d === 'string' ? d.slice(0, 10) : d.toISOString().slice(0, 10);
+      }
+    };
 
     const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
-    const tomorrowDate = new Date(now);
-    tomorrowDate.setDate(now.getDate() + 1);
-    const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
+    const todayStr = getVNDate(now);
+    const tomorrowDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrowStr = getVNDate(tomorrowDate);
 
-    const hasRealTodayOrTomorrow = baseList.some((s) => {
-      const d = s.start_time.slice(0, 10);
-      return d === todayStr || d === tomorrowStr;
-    });
+    const baseList = byMovie;
 
     const resultList =
       posDateFilter === 'all'
         ? baseList
-        : hasRealTodayOrTomorrow
-        ? baseList.filter(
+        : baseList.filter(
             (s) =>
-              s.start_time.slice(0, 10) ===
+              getVNDate(s.start_time) ===
               (posDateFilter === 'today' ? todayStr : tomorrowStr)
-          )
-        : baseList.filter((_, idx) =>
-            posDateFilter === 'today' ? idx % 2 === 0 : idx % 2 === 1
           );
 
     // Sort chronologically from morning to night
     return [...resultList].sort((a, b) => {
       const da = new Date(a.start_time);
       const db = new Date(b.start_time);
-      const timeA = da.getHours() * 60 + da.getMinutes();
-      const timeB = db.getHours() * 60 + db.getMinutes();
-      return timeA - timeB;
+      return da.getTime() - db.getTime();
     });
   }, [showtimes, movies, posSelectedMovieId, posDateFilter]);
 
@@ -1417,7 +1415,7 @@ export default function StaffWorkspacePage() {
   );
 
   const activeMovie = useMemo(
-    () => movies.find((m) => Number(m.id) === posSelectedMovieId) || movies[0],
+    () => movies.find((m) => String(m.id) === String(posSelectedMovieId) || Number(m.id) === Number(posSelectedMovieId)) || movies[0],
     [movies, posSelectedMovieId]
   );
 

@@ -28,16 +28,25 @@ export default function ShowtimeModal({
 }: ShowtimeModalProps) {
   const router = useRouter();
 
-  // Danh sách ngày chiếu mẫu chuẩn theo form
-  const dates = [
-    { label: '15/10 - T5', date: '2026-10-15', dayStr: '15/10' },
-    { label: '16/10 - T6', date: '2026-10-16', dayStr: '16/10' },
-    { label: '17/10 - T7', date: '2026-10-17', dayStr: '17/10' },
-    { label: '18/10 - CN', date: '2026-10-18', dayStr: '18/10' },
-    { label: '19/10 - T2', date: '2026-10-19', dayStr: '19/10' },
-  ];
+  // Danh sách 7 ngày chiếu tính từ hôm nay (khớp ma trận lịch chiếu 17/10 - 23/10 trong Admin)
+  const dates = React.useMemo(() => {
+    const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const result = [];
+    const base = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(base.getTime() + i * 24 * 60 * 60 * 1000);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const dateKey = `${yyyy}-${mm}-${dd}`;
+      const dayStr = `${dd}/${mm}`;
+      const label = i === 0 ? `Hôm nay - ${dayStr}` : i === 1 ? `Ngày mai - ${dayStr}` : `${dayStr} - ${dayLabels[d.getDay()]}`;
+      result.push({ label, date: dateKey, dayStr });
+    }
+    return result;
+  }, []);
 
-  const [selectedDate, setSelectedDate] = useState<string>(initialDate || dates[0].date);
+  const [selectedDate, setSelectedDate] = useState<string>(() => initialDate || dates[0]?.date || '2026-10-17');
   const [selectedCinemaId, setSelectedCinemaId] = useState<string | number>(
     cinemas[0]?.id || 1
   );
