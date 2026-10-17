@@ -76,6 +76,7 @@ interface DataContextType {
   soldSeatsByShowtime: Record<number, string[]>;
   seatUuidLookup: Record<string, string>;
   tableCounts: Record<string, number>;
+  auditoriums: any[];
   refreshFromSupabase: () => Promise<void>;
 
   // Movies CRUD
@@ -131,6 +132,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [soldSeatsByShowtime, setSoldSeatsByShowtime] = useState<Record<number, string[]>>({});
   const [seatUuidLookup, setSeatUuidLookup] = useState<Record<string, string>>({});
   const [tableCounts, setTableCounts] = useState<Record<string, number>>({});
+  const [auditoriums, setAuditoriums] = useState<any[]>([]);
 
   const refreshFromSupabase = useCallback(async () => {
     try {
@@ -138,6 +140,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchSupabaseCatalog(),
         probeSupabaseWriteAccess(),
       ]);
+      const supabase = createClient();
+      const { data: supaAuds } = await supabase.from('auditoriums').select('*').order('name', { ascending: true });
+      if (supaAuds && supaAuds.length > 0) {
+        setAuditoriums(supaAuds);
+        localStorage.setItem('cinemax_auditoriums_v2', JSON.stringify(supaAuds));
+      }
       if (catalog.connected) {
         setSupabaseConnected(true);
         setSupabaseWritable(writeStatus.writable);
@@ -185,6 +193,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (storedNews) setNews(JSON.parse(storedNews));
         const storedSettings = localStorage.getItem('cinemax_site_settings_v2');
         if (storedSettings) setSiteSettings(JSON.parse(storedSettings));
+        const storedAuds = localStorage.getItem('cinemax_auditoriums_v2');
+        if (storedAuds) setAuditoriums(JSON.parse(storedAuds));
       } catch (hydrateErr) {
         console.warn('Hydration from localStorage warning:', hydrateErr);
       }
@@ -216,6 +226,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(catalog.showtimes));
         localStorage.setItem('cinemax_foods_v2', JSON.stringify(catalog.foods));
         localStorage.setItem('cinemax_promotions_v2', JSON.stringify(catalog.promotions));
+
+        const supabase = createClient();
+        const { data: freshAuds } = await supabase.from('auditoriums').select('*').order('name', { ascending: true });
+        if (freshAuds && freshAuds.length > 0) {
+          setAuditoriums(freshAuds);
+          localStorage.setItem('cinemax_auditoriums_v2', JSON.stringify(freshAuds));
+        }
       } else {
         // 3. Fallback to /api/sync if Supabase is offline
         try {
@@ -276,11 +293,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('cinemax_site_settings_v2', JSON.stringify(e.detail.siteSettings));
         handled = true;
       }
+      if (e?.detail?.auditoriums && Array.isArray(e.detail.auditoriums)) {
+        setAuditoriums(e.detail.auditoriums);
+        localStorage.setItem('cinemax_auditoriums_v2', JSON.stringify(e.detail.auditoriums));
+        handled = true;
+      }
 
       if (!handled) {
         // Fallback to local storage reads
         const localM = localStorage.getItem('cinemax_movies_v2');
         if (localM) try { setMovies(JSON.parse(localM)); } catch {}
+        const localA = localStorage.getItem('cinemax_auditoriums_v2');
+        if (localA) try { setAuditoriums(JSON.parse(localA)); } catch {}
         const localP = localStorage.getItem('cinemax_promotions_v2');
         if (localP) try { setPromotions(JSON.parse(localP)); } catch {}
         const localF = localStorage.getItem('cinemax_foods_v2');
@@ -312,6 +336,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         refreshFromSupabase();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'coupons' }, () => {
+        refreshFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auditoriums' }, () => {
+        refreshFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'seats' }, () => {
         refreshFromSupabase();
       })
       .subscribe();
@@ -747,6 +777,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         deleteNewsArticle,
         updateSiteSettings,
         resetAllDataToDefault,
+        auditoriums,
       }}
     >
       {children}

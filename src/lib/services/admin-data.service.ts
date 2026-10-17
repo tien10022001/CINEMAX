@@ -376,9 +376,37 @@ export class AdminDataService {
   // 3. Auditorium & Seat Map
   static async upsertAuditorium(auditorium: Partial<Auditorium>) {
     const supabase = this.supabase;
-    const { data, error } = await supabase.from('auditoriums').upsert(auditorium).select().single();
-    if (error) throw error;
-    return data as Auditorium;
+    const audId = auditorium.id && auditorium.id.length === 36 ? auditorium.id : crypto.randomUUID();
+    const dbPayload = {
+      id: audId,
+      name: auditorium.name || 'Phòng chiếu mới',
+      screen_type: auditorium.screen_type || '2D',
+      sound_system: auditorium.sound_system || 'Dolby 7.1',
+      total_seats: Number(auditorium.total_seats) || 80,
+      cleaning_buffer_minutes: Number(auditorium.cleaning_buffer_minutes) || 15,
+      status: auditorium.status || 'active',
+      seat_map_version: auditorium.seat_map_version || 1,
+    };
+    try {
+      const { data, error } = await supabase.from('auditoriums').upsert(dbPayload).select().single();
+      if (!error && data) return data as Auditorium;
+    } catch (err) {
+      console.warn('Upsert auditorium Supabase error:', err);
+    }
+    await this.saveEntity('auditoriums', [dbPayload]);
+    return dbPayload as Auditorium;
+  }
+
+  static async deleteAuditorium(id: string) {
+    const supabase = this.supabase;
+    try {
+      await supabase.from('seats').delete().eq('auditorium_id', id);
+      await supabase.from('showtimes').delete().eq('auditorium_id', id);
+      await supabase.from('auditoriums').delete().eq('id', id);
+    } catch (err) {
+      console.warn('Delete auditorium Supabase error:', err);
+    }
+    await this.deleteEntity('auditoriums', id);
   }
 
   static async updateSeatStatus(seatId: string, status: 'ACTIVE' | 'BLOCKED', blockReason?: string) {
@@ -398,7 +426,53 @@ export class AdminDataService {
   }
 
   static async saveAllSeats(seats: Seat[]) {
-    await this.saveEntity('seats', seats);
+    const supabase = this.supabase;
+    const cleanSeats = seats.map((s) => ({
+      id: s.id && s.id.length === 36 ? s.id : crypto.randomUUID(),
+      auditorium_id: s.auditorium_id,
+      row_label: s.row_label,
+      seat_number: s.seat_number,
+      grid_row: s.grid_row,
+      grid_col: s.grid_col,
+      seat_type: s.seat_type || 'STANDARD',
+      seat_group: (s as any).seat_group || null,
+      status: s.status || 'ACTIVE',
+      block_reason: s.block_reason || null
+    }));
+
+    // Push in chunks of 80 to Supabase Cloud directly without unsupported 'price' column
+    try {
+      for (let i = 0; i < cleanSeats.length; i += 80) {
+        const chunk = cleanSeats.slice(i, i + 80);
+        await supabase.from('seats').upsert(chunk);
+      }
+    } catch (err) {
+      console.warn('Upsert seats Supabase error:', err);
+    }
+
+    await this.saveEntity('seats', cleanSeats);
+  }
+
+  static async deleteSeat(seatId: string) {
+    try {
+      await this.supabase.from('seats').delete().eq('id', seatId);
+    } catch {}
+    await this.deleteEntity('seats', seatId);
+  }
+
+  static async saveCinemaInfo(cinemaInfo: { name: string; address: string; hotline: string; email?: string }) {
+    const supabase = this.supabase;
+    try {
+      await supabase
+        .from('cinema_settings')
+        .upsert({
+          setting_key: 'cinema_info',
+          setting_value: cinemaInfo,
+          updated_at: new Date().toISOString()
+        });
+    } catch (err) {
+      console.warn('Save cinema_info to Supabase error:', err);
+    }
   }
 
   // 4. Showtime & Prices

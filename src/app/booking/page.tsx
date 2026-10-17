@@ -271,21 +271,39 @@ function BookingContent() {
         // POS seats sync fallback
       }
 
-      // Also sync maintenance/broken seats locked from Staff Room Management
+      // Also sync maintenance/broken seats locked from Admin & Staff Room Management
       const blockedSeatLabels = new Set<string>();
       try {
+        const currentAudId = selectedShowtime?.auditorium_id || selectedShowtime?.room?.supabase_id;
+        const currentRoomName = selectedShowtime?.room?.name || 'Phòng 1';
+
+        // 1. From cinemax_seats_v2 (Admin seat status: BLOCKED)
+        const adminSeatsRaw = localStorage.getItem('cinemax_seats_v2');
+        if (adminSeatsRaw) {
+          const adminSeats = JSON.parse(adminSeatsRaw);
+          if (Array.isArray(adminSeats)) {
+            adminSeats.forEach((s: any) => {
+              if (s.status === 'BLOCKED' && (!currentAudId || s.auditorium_id === currentAudId)) {
+                blockedSeatLabels.add(`${s.row_label}${s.seat_number}`);
+              }
+            });
+          }
+        }
+
+        // 2. From cinemax_maintenance_seats_v2 (Staff & Admin Room Management)
         const maintRaw = localStorage.getItem('cinemax_maintenance_seats_v2');
         if (maintRaw) {
           const maintMap = JSON.parse(maintRaw);
-          const roomName = selectedShowtime?.room?.name || 'Phòng 1';
-          const roomKey = roomName.includes('2')
-            ? 'room-q1-2'
-            : roomName.includes('3')
-            ? 'room-q1-3'
-            : 'room-q1-1';
-          const roomBrokenSeats = maintMap?.[roomKey];
-          if (Array.isArray(roomBrokenSeats)) {
-            roomBrokenSeats.forEach((s: string) => blockedSeatLabels.add(String(s).trim().toUpperCase()));
+          const roomBroken =
+            (currentAudId && maintMap[currentAudId]) ||
+            maintMap[currentRoomName] ||
+            (currentRoomName.includes('2')
+              ? maintMap['room-q1-2']
+              : currentRoomName.includes('3')
+              ? maintMap['room-q1-3']
+              : maintMap['room-q1-1']);
+          if (Array.isArray(roomBroken)) {
+            roomBroken.forEach((s: string) => blockedSeatLabels.add(String(s).trim().toUpperCase()));
           }
         }
       } catch (e) {
@@ -314,7 +332,7 @@ function BookingContent() {
               const seatLabel = `${s.row_label}${s.seat_number}`;
               const isBookedLocally = bookedSeatLabels.has(seatLabel);
               const isHeldLocally = heldSeatLabels.has(seatLabel);
-              const isBlockedLocally = blockedSeatLabels.has(seatLabel);
+              const isBlockedLocally = blockedSeatLabels.has(seatLabel) || String(s.status).toUpperCase() === 'BLOCKED';
 
               let seatStatus: any = s.status;
               if (isBookedLocally) seatStatus = 'sold';
@@ -362,11 +380,13 @@ function BookingContent() {
     loadSeats();
     const handleUpdate = () => loadSeats();
     window.addEventListener('cinemax_data_updated', handleUpdate);
+    window.addEventListener('cinemax_db_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     return () => {
       isMounted = false;
       window.removeEventListener('cinemax_data_updated', handleUpdate);
+      window.removeEventListener('cinemax_db_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, [selectedShowtime, queryCinemaId, queryDate, queryTime, selectedCinema, sessionId]);

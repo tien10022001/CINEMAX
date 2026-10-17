@@ -663,6 +663,51 @@ export default function AdminPage() {
     }
   };
 
+  const syncAuditoriumsToCustomer = async (updatedAuds: Auditorium[], updatedSeats: Seat[]) => {
+    try {
+      localStorage.setItem('cinemax_auditoriums_v2', JSON.stringify(updatedAuds));
+      localStorage.setItem('cinemax_seats_v2', JSON.stringify(updatedSeats));
+
+      // Build maintenance map by auditorium id and room name so Staff & User Booking stay 100% in sync
+      const maintMap: Record<string, string[]> = {};
+      updatedSeats.forEach((s) => {
+        if (s.status === 'BLOCKED') {
+          const code = `${s.row_label}${s.seat_number}`;
+          if (!maintMap[s.auditorium_id]) maintMap[s.auditorium_id] = [];
+          maintMap[s.auditorium_id].push(code);
+
+          // Also map to auditorium name (e.g. 'Phòng 1') and standard room keys
+          const aud = updatedAuds.find((a) => a.id === s.auditorium_id);
+          if (aud?.name) {
+            if (!maintMap[aud.name]) maintMap[aud.name] = [];
+            maintMap[aud.name].push(code);
+
+            const matchNum = aud.name.match(/\d+/);
+            if (matchNum) {
+              const k = `room-q1-${matchNum[0]}`;
+              if (!maintMap[k]) maintMap[k] = [];
+              maintMap[k].push(code);
+            }
+          }
+        }
+      });
+      localStorage.setItem('cinemax_maintenance_seats_v2', JSON.stringify(maintMap));
+
+      window.dispatchEvent(
+        new CustomEvent('cinemax_db_updated', {
+          detail: { auditoriums: updatedAuds, seats: updatedSeats, maintenanceSeats: maintMap }
+        })
+      );
+      window.dispatchEvent(
+        new CustomEvent('cinemax_data_updated', {
+          detail: { auditoriums: updatedAuds, seats: updatedSeats, maintenanceSeats: maintMap }
+        })
+      );
+    } catch (e) {
+      console.error('Failed to sync auditoriums to customer view', e);
+    }
+  };
+
   // CRUD Handlers connected to Service + Local Sync
   const handleSaveMovie = async (movieData: Partial<Movie>) => {
     let nextList: Movie[] = [];
@@ -907,6 +952,7 @@ export default function AdminPage() {
     setSeats((prev) => {
       const nextSeats = prev.map((s) => (s.id === seatId ? { ...s, status, block_reason: blockReason || null } : s));
       AdminDataService.saveAllSeats(nextSeats);
+      syncAuditoriumsToCustomer(auditoriums, nextSeats);
       return nextSeats;
     });
   };
@@ -915,25 +961,32 @@ export default function AdminPage() {
     seatIds: string[],
     updates: Partial<Seat>
   ) => {
+    let nextSeats: Seat[] = [];
     setSeats((prev) => {
-      const nextSeats = prev.map((s) => (seatIds.includes(s.id) ? { ...s, ...updates } : s));
+      nextSeats = prev.map((s) => (seatIds.includes(s.id) ? { ...s, ...updates } : s));
       AdminDataService.saveAllSeats(nextSeats);
+      syncAuditoriumsToCustomer(auditoriums, nextSeats);
       return nextSeats;
     });
   };
 
   const handleUpdateSeat = async (seatId: string, updates: Partial<Seat>) => {
+    let nextSeats: Seat[] = [];
     setSeats((prev) => {
-      const nextSeats = prev.map((s) => (s.id === seatId ? { ...s, ...updates } : s));
+      nextSeats = prev.map((s) => (s.id === seatId ? { ...s, ...updates } : s));
       AdminDataService.saveAllSeats(nextSeats);
+      syncAuditoriumsToCustomer(auditoriums, nextSeats);
       return nextSeats;
     });
   };
 
   const handleDeleteSeat = async (seatId: string) => {
+    let nextSeats: Seat[] = [];
     setSeats((prev) => {
-      const nextSeats = prev.filter((s) => s.id !== seatId);
+      nextSeats = prev.filter((s) => s.id !== seatId);
+      AdminDataService.deleteSeat(seatId);
       AdminDataService.saveAllSeats(nextSeats);
+      syncAuditoriumsToCustomer(auditoriums, nextSeats);
       return nextSeats;
     });
   };
@@ -951,9 +1004,11 @@ export default function AdminPage() {
       price: seatData.price || 75000,
       ...seatData
     };
+    let nextSeats: Seat[] = [];
     setSeats((prev) => {
-      const nextSeats = [...prev, newSeat];
+      nextSeats = [...prev, newSeat];
       AdminDataService.saveAllSeats(nextSeats);
+      syncAuditoriumsToCustomer(auditoriums, nextSeats);
       return nextSeats;
     });
   };
@@ -1235,17 +1290,21 @@ export default function AdminPage() {
 
   const handleDeleteAuditorium = async (id: string) => {
     let nextAuds: Auditorium[] = [];
+    let nextSeats: Seat[] = [];
     setAuditoriums((prev) => {
       nextAuds = prev.filter((a) => a.id !== id);
-      AdminDataService.deleteEntity('auditoriums', id);
-      AdminDataService.saveEntity('auditoriums', nextAuds);
       return nextAuds;
     });
     setSeats((prev) => {
-      const nextSeats = prev.filter((s) => s.auditorium_id !== id);
-      AdminDataService.saveAllSeats(nextSeats);
+      nextSeats = prev.filter((s) => s.auditorium_id !== id);
       return nextSeats;
     });
+    try {
+      await AdminDataService.deleteAuditorium(id);
+      await syncAuditoriumsToCustomer(nextAuds, nextSeats);
+    } catch (e) {
+      console.error('Delete auditorium error:', e);
+    }
     addNotification('Xóa phòng chiếu', 'Đã xóa phòng chiếu và toàn bộ sơ đồ ghế.', 'DANGER', 'MOVIES', 'AUDITORIUMS');
     showToast('Đã xóa phòng chiếu thành công!');
   };
@@ -1254,43 +1313,37 @@ export default function AdminPage() {
     try {
       let nextAuds: Auditorium[] = [];
       let savedAud: Auditorium;
+      let nextSeats: Seat[] = [];
 
       if (auditoriumData.id) {
-        savedAud = auditoriumData as Auditorium;
+        savedAud = await AdminDataService.upsertAuditorium(auditoriumData);
         setAuditoriums((prev) => {
-          nextAuds = prev.map((a) => (a.id === auditoriumData.id ? ({ ...a, ...auditoriumData } as Auditorium) : a));
-          AdminDataService.saveEntity('auditoriums', nextAuds);
+          nextAuds = prev.map((a) => (a.id === auditoriumData.id ? ({ ...a, ...savedAud, ...auditoriumData } as Auditorium) : a));
           return nextAuds;
         });
+        setSeats((prev) => {
+          nextSeats = [...prev];
+          return prev;
+        });
+        await syncAuditoriumsToCustomer(nextAuds, nextSeats);
       } else {
-        const newId = crypto.randomUUID();
-        const created: Auditorium = {
-          id: newId,
-          name: auditoriumData.name || 'Phòng chiếu mới',
-          screen_type: auditoriumData.screen_type || '2D',
-          sound_system: auditoriumData.sound_system || 'Dolby 7.1',
-          total_seats: auditoriumData.total_seats || 80,
-          cleaning_buffer_minutes: auditoriumData.cleaning_buffer_minutes || 15,
-          status: 'active',
-          seat_map_version: 1,
-          created_at: new Date().toISOString()
-        };
+        const created = await AdminDataService.upsertAuditorium(auditoriumData);
         savedAud = created;
 
         setAuditoriums((prev) => {
           nextAuds = [...prev, created];
-          AdminDataService.saveEntity('auditoriums', nextAuds);
           return nextAuds;
         });
 
         // Auto-generate seats with requested total_seats
         const targetSeats = Number(auditoriumData.total_seats) || 80;
-        const newSeats = generateDefaultSeatsForAud(newId, targetSeats);
+        const newSeats = generateDefaultSeatsForAud(created.id, targetSeats);
         setSeats((prev) => {
-          const updatedSeats = [...prev, ...newSeats];
-          AdminDataService.saveAllSeats(updatedSeats);
-          return updatedSeats;
+          nextSeats = [...prev, ...newSeats];
+          return nextSeats;
         });
+        await AdminDataService.saveAllSeats(nextSeats);
+        await syncAuditoriumsToCustomer(nextAuds, nextSeats);
       }
       addNotification('Lưu phòng chiếu', `Đã lưu cấu hình phòng chiếu "${auditoriumData.name || ''}" và sơ đồ ghế.`, 'SUCCESS', 'MOVIES', 'AUDITORIUMS');
       showToast('Đã lưu thông tin phòng chiếu thành công!');

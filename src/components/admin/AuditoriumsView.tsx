@@ -20,6 +20,7 @@ import {
   Tag
 } from 'lucide-react';
 import { Auditorium, Seat, SeatType, SeatStatus, ScreenType } from '@/lib/types-redesign';
+import { AdminDataService } from '@/lib/services/admin-data.service';
 
 const DEFAULT_CINEMAS = [
   {
@@ -497,10 +498,37 @@ export default function AuditoriumsView({
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('cinemax_cinemas_list', JSON.stringify(updatedList));
+
+        // Sync to cinemax_cinemas_v2 so User and Staff views update live
+        const mappedV2 = updatedList.map((c, idx) => ({
+          id: idx + 1,
+          name: c.name,
+          address: c.address,
+          city: c.city,
+          district: c.city,
+          phone: c.hotline || '1900 1234',
+          is_active: true
+        }));
+        localStorage.setItem('cinemax_cinemas_v2', JSON.stringify(mappedV2));
+
+        window.dispatchEvent(
+          new CustomEvent('cinemax_db_updated', { detail: { cinemas: mappedV2 } })
+        );
+        window.dispatchEvent(
+          new CustomEvent('cinemax_data_updated', { detail: { cinemas: mappedV2 } })
+        );
+
         fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ entity: 'cinemas', data: updatedList })
+        }).catch(() => {});
+
+        // Sync primary cinema to Supabase cinema_settings
+        AdminDataService.saveCinemaInfo({
+          name: updatedList[0]?.name || theaterForm.name,
+          address: updatedList[0]?.address || theaterForm.address,
+          hotline: updatedList[0]?.hotline || theaterForm.hotline
         }).catch(() => {});
       } catch {}
     }
@@ -1497,6 +1525,27 @@ export default function AuditoriumsView({
                           localStorage.setItem('cinemax_deleted_ids', JSON.stringify(localDeleted));
                         }
                         localStorage.setItem('cinemax_cinemas_list', JSON.stringify(nextCinemas));
+                        const mappedV2 = nextCinemas.map((c, idx) => ({
+                          id: idx + 1,
+                          name: c.name,
+                          address: c.address,
+                          city: c.city,
+                          district: c.city,
+                          phone: c.hotline || '1900 1234',
+                          is_active: true
+                        }));
+                        localStorage.setItem('cinemax_cinemas_v2', JSON.stringify(mappedV2));
+                        window.dispatchEvent(
+                          new CustomEvent('cinemax_db_updated', { detail: { cinemas: mappedV2 } })
+                        );
+                        window.dispatchEvent(
+                          new CustomEvent('cinemax_data_updated', { detail: { cinemas: mappedV2 } })
+                        );
+                        fetch('/api/sync', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ entity: 'cinemas', data: nextCinemas })
+                        }).catch(() => {});
                       } catch {}
                     }
                     showToast(`Đã xóa cụm rạp "${item.name}"!`);

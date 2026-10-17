@@ -315,6 +315,8 @@ export default function StaffWorkspacePage() {
     movies,
     showtimes,
     foods,
+    cinemas,
+    auditoriums,
     soldSeatsByShowtime,
     seatUuidLookup,
     updateFoodItem,
@@ -562,13 +564,49 @@ export default function StaffWorkspacePage() {
         }
       }
 
-      const rawMaint = localStorage.getItem('cinemax_maintenance_seats_v2');
-      if (rawMaint) {
-        const parsedMaint = JSON.parse(rawMaint);
-        if (parsedMaint && typeof parsedMaint === 'object') {
-          setMaintenanceSeatsByRoom(parsedMaint);
+      // Combined maintenance seats from cinemax_maintenance_seats_v2 and cinemax_seats_v2 (Admin)
+      const combinedMaintMap: Record<string, string[]> = {};
+      try {
+        const rawMaint = localStorage.getItem('cinemax_maintenance_seats_v2');
+        if (rawMaint) {
+          const parsedMaint = JSON.parse(rawMaint);
+          if (parsedMaint && typeof parsedMaint === 'object') {
+            Object.assign(combinedMaintMap, parsedMaint);
+          }
         }
-      }
+        const rawAdminSeats = localStorage.getItem('cinemax_seats_v2');
+        if (rawAdminSeats) {
+          const parsedAdminSeats = JSON.parse(rawAdminSeats);
+          if (Array.isArray(parsedAdminSeats)) {
+            parsedAdminSeats.forEach((s: any) => {
+              if (s.status === 'BLOCKED') {
+                const code = `${s.row_label}${s.seat_number}`;
+                if (!combinedMaintMap[s.auditorium_id]) combinedMaintMap[s.auditorium_id] = [];
+                if (!combinedMaintMap[s.auditorium_id].includes(code)) {
+                  combinedMaintMap[s.auditorium_id].push(code);
+                }
+              }
+            });
+          }
+        }
+      } catch {}
+      setMaintenanceSeatsByRoom(combinedMaintMap);
+
+      // Query real blocked seats from Supabase DB
+      try {
+        const supabase = createClient();
+        const { data: blockedDbSeats } = await supabase.from('seats').select('*').eq('status', 'BLOCKED');
+        if (blockedDbSeats && blockedDbSeats.length > 0) {
+          blockedDbSeats.forEach((s: any) => {
+            const code = `${s.row_label}${s.seat_number}`;
+            if (!combinedMaintMap[s.auditorium_id]) combinedMaintMap[s.auditorium_id] = [];
+            if (!combinedMaintMap[s.auditorium_id].includes(code)) {
+              combinedMaintMap[s.auditorium_id].push(code);
+            }
+          });
+          setMaintenanceSeatsByRoom({ ...combinedMaintMap });
+        }
+      } catch {}
     } catch {
       // Ignore
     }
@@ -803,10 +841,15 @@ export default function StaffWorkspacePage() {
 
   useEffect(() => {
     loadSynchronizedData();
-    const handleStorage = () => loadSynchronizedData();
+    const handleStorage = () => {
+      loadSynchronizedData();
+      refreshFromSupabase();
+    };
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('cinemax_db_updated', handleStorage);
+    window.addEventListener('cinemax_data_updated', handleStorage);
 
-    // Subscribe to Supabase Realtime for orders, order_items, tickets, and refunds
+    // Subscribe to Supabase Realtime for orders, order_items, tickets, refunds, auditoriums, and seats
     const supabase = createClient();
     const channel = supabase
       .channel('cinemax-staff-history-sync')
@@ -822,10 +865,20 @@ export default function StaffWorkspacePage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'refunds' }, () => {
         loadSynchronizedData();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auditoriums' }, () => {
+        loadSynchronizedData();
+        refreshFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'seats' }, () => {
+        loadSynchronizedData();
+        refreshFromSupabase();
+      })
       .subscribe();
 
     return () => {
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('cinemax_db_updated', handleStorage);
+      window.removeEventListener('cinemax_data_updated', handleStorage);
       supabase.removeChannel(channel);
     };
   }, [loadSynchronizedData]);
@@ -1667,21 +1720,105 @@ export default function StaffWorkspacePage() {
   // ==========================================================================
   const [selectedRoomForModal, setSelectedRoomForModal] = useState<RoomDefinition | null>(null);
 
-  const toggleMaintenanceSeat = (roomId: string, seatCode: string) => {
+  const dynamicRooms: RoomDefinition[] = useMemo(() => {
+    const effectiveAuds = auditoriums && auditoriums.length > 0
+      ? auditoriums
+      : (() => {
+          try {
+            const raw = typeof window !== 'undefined' ? localStorage.getItem('cinemax_auditoriums_v2') : null;
+            return raw ? JSON.parse(raw) : [];
+          } catch {
+            return [];
+          }
+        })();
+
+    if (effectiveAuds && effectiveAuds.length > 0) {
+      const primaryCinema = cinemas[0] || {
+        id: 1,
+        name: 'CINEMAX Plaza (FPT Polytechnic)',
+        address: 'Tòa nhà FPT Polytechnic, Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội',
+      };
+
+      return effectiveAuds.map((aud: any, idx: number) => {
+        const isLarge = (Number(aud.total_seats) || 80) >= 100;
+        const rows = isLarge ? ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K'] : SEAT_ROWS;
+        const cols = isLarge ? 12 : 10;
+        return {
+          id: aud.id || `room-${idx + 1}`,
+          cinemaId: 1,
+          cinemaName: primaryCinema.name,
+          cinemaAddress: primaryCinema.address,
+          roomName: aud.name || `Phòng ${idx + 1}`,
+          screenType: aud.screen_type || '2D Digital',
+          totalSeats: Number(aud.total_seats) || 80,
+          rows,
+          cols,
+        };
+      });
+    }
+
+    return DEFAULT_ROOMS;
+  }, [auditoriums, cinemas]);
+
+  const toggleMaintenanceSeat = async (roomId: string, seatCode: string) => {
+    let willBeBlocked = false;
     setMaintenanceSeatsByRoom((prev) => {
       const currentList = prev[roomId] || [];
       const exists = currentList.includes(seatCode);
+      willBeBlocked = !exists;
       const nextList = exists
         ? currentList.filter((s) => s !== seatCode)
         : [...currentList, seatCode];
       const nextMap = { ...prev, [roomId]: nextList };
       try {
         localStorage.setItem('cinemax_maintenance_seats_v2', JSON.stringify(nextMap));
+
+        // Also update cinemax_seats_v2
+        const rawSeats = localStorage.getItem('cinemax_seats_v2');
+        if (rawSeats) {
+          const parsed = JSON.parse(rawSeats);
+          const row = seatCode.slice(0, 1);
+          const num = parseInt(seatCode.slice(1));
+          const updated = parsed.map((s: any) => {
+            if ((s.auditorium_id === roomId || !s.auditorium_id) && s.row_label === row && s.seat_number === num) {
+              return { ...s, status: willBeBlocked ? 'BLOCKED' : 'ACTIVE', block_reason: willBeBlocked ? 'Bảo trì kỹ thuật (Staff)' : null };
+            }
+            return s;
+          });
+          localStorage.setItem('cinemax_seats_v2', JSON.stringify(updated));
+        }
+
+        window.dispatchEvent(
+          new CustomEvent('cinemax_db_updated', {
+            detail: { maintenanceSeats: nextMap }
+          })
+        );
+        window.dispatchEvent(
+          new CustomEvent('cinemax_data_updated', {
+            detail: { maintenanceSeats: nextMap }
+          })
+        );
       } catch {
         // Ignore
       }
       return nextMap;
     });
+
+    // Update to Supabase DB directly
+    try {
+      const row = seatCode.slice(0, 1);
+      const num = parseInt(seatCode.slice(1));
+      const supabase = createClient();
+      await supabase
+        .from('seats')
+        .update({
+          status: willBeBlocked ? 'BLOCKED' : 'ACTIVE',
+          block_reason: willBeBlocked ? 'Bảo trì kỹ thuật (Staff)' : null
+        })
+        .match({ auditorium_id: roomId, row_label: row, seat_number: num });
+    } catch (e) {
+      console.warn('Could not update seat status to Supabase:', e);
+    }
   };
 
   // ==========================================================================
@@ -2836,16 +2973,30 @@ export default function StaffWorkspacePage() {
           )}
 
           {/* ================================================================ */}
-          {/* TAB 3: QUẢN LÝ PHÒNG & GHẾ — CLEAN 2-COLUMN VIDEO LAYOUT         */}
+          {/* TAB 3: QUẢN LÝ PHÒNG & GHẾ — DYNAMIC FROM SUPABASE / ADMIN       */}
           {/* ================================================================ */}
           {activeTab === 'rooms' && (
             <div className="max-w-5xl space-y-5">
-              <h1 className="text-lg font-extrabold text-white">Quản Lý Phòng &amp; Ghế</h1>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-lg font-extrabold text-white">Quản Lý Phòng &amp; Ghế</h1>
+                  <p className="text-xs text-slate-400">Đồng bộ tự động thời gian thực từ Quản Lý Rạp (Admin &amp; DB)</p>
+                </div>
+                <span className="text-xs font-bold text-[#E63845] bg-[#E63845]/10 px-3 py-1.5 rounded-full border border-[#E63845]/20">
+                  {dynamicRooms.length} phòng hoạt động
+                </span>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[1, 2].map((cinemaId) => {
-                  const cinemaRooms = DEFAULT_ROOMS.filter((r) => r.cinemaId === cinemaId);
-                  const firstRoom = cinemaRooms[0];
+                {[1, ...(cinemas.length > 1 ? [2] : [])].map((cinemaId) => {
+                  const targetCinema = cinemas.find((c) => c.id === cinemaId) || cinemas[0] || {
+                    id: cinemaId,
+                    name: cinemaId === 1 ? 'CINEMAX Plaza (FPT Polytechnic)' : 'CINEMAX Landmark',
+                    address: cinemaId === 1 ? 'Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội' : 'Tầng 4 Landmark 81, TP. HCM',
+                  };
+                  const cinemaRooms = dynamicRooms.filter((r) => r.cinemaId === cinemaId);
+                  if (cinemaRooms.length === 0) return null;
+
                   return (
                     <div
                       key={cinemaId}
@@ -2853,8 +3004,8 @@ export default function StaffWorkspacePage() {
                     >
                       <div className="flex items-center justify-between border-b border-[#1E2433] pb-3">
                         <div>
-                          <h2 className="text-sm font-bold text-white">{firstRoom.cinemaName}</h2>
-                          <p className="text-[11px] text-slate-400">{firstRoom.cinemaAddress}</p>
+                          <h2 className="text-sm font-bold text-white">{targetCinema.name}</h2>
+                          <p className="text-[11px] text-slate-400">{targetCinema.address}</p>
                         </div>
                         <span className="text-xs text-[#E63845] font-bold">
                           {cinemaRooms.length} phòng
@@ -2863,7 +3014,11 @@ export default function StaffWorkspacePage() {
 
                       <div className="space-y-2">
                         {cinemaRooms.map((room) => {
-                          const brokenCount = (maintenanceSeatsByRoom[room.id] || []).length;
+                          const brokenCount = (
+                            maintenanceSeatsByRoom[room.id] ||
+                            maintenanceSeatsByRoom[room.roomName] ||
+                            []
+                          ).length;
                           return (
                             <div
                               key={room.id}
@@ -3387,7 +3542,9 @@ export default function StaffWorkspacePage() {
                     {SEAT_COLS.map((col) => {
                       const seatCode = `${row}${col}`;
                       const isBroken = (
-                        maintenanceSeatsByRoom[selectedRoomForModal.id] || []
+                        maintenanceSeatsByRoom[selectedRoomForModal.id] ||
+                        maintenanceSeatsByRoom[selectedRoomForModal.roomName] ||
+                        []
                       ).includes(seatCode);
                       return (
                         <button
