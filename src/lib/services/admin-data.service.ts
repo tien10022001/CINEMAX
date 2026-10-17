@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import { syncCheckInToSupabase } from '@/lib/supabase/queries';
 import {
   Movie,
   Auditorium,
@@ -378,22 +379,59 @@ export class AdminDataService {
             return t;
           });
           localStorage.setItem('cinemax_user_tickets', JSON.stringify(updated));
-          window.dispatchEvent(new Event('cinemax_data_updated'));
-          window.dispatchEvent(new Event('storage'));
         }
+
+        const storedV2 = localStorage.getItem('cinemax_my_tickets_v2');
+        if (storedV2) {
+          const listV2 = JSON.parse(storedV2);
+          if (Array.isArray(listV2)) {
+            const updatedV2 = listV2.map((o: any) => {
+              const match =
+                String(o.id || '').toLowerCase() === qrToken.toLowerCase() ||
+                String(o.order_code || '').toLowerCase() === qrToken.toLowerCase() ||
+                (Array.isArray(o.items) && o.items.some((it: any) => it.ticket_code === qrToken));
+              if (match) {
+                return {
+                  ...o,
+                  status: 'USED',
+                  checked_in_at: new Date().toISOString(),
+                  checked_in_by: checkedInBy,
+                  age_check_passed: agePassed
+                };
+              }
+              return o;
+            });
+            localStorage.setItem('cinemax_my_tickets_v2', JSON.stringify(updatedV2));
+          }
+        }
+
+        window.dispatchEvent(new Event('cinemax_data_updated'));
+        window.dispatchEvent(new Event('cinemax_db_updated'));
+        window.dispatchEvent(new Event('storage'));
+
+        try {
+          const bc = new BroadcastChannel('cinemax_sync_channel');
+          bc.postMessage({ type: 'TICKET_CHECKED_IN', qrToken, checkedInBy, timestamp: Date.now() });
+          bc.close();
+        } catch {}
       } catch {}
     }
+
     try {
-      await this.supabase
-        .from('tickets')
-        .update({
-          status: 'used',
-          age_check_passed: agePassed,
-          checked_in_at: new Date().toISOString(),
-          checked_in_by: checkedInBy
-        })
-        .eq('qr_token_hash', qrToken);
-    } catch {}
+      await syncCheckInToSupabase(qrToken, agePassed);
+    } catch {
+      try {
+        await this.supabase
+          .from('tickets')
+          .update({
+            status: 'used',
+            age_check_passed: agePassed,
+            checked_in_at: new Date().toISOString(),
+            checked_in_by: checkedInBy
+          })
+          .or(`qr_token_hash.eq.${qrToken},id.eq.${qrToken}`);
+      } catch {}
+    }
   }
 
   // Generic Entity Save to /api/sync
@@ -921,6 +959,42 @@ export class AdminDataService {
       .select()
       .single();
     if (error) throw error;
+
+    if (data?.order_id) {
+      try {
+        await supabase
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('id', data.order_id);
+
+        const { data: orderItems } = await supabase
+          .from('order_items')
+          .select('id')
+          .eq('order_id', data.order_id);
+
+        if (orderItems && orderItems.length > 0) {
+          const itemIds = orderItems.map((i: any) => i.id);
+          await supabase
+            .from('tickets')
+            .update({ status: 'refunded' })
+            .in('order_item_id', itemIds);
+        }
+      } catch (err) {
+        console.warn('Error updating linked order/tickets on refund approve:', err);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new Event('cinemax_data_updated'));
+        window.dispatchEvent(new Event('cinemax_db_updated'));
+        window.dispatchEvent(new Event('storage'));
+        const bc = new BroadcastChannel('cinemax_sync_channel');
+        bc.postMessage({ type: 'REFUND_APPROVED', refundId, orderId: data?.order_id, timestamp: Date.now() });
+        bc.close();
+      } catch {}
+    }
+
     return data as Refund;
   }
 

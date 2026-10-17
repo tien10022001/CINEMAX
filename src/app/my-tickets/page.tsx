@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import Header from '@/components/layout/Header';
@@ -125,67 +125,96 @@ export default function MyTicketsPage() {
     } catch (e) {
       console.error(e);
     }
+  }, []);
 
-    // Tải dữ liệu đơn hàng và vé thực tế từ Supabase Cloud
-    const loadSupabaseOrders = async () => {
-      try {
-        const supabase = createClient();
-        const { data: supaOrders, error } = await supabase
-          .from('orders')
-          .select('*, order_items(*, tickets(*))')
-          .order('created_at', { ascending: false })
-          .limit(50);
+  // Tải dữ liệu đơn hàng và vé thực tế từ Supabase Cloud
+  const loadSupabaseOrders = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { data: supaOrders, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*, tickets(*))')
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-        if (!error && supaOrders && supaOrders.length > 0) {
-          const mapped: StoredTicket[] = supaOrders.map((o: any, idx: number) => {
-            const rawItems = o.order_items || [];
-            const ticketItem = rawItems.find((i: any) => i.item_type === 'ticket') || rawItems[0];
-            const snap = ticketItem?.item_snapshot || {};
-            const seats = rawItems
-              .filter((i: any) => i.item_type === 'ticket')
-              .map((i: any) => i.item_snapshot?.seatCode)
-              .filter(Boolean);
+      if (!error && supaOrders && supaOrders.length > 0) {
+        const mapped: StoredTicket[] = supaOrders.map((o: any, idx: number) => {
+          const rawItems = o.order_items || [];
+          const ticketItem = rawItems.find((i: any) => i.item_type === 'ticket') || rawItems[0];
+          const snap = ticketItem?.item_snapshot || {};
+          const seats = rawItems
+            .filter((i: any) => i.item_type === 'ticket')
+            .map((i: any) => i.item_snapshot?.seatCode)
+            .filter(Boolean);
 
-            const rawStatus = (o.status || 'paid').toUpperCase();
-            const statusMapped =
-              rawStatus === 'USED' || rawStatus === 'CHECKED_IN'
-                ? 'ĐÃ XEM'
-                : rawStatus === 'CANCELLED' || rawStatus === 'EXPIRED' || rawStatus === 'REFUNDED'
-                ? 'HẾT HẠN'
-                : 'ĐÃ THANH TOÁN';
+          const rawStatus = (o.status || 'paid').toUpperCase();
+          const statusMapped =
+            rawStatus === 'USED' || rawStatus === 'CHECKED_IN'
+              ? 'ĐÃ XEM'
+              : rawStatus === 'CANCELLED' || rawStatus === 'EXPIRED' || rawStatus === 'REFUNDED'
+              ? 'HẾT HẠN'
+              : 'ĐÃ THANH TOÁN';
 
-            return {
-              id: idx + 1000,
-              userId: o.user_id || undefined,
-              customerName: o.contact_name || 'Khách hàng',
-              customerEmail: o.contact_email || undefined,
-              customerPhone: o.contact_phone || undefined,
-              bookingCode: o.order_code || `CMX-${o.id.slice(0, 8).toUpperCase()}`,
-              movieTitle: snap.movieTitle || 'Dune: Hành Tinh Cát - Phần 2',
-              posterUrl: snap.posterUrl || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800',
-              cinemaName: snap.cinemaName || 'CINEMAX Plaza',
-              roomName: snap.roomName || 'Phòng 1 (2D Tiêu Chuẩn)',
-              showtime: snap.showTime && snap.showDate ? `${snap.showTime} - ${snap.showDate}` : new Date(o.created_at).toLocaleString('vi-VN'),
-              seats: seats.length > 0 ? seats.join(', ') : 'E5, E6',
-              totalAmount: Number(o.total_amount || 0),
-              createdAt: new Date(o.created_at).toLocaleString('vi-VN'),
-              status: statusMapped,
-            };
-          });
+          return {
+            id: idx + 1000,
+            userId: o.user_id || undefined,
+            customerName: o.contact_name || 'Khách hàng',
+            customerEmail: o.contact_email || undefined,
+            customerPhone: o.contact_phone || undefined,
+            bookingCode: o.order_code || `CMX-${o.id.slice(0, 8).toUpperCase()}`,
+            movieTitle: snap.movieTitle || 'Dune: Hành Tinh Cát - Phần 2',
+            posterUrl: snap.posterUrl || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800',
+            cinemaName: snap.cinemaName || 'CINEMAX Plaza',
+            roomName: snap.roomName || 'Phòng 1 (2D Tiêu Chuẩn)',
+            showtime: snap.showTime && snap.showDate ? `${snap.showTime} - ${snap.showDate}` : new Date(o.created_at).toLocaleString('vi-VN'),
+            seats: seats.length > 0 ? seats.join(', ') : 'E5, E6',
+            totalAmount: Number(o.total_amount || 0),
+            createdAt: new Date(o.created_at).toLocaleString('vi-VN'),
+            status: statusMapped,
+          };
+        });
 
-          setAllTickets((prev) => {
-            const combined = deduplicateTickets([...prev, ...mapped]);
-            localStorage.setItem('cinemax_user_tickets', JSON.stringify(combined));
-            return combined;
-          });
-        }
-      } catch (err) {
-        console.warn('Could not load tickets from Supabase:', err);
+        setAllTickets((prev) => {
+          const combined = deduplicateTickets([...prev, ...mapped]);
+          localStorage.setItem('cinemax_user_tickets', JSON.stringify(combined));
+          return combined;
+        });
       }
+    } catch (err) {
+      console.warn('Could not load tickets from Supabase:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSupabaseOrders();
+
+    const handleDataUpdated = () => {
+      loadSupabaseOrders();
     };
 
-    loadSupabaseOrders();
-  }, []);
+    window.addEventListener('storage', handleDataUpdated);
+    window.addEventListener('cinemax_data_updated', handleDataUpdated);
+    window.addEventListener('focus', handleDataUpdated);
+
+    // Supabase Realtime channel cho User
+    const supabase = createClient();
+    const channel = supabase
+      .channel('user-tickets-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        loadSupabaseOrders();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        loadSupabaseOrders();
+      })
+      .subscribe();
+
+    return () => {
+      window.removeEventListener('storage', handleDataUpdated);
+      window.removeEventListener('cinemax_data_updated', handleDataUpdated);
+      window.removeEventListener('focus', handleDataUpdated);
+      supabase.removeChannel(channel);
+    };
+  }, [loadSupabaseOrders]);
 
   // Filter tickets specifically for the logged in user or admin
   const userTickets = React.useMemo(() => {
