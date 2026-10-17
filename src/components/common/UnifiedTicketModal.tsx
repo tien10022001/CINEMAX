@@ -108,8 +108,255 @@ export default function UnifiedTicketModal({
   const formatDisplay = ticket.format || (roomDisplay.includes('IMAX') ? 'IMAX Laser' : '2D Digital');
   const qrUrl = TicketScannerService.generateTicketQrUrl(ticket.bookingCode, 260);
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrintTicket = () => {
+    // In cô lập duy nhất chiếc vé này qua iframe ẩn, tránh in cả trang web my-tickets
+    const existingFrame = document.getElementById('cinemax-print-ticket-frame');
+    if (existingFrame) existingFrame.remove();
+
+    const printFrame = document.createElement('iframe');
+    printFrame.id = 'cinemax-print-ticket-frame';
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    document.body.appendChild(printFrame);
+
+    const frameDoc = printFrame.contentWindow?.document;
+    if (!frameDoc) {
+      window.print();
+      return;
+    }
+
+    frameDoc.open();
+    frameDoc.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Vé Xem Phim - ${ticket.bookingCode}</title>
+        <style>
+          @page { size: A5 portrait; margin: 10mm; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #ffffff;
+            color: #111827;
+            margin: 0;
+            padding: 10px;
+          }
+          .ticket-card {
+            max-width: 480px;
+            margin: 0 auto;
+            border: 2px dashed #cbd5e1;
+            border-radius: 20px;
+            padding: 24px;
+            background: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+          }
+          .brand-header {
+            text-align: center;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+          }
+          .brand-name {
+            font-size: 22px;
+            font-weight: 900;
+            color: #e63845;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+          }
+          .ticket-type {
+            font-size: 13px;
+            font-weight: 700;
+            color: #64748b;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          }
+          .movie-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 12px 0 6px 0;
+            text-align: center;
+            line-height: 1.3;
+          }
+          .movie-badges {
+            text-align: center;
+            margin-bottom: 16px;
+          }
+          .badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 6px;
+            margin: 0 4px;
+          }
+          .badge-rating { background: #fee2e2; color: #dc2626; }
+          .badge-format { background: #e0f2fe; color: #0284c7; }
+          .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0;
+            font-size: 13px;
+          }
+          .info-table td {
+            padding: 6px 0;
+            border-bottom: 1px solid #f8fafc;
+          }
+          .info-label {
+            color: #64748b;
+            font-size: 12px;
+            width: 35%;
+          }
+          .info-val {
+            color: #0f172a;
+            font-weight: 600;
+            text-align: right;
+          }
+          .seat-box {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 14px;
+            text-align: center;
+            margin: 16px 0;
+          }
+          .seat-label {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 1px;
+          }
+          .seat-number {
+            font-size: 26px;
+            font-weight: 900;
+            color: #0284c7;
+            margin-top: 2px;
+          }
+          .qr-container {
+            text-align: center;
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 2px dashed #e2e8f0;
+          }
+          .qr-img {
+            width: 160px;
+            height: 160px;
+            margin: 0 auto;
+            display: block;
+            border-radius: 8px;
+          }
+          .booking-code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            margin-top: 10px;
+            color: #0f172a;
+            background: #f1f5f9;
+            padding: 6px 12px;
+            border-radius: 8px;
+            display: inline-block;
+          }
+          .status-tag {
+            font-size: 11px;
+            color: #16a34a;
+            font-weight: 800;
+            margin-top: 8px;
+            text-transform: uppercase;
+          }
+          .notice {
+            font-size: 11px;
+            color: #94a3b8;
+            text-align: center;
+            margin-top: 16px;
+            line-height: 1.4;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="ticket-card">
+          <div class="brand-header">
+            <div class="brand-name">CINEMAX THEATER</div>
+            <div class="ticket-type">VÉ XEM PHIM ĐIỆN TỬ (E-TICKET)</div>
+          </div>
+          
+          <div class="movie-title">${ticket.movieTitle}</div>
+          <div class="movie-badges">
+            <span class="badge badge-rating">${ageRating}</span>
+            <span class="badge badge-format">${formatDisplay}</span>
+          </div>
+
+          <table class="info-table">
+            <tr>
+              <td class="info-label">Rạp chiếu:</td>
+              <td class="info-val">${ticket.cinemaName}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Phòng chiếu:</td>
+              <td class="info-val">${roomDisplay}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Suất chiếu:</td>
+              <td class="info-val" style="font-family: monospace; font-size: 14px;">${ticket.showtime}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Khách hàng:</td>
+              <td class="info-val">${ticket.customerName || 'Khách xem phim'} ${ticket.customerPhone ? `(${ticket.customerPhone})` : ''}</td>
+            </tr>
+            ${ticket.totalAmount !== undefined ? `
+            <tr>
+              <td class="info-label">Tổng thanh toán:</td>
+              <td class="info-val" style="color: #16a34a; font-size: 15px;">${ticket.totalAmount.toLocaleString('vi-VN')} đ</td>
+            </tr>` : ''}
+          </table>
+
+          <div class="seat-box">
+            <div class="seat-label">Ghế ngồi đã đặt</div>
+            <div class="seat-number">${seatsDisplay}</div>
+          </div>
+
+          ${foodsDisplay ? `
+          <div class="seat-box" style="margin-top: 8px; background: #fffbeb; border-color: #fde68a;">
+            <div class="seat-label" style="color: #d97706;">Bắp nước đi kèm</div>
+            <div style="font-weight: 700; font-size: 13px; color: #b45309; margin-top: 2px;">${foodsDisplay}</div>
+          </div>` : ''}
+
+          <div class="qr-container">
+            <img src="${qrUrl}" class="qr-img" alt="QR Code" />
+            <div><span class="booking-code">${ticket.bookingCode}</span></div>
+            <div class="status-tag">
+              ● ${isUsed ? 'VÉ ĐÃ DÙNG (USED)' : 'HỢP LỆ — SẴN SÀNG VÀO RẠP'}
+            </div>
+          </div>
+
+          <div class="notice">
+            Mỗi mã QR chỉ quét vào cổng 1 lần. Quý khách vui lòng xuất trình trực tiếp trên điện thoại tại cổng soát vé hoặc máy in Kiosk tại rạp.
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    frameDoc.close();
+
+    // Đợi render ảnh mã QR và gọi print chỉ trên iframe này
+    setTimeout(() => {
+      try {
+        printFrame.contentWindow?.focus();
+        printFrame.contentWindow?.print();
+      } catch (e) {
+        console.error('Print ticket frame error:', e);
+      }
+      setTimeout(() => {
+        printFrame.remove();
+      }, 2000);
+    }, 500);
   };
 
   return (
@@ -329,22 +576,26 @@ export default function UnifiedTicketModal({
           {/* Action Buttons: Print, Download & Close */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-[#222B3D]">
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#1F2739] hover:bg-[#2A344A] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>In Vé / Hóa Đơn</span>
-              </button>
+              {isStaffMode && (
+                <button
+                  type="button"
+                  onClick={handlePrintTicket}
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#1F2739] hover:bg-[#2A344A] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  title="In vé nhiệt qua máy POS/Kiosk"
+                >
+                  <Printer className="w-3.5 h-3.5 text-[#FABF2E]" />
+                  <span>In Vé (Kiosk / POS)</span>
+                </button>
+              )}
 
               <button
                 type="button"
-                onClick={handlePrint}
+                onClick={handlePrintTicket}
                 className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#1F2739] hover:bg-[#2A344A] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Lưu hoặc in riêng chiếc vé này dưới dạng file PDF"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Lưu PDF</span>
+                <Download className="w-3.5 h-3.5 text-[#06B6D4]" />
+                <span>Lưu Vé (PDF)</span>
               </button>
             </div>
 

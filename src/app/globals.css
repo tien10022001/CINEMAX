@@ -62,3 +62,12 @@ body {
   box-shadow: 0 10px 30px rgba(230, 56, 69, 0.5);
   border-radius: 50% 50% 0 0 / 100% 100% 0 0;
 }
+
+/* Print styling */
+@media print {
+  /* Hide background content if print dialog is opened directly */
+  nav, footer, header {
+    display: none !important;
+  }
+}
+
