@@ -1858,6 +1858,7 @@ export default function AdminPage() {
                   orders={orders}
                   products={products}
                   shifts={shifts}
+                  tickets={tickets}
                   onNavigate={setActiveTab}
                   onRefresh={handleSyncAll}
                 />
