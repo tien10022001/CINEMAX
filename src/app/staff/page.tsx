@@ -570,6 +570,13 @@ export default function StaffWorkspacePage() {
           if (extraFromBooking.length > 0) {
             currentOrders = [...extraFromBooking, ...currentOrders];
           }
+          const dedupCurrent = new Map<string, SharedTicketOrder>();
+          currentOrders.forEach((o) => {
+            if (o.id && !dedupCurrent.has(o.id)) {
+              dedupCurrent.set(o.id, o);
+            }
+          });
+          currentOrders = Array.from(dedupCurrent.values());
           if (Object.keys(extraSeatsBySt).length > 0) {
             setBookedSeatsMap((prev) => {
               const merged = { ...prev };
@@ -815,11 +822,14 @@ export default function StaffWorkspacePage() {
             };
           });
 
-          const dbCodes = new Set(dbMappedOrders.map((o) => o.id));
-          const merged = [
-            ...dbMappedOrders,
-            ...prev.filter((o) => !dbCodes.has(o.id)),
-          ];
+          const dedupMap = new Map<string, SharedTicketOrder>();
+          dbMappedOrders.forEach((o) => {
+            if (o.id && !dedupMap.has(o.id)) dedupMap.set(o.id, o);
+          });
+          prev.forEach((o) => {
+            if (o.id && !dedupMap.has(o.id)) dedupMap.set(o.id, o);
+          });
+          const merged = Array.from(dedupMap.values());
           try {
             localStorage.setItem('cinemax_my_tickets_v2', JSON.stringify(merged));
           } catch {
@@ -3234,8 +3244,8 @@ export default function StaffWorkspacePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1A1F2D] text-xs">
-                      {filteredHistoryOrders.map((ord) => (
-                        <tr key={ord.id} className="hover:bg-[#151925] transition">
+                      {filteredHistoryOrders.map((ord, idx) => (
+                        <tr key={`${ord.id}-${idx}`} className="hover:bg-[#151925] transition">
                           <td className="py-3.5 px-4 font-mono font-bold text-[#F87171]">
                             #{ord.id.slice(0, 8)}
                           </td>
@@ -3564,9 +3574,9 @@ export default function StaffWorkspacePage() {
                         {orders
                           .filter((o) => o.foods && o.foods.length > 0)
                           .slice(0, 6)
-                          .map((ord) => (
+                          .map((ord, idx) => (
                             <button
-                              key={ord.id}
+                              key={`${ord.id}-${idx}`}
                               type="button"
                               onClick={() => {
                                 setConcessionScanInput(ord.id);
