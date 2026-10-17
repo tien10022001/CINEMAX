@@ -61,8 +61,9 @@ export class AdminDataService {
       supabase.from('product_components').select('*'),
       supabase.from('coupons').select('*').order('starts_at', { ascending: false }),
       supabase.from('cinema_settings').select('*'),
+      supabase.from('shifts').select('*').order('opened_at', { ascending: false }),
       supabase.from('orders').select('*, items:order_items(*)').order('created_at', { ascending: false }).limit(200),
-      supabase.from('tickets').select('*').limit(500),
+      supabase.from('tickets').select('*, order_item:order_items(*, order:orders(*))').limit(500),
       supabase.from('refunds').select('*').order('created_at', { ascending: false }),
       supabase.from('invoice_requests').select('*').order('requested_at', { ascending: false }),
       supabase.from('support_requests').select('*').order('created_at', { ascending: false }),
@@ -139,7 +140,36 @@ export class AdminDataService {
       }
 
       let loadedOrders = ordersRes?.status === 'fulfilled' && ordersRes.value?.data?.length ? [...ordersRes.value.data] : (syncData.orders || []);
-      let loadedTickets = ticketsRes?.status === 'fulfilled' && ticketsRes.value?.data?.length ? [...ticketsRes.value.data] : (syncData.tickets || []);
+      let loadedTickets: any[] = [];
+
+      if (ticketsRes?.status === 'fulfilled' && ticketsRes.value?.data?.length) {
+        loadedTickets = ticketsRes.value.data.map((t: any) => {
+          const item = t.order_item;
+          const order = item?.order;
+          const snap = item?.item_snapshot || {};
+          return {
+            id: t.id,
+            order_id: item?.order_id || t.order_id,
+            order_code: order?.order_code,
+            order_item_id: t.order_item_id,
+            qr_token_hash: t.qr_token_hash,
+            seat_label: snap?.seat_label || snap?.seatCode || t.seat_label || 'VIP',
+            movie_title: snap?.movieTitle || 'Dune: Hành Tinh Cát 2',
+            showtime_str: snap?.showTime ? `${snap.cinemaName ? snap.cinemaName + ' • ' : ''}${snap.showTime}` : 'Suất chiếu tiêu chuẩn',
+            price: Number(item?.unit_price) || t.price || 85000,
+            status: t.status as any,
+            customer_name: order?.contact_name || 'Khách Hàng',
+            customer_phone: order?.contact_phone || '0901234567',
+            channel: (order?.channel || 'ONLINE').toUpperCase(),
+            checked_in_at: t.checked_in_at,
+            checked_in_by: t.checked_in_by,
+            age_check_passed: t.age_check_passed ?? true,
+            created_at: order?.created_at || t.created_at
+          };
+        });
+      } else if (syncData.tickets?.length) {
+        loadedTickets = [...syncData.tickets];
+      }
 
       // Synthesize ticket rows if loadedTickets is empty but orders have items
       if (loadedTickets.length === 0 && loadedOrders.length > 0) {
@@ -148,10 +178,11 @@ export class AdminDataService {
             o.items.forEach((item: any, itemIdx: number) => {
               if (item.item_type === 'ticket') {
                 const snap = item.item_snapshot || {};
-                const seat = snap.seatCode || `S${itemIdx + 1}`;
+                const seat = snap.seatCode || snap.seat_label || `S${itemIdx + 1}`;
                 loadedTickets.push({
                   id: item.id || `tk-${o.id}-${seat}`,
                   order_id: o.id,
+                  order_code: o.order_code,
                   order_item_id: item.id,
                   qr_token_hash: `${o.order_code || o.id}-${seat}`,
                   seat_label: seat,
@@ -159,6 +190,9 @@ export class AdminDataService {
                   showtime_str: snap.showTime ? `${snap.cinemaName ? snap.cinemaName + ' • ' : ''}${snap.showTime}` : 'Suất chiếu tiêu chuẩn',
                   price: Number(item.unit_price) || 85000,
                   status: (o.status === 'used' ? 'used' : 'issued') as any,
+                  customer_name: o.contact_name || 'Khách Hàng',
+                  customer_phone: o.contact_phone || '0901234567',
+                  channel: (o.channel || 'ONLINE').toUpperCase(),
                   age_check_passed: true,
                   created_at: o.created_at
                 });
