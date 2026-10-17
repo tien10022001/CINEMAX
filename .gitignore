@@ -40,3 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# nested backup
+CINEMAX/
+
+# runtime data files (prevent committing active API keys and temporary seat holds)
+src/data/email-config.json
+src/data/seat-holds.json
+

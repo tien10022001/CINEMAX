@@ -5,55 +5,132 @@ const createClient = (): any => baseCreateClient();
 
 export interface CreateSupportInput {
   orderCode?: string;
-  type: SupportTypeT;
+  type: SupportTypeT | string;
   description: string;
   contactEmailOrPhone: string;
+  verifiedOrder?: any;
+}
+
+export interface VerifyOrderResult {
+  success: boolean;
+  found: boolean;
+  order?: any;
+  message?: string;
 }
 
 export class SupportService {
   /**
-   * Tạo yêu cầu hỗ trợ (mất vé, đổi suất, sự cố thanh toán) lưu vào bảng support_requests
+   * 1. Đối chiếu với dữ liệu hệ thống để xác nhận trước khi gửi yêu cầu
+   */
+  static async verifyOrder(params: { orderCode?: string; contact: string }): Promise<VerifyOrderResult> {
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify',
+          orderCode: params.orderCode,
+          contact: params.contact,
+        }),
+      });
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      console.warn('Lỗi khi gọi API đối chiếu:', err);
+      return {
+        success: false,
+        found: false,
+        message: 'Lỗi kết nối khi đối chiếu dữ liệu.',
+      };
+    }
+  }
+
+  /**
+   * 2. Tạo đường truyền gửi yêu cầu hỗ trợ lên Admin xét duyệt
    */
   static async createRequest(input: CreateSupportInput) {
-    const supabase = createClient();
-    let orderId: string | null = null;
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          type: input.type,
+          orderCode: input.orderCode,
+          contact: input.contactEmailOrPhone,
+          description: input.description,
+          verifiedOrder: input.verifiedOrder,
+        }),
+      });
 
-    if (input.orderCode?.trim()) {
-      const { data: order } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('order_code', input.orderCode.trim().toUpperCase())
-        .single();
-      if (order) orderId = order.id;
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Không thể gửi yêu cầu hỗ trợ lên hệ thống.');
+      }
+
+      return {
+        success: true,
+        requestId: data.requestId,
+        message: data.message,
+      };
+    } catch (err: any) {
+      console.error('Error creating support request:', err);
+      throw new Error(err.message || 'Lỗi kết nối khi truyền dữ liệu lên Admin.');
     }
+  }
 
-    // Nếu không có orderId liên kết, lấy 1 order đầu tiên hoặc để id mặc định nếu DB yêu cầu NOT NULL
-    if (!orderId) {
-      const { data: firstOrder } = await supabase.from('orders').select('id').limit(1).single();
-      orderId = firstOrder?.id || null;
+  /**
+   * 3. Lấy toàn bộ danh sách yêu cầu hỗ trợ cho Admin
+   */
+  static async getAllRequests() {
+    try {
+      const res = await fetch('/api/support');
+      const data = await res.json();
+      return data.success ? data.data : [];
+    } catch (err) {
+      console.error('Error fetching support requests for admin:', err);
+      return [];
     }
+  }
 
-    if (!orderId) {
-      throw new Error('Hệ thống chưa có đơn hàng nào để tạo khiếu nại.');
+  /**
+   * 4. Admin duyệt yêu cầu hỗ trợ (Xử lý hoàn tất hoặc gửi lại vé)
+   */
+  static async approveRequest(requestId: string, adminNote = '', isResendTicket = false) {
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: isResendTicket ? 'resend_ticket' : 'approve',
+          requestId,
+          adminNote,
+        }),
+      });
+      return await res.json();
+    } catch (err: any) {
+      return { success: false, message: err.message };
     }
+  }
 
-    const { data, error } = await supabase.from('support_requests').insert({
-      order_id: orderId,
-      type: input.type,
-      description: `[Liên hệ: ${input.contactEmailOrPhone}] ${input.description}`,
-      status: 'pending',
-    }).select('id').single();
-
-    if (error) {
-      console.error('Error creating support request:', error);
-      throw new Error(error.message || 'Không thể gửi yêu cầu hỗ trợ');
+  /**
+   * 5. Admin từ chối yêu cầu hỗ trợ
+   */
+  static async rejectRequest(requestId: string, adminNote = '') {
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reject',
+          requestId,
+          adminNote,
+        }),
+      });
+      return await res.json();
+    } catch (err: any) {
+      return { success: false, message: err.message };
     }
-
-    return {
-      success: true,
-      requestId: data?.id,
-      message: 'Yêu cầu hỗ trợ của bạn đã được tiếp nhận thành công. Nhân viên rạp sẽ liên hệ lại sớm nhất!',
-    };
   }
 
   /**

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, X, Ticket, LogOut, Menu, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { Search, X, Ticket, LogOut, Menu, ShieldCheck, User as UserIcon, Eye, EyeOff } from 'lucide-react';
 import { MOCK_MOVIES, MOCK_CINEMAS } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
 
@@ -56,6 +56,7 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
   const [tab, setTab] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [authError, setAuthError] = useState('');
@@ -64,6 +65,19 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
   useEffect(() => {
     setTab(authModalTab);
     setAuthError('');
+
+    // Tự động điền thông tin khách hàng nếu chuyển tiếp từ màn hình đặt vé
+    if (isAuthModalOpen && authModalTab === 'REGISTER') {
+      try {
+        const prefillStr = typeof window !== 'undefined' ? sessionStorage.getItem('cinemax_prefill_register') : null;
+        if (prefillStr) {
+          const prefill = JSON.parse(prefillStr);
+          if (prefill.name) setNameInput(prefill.name);
+          if (prefill.email) setEmailInput(prefill.email);
+          if (prefill.phone) setPhoneInput(prefill.phone);
+        }
+      } catch {}
+    }
   }, [authModalTab, isAuthModalOpen]);
 
   // Synchronize active tab based on window location tab query or hash
@@ -510,14 +524,29 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
 
               <div>
                 <label className="text-xs text-[#9EA6B8] block mb-1">Mật khẩu *</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="••••••••"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 pr-10 text-xs text-white focus:outline-none focus:border-[#E63845] transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9EA6B8] hover:text-white transition-colors cursor-pointer p-1"
+                    title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4 text-[#FABF2E]" />
+                    ) : (
+                      <Eye className="w-4 h-4 hover:text-[#FABF2E]" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <button

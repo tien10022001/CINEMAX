@@ -9,6 +9,7 @@ import {
   Lock,
   ArrowRight,
   Eye,
+  EyeOff,
   Menu,
   Bell,
   User,
@@ -34,6 +35,7 @@ import PosShiftsView from '@/components/admin/PosShiftsView';
 import CheckinView from '@/components/admin/CheckinView';
 import OrdersFinanceView from '@/components/admin/OrdersFinanceView';
 import SystemSettingsView from '@/components/admin/SystemSettingsView';
+import { SupportService } from '@/services/support.service';
 import {
   Movie,
   Auditorium,
@@ -146,6 +148,7 @@ export default function AdminPage() {
   // Login credentials for admin gateway
   const [adminEmail, setAdminEmail] = useState('admin@cinemax.vn');
   const [adminPassword, setAdminPassword] = useState('admin');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [adminLoginError, setAdminLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -409,6 +412,20 @@ export default function AdminPage() {
       if (bundle.refunds?.length) setRefunds(bundle.refunds);
       if (bundle.invoices?.length) setInvoices(bundle.invoices);
       if (bundle.support?.length) setSupport(bundle.support);
+
+      // Đồng bộ thêm các yêu cầu hỗ trợ mới nhất qua đường truyền API
+      try {
+        const supRes = await fetch('/api/support');
+        if (supRes.ok) {
+          const supJson = await supRes.json();
+          if (supJson.success && Array.isArray(supJson.data) && supJson.data.length > 0) {
+            setSupport(supJson.data);
+          }
+        }
+      } catch (e) {
+        // Fallback
+      }
+
       if (bundle.logs?.length) setAuditLogs(bundle.logs);
     } catch (err: any) {
       console.warn('Sync bundle info:', err);
@@ -1090,6 +1107,52 @@ export default function AdminPage() {
     );
   };
 
+  const handleApproveSupport = async (requestId: string, adminNote = '', isResendTicket = false) => {
+    try {
+      const res = await SupportService.approveRequest(requestId, adminNote, isResendTicket);
+      if (res.success) {
+        setSupport((prev) =>
+          prev.map((s) => (s.id === requestId ? ({ ...s, status: 'resolved', admin_note: adminNote } as any) : s))
+        );
+        addNotification(
+          isResendTicket ? 'Đã duyệt & gửi lại vé' : 'Đã duyệt yêu cầu hỗ trợ',
+          `Yêu cầu #${requestId} đã được phê duyệt thành công.`,
+          'SUCCESS',
+          'SALES',
+          'ORDERS_FINANCE'
+        );
+        showToast(res.message);
+      } else {
+        showToast('Lỗi: ' + res.message);
+      }
+    } catch (err: any) {
+      showToast('Lỗi duyệt: ' + err.message);
+    }
+  };
+
+  const handleRejectSupport = async (requestId: string, adminNote = '') => {
+    try {
+      const res = await SupportService.rejectRequest(requestId, adminNote);
+      if (res.success) {
+        setSupport((prev) =>
+          prev.map((s) => (s.id === requestId ? ({ ...s, status: 'closed', admin_note: adminNote } as any) : s))
+        );
+        addNotification(
+          'Đã từ chối yêu cầu hỗ trợ',
+          `Yêu cầu #${requestId} đã bị từ chối với lý do: ${adminNote || 'Không phù hợp'}.`,
+          'WARNING',
+          'SALES',
+          'ORDERS_FINANCE'
+        );
+        showToast(res.message);
+      } else {
+        showToast('Lỗi: ' + res.message);
+      }
+    } catch (err: any) {
+      showToast('Lỗi từ chối: ' + err.message);
+    }
+  };
+
   const handleSaveCoupon = async (couponData: Partial<Coupon>) => {
     let nextList: Coupon[] = [];
     try {
@@ -1374,13 +1437,28 @@ export default function AdminPage() {
 
             <div className="space-y-1">
               <label className="text-[#8E9AAF] font-semibold">Mật khẩu xác thực</label>
-              <input
-                type="password"
-                required
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                className="w-full bg-[#171D2B] border border-[#253045] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#E63845]"
-              />
+              <div className="relative">
+                <input
+                  type={showAdminPassword ? 'text' : 'password'}
+                  required
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  className="w-full bg-[#171D2B] border border-[#253045] rounded-xl px-3.5 py-2.5 pr-10 text-white focus:outline-none focus:border-[#E63845] transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPassword(!showAdminPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8E9AAF] hover:text-white transition-colors cursor-pointer p-1"
+                  title={showAdminPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  aria-label={showAdminPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showAdminPassword ? (
+                    <EyeOff className="w-4 h-4 text-[#FABF2E]" />
+                  ) : (
+                    <Eye className="w-4 h-4 hover:text-[#FABF2E]" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <button
@@ -1433,7 +1511,7 @@ export default function AdminPage() {
           auditoriums: auditoriums.length,
           products: products.length,
           orders: orders.length,
-          refunds: refunds.filter((r) => r.status === 'pending').length,
+          refunds: refunds.filter((r) => r.status === 'pending').length + support.filter((s: any) => s.status === 'pending').length,
           coupons: coupons.length
         }}
       />
@@ -1775,10 +1853,13 @@ export default function AdminPage() {
                   refunds={refunds}
                   invoices={invoices}
                   coupons={coupons}
+                  supportRequests={support}
                   onApproveRefund={handleApproveRefund}
                   onIssueInvoice={handleIssueInvoice}
                   onSaveCoupon={handleSaveCoupon}
                   onDeleteCoupon={handleDeleteCoupon}
+                  onApproveSupport={handleApproveSupport}
+                  onRejectSupport={handleRejectSupport}
                   showToast={showToast}
                 />
               )}

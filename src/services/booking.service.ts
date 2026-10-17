@@ -227,14 +227,15 @@ export class BookingService {
   }
 
   /**
-    * Giữ ghế tạm thời (HELD) 10 phút chống đặt trùng đồng thời
+    * Giữ ghế tạm thời (HELD) 10 phút chống đặt trùng đồng thời (Hỗ trợ cả Server API và LocalStorage)
    */
-  static holdSeatsLocal(params: {
+  static async holdSeatsLocal(params: {
     showtimeId: string | number;
     sessionId: string;
     seatLabels: string[];
     holdMinutes?: number;
-  }): { success: boolean; error?: string; expiresAt: number } {
+    action?: 'HOLD' | 'EXTEND_PAYMENT' | 'PENDING_RECONCILIATION' | 'RELEASE';
+  }): Promise<{ success: boolean; error?: string; expiresAt: number; firstHeldAt?: number }> {
     if (typeof window === 'undefined') {
       return { success: false, error: 'Chỉ hỗ trợ trên client', expiresAt: 0 };
     }
@@ -245,7 +246,8 @@ export class BookingService {
     }
 
     const holdMinutes = params.holdMinutes || 10;
-    const expiresAt = Date.now() + holdMinutes * 60 * 1000;
+    let expiresAt = Date.now() + holdMinutes * 60 * 1000;
+    let firstHeldAt = Date.now();
 
     try {
       // 1. Kiểm tra vé đã thanh toán
@@ -269,7 +271,7 @@ export class BookingService {
         }
       }
 
-      // 2. Kiểm tra ghế đang bị giữ bởi phiên khác còn hạn
+      // 2. Kiểm tra ghế đang bị giữ bởi phiên khác còn hạn trong LocalStorage
       const storedHolds = localStorage.getItem('cinemax_held_seats');
       const holds = storedHolds ? JSON.parse(storedHolds) : [];
       const now = Date.now();
@@ -289,20 +291,53 @@ export class BookingService {
         }
       }
 
-      // 3. Cập nhật hoặc thêm phiên giữ ghế mới
+      // 3. Kiểm tra và xác nhận đồng thời với Server API (bảo vệ tuyệt đối giữa các trình duyệt & Tab ẩn danh)
+      try {
+        const res = await fetch('/api/seats/hold', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            showtimeId: params.showtimeId,
+            sessionId: params.sessionId,
+            seatLabels: params.seatLabels,
+            action: params.action || 'HOLD',
+            holdMinutes,
+          }),
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          return {
+            success: false,
+            error: json.error || 'Ghế đang được tạm giữ bởi khách hàng khác. Vui lòng chọn ghế khác!',
+            expiresAt: 0,
+          };
+        }
+
+        if (json.expiresAt) {
+          expiresAt = json.expiresAt;
+        }
+        if (json.firstHeldAt) {
+          firstHeldAt = json.firstHeldAt;
+        }
+      } catch (serverErr) {
+        console.warn('Lỗi đồng bộ server API giữ ghế, dùng cache client:', serverErr);
+      }
+
+      // 4. Cập nhật cache client và thông báo qua BroadcastChannel
       const otherHolds = validHolds.filter((h: any) => h.sessionId !== params.sessionId);
       otherHolds.push({
         showtimeId: params.showtimeId,
         sessionId: params.sessionId,
         seats: params.seatLabels,
         expiresAt,
+        firstHeldAt,
       });
 
       localStorage.setItem('cinemax_held_seats', JSON.stringify(otherHolds));
       window.dispatchEvent(new Event('cinemax_data_updated'));
       window.dispatchEvent(new Event('storage'));
 
-      // Phát tín hiệu tức thì qua BroadcastChannel tới tất cả các tab khác
       try {
         if (typeof BroadcastChannel !== 'undefined') {
           const ch = new BroadcastChannel('cinemax_seat_sync');
@@ -311,23 +346,87 @@ export class BookingService {
         }
       } catch {}
 
-      // Đồng bộ đồng thời lên Server API (hỗ trợ Incognito, trình duyệt khác, thiết bị khác)
-      try {
-        fetch('/api/seats/hold', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            showtimeId: params.showtimeId,
-            sessionId: params.sessionId,
-            seatLabels: params.seatLabels,
-            holdMinutes,
-          }),
-        }).catch(() => {});
-      } catch {}
-
-      return { success: true, expiresAt };
+      return { success: true, expiresAt, firstHeldAt };
     } catch (e: any) {
       return { success: false, error: e?.message || 'Lỗi khi giữ ghế', expiresAt: 0 };
+    }
+  }
+
+  /**
+   * Gia hạn thêm 1 phút khi khách hàng đang ở bước thanh toán (tổng tối đa 11 phút)
+   */
+  static async extendPaymentGracePeriod(
+    showtimeId: string | number,
+    sessionId: string
+  ): Promise<{ success: boolean; expiresAt?: number; message?: string }> {
+    try {
+      const res = await fetch('/api/seats/hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          showtimeId,
+          sessionId,
+          action: 'EXTEND_PAYMENT',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.expiresAt) {
+        // Cập nhật localStorage
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('cinemax_held_seats');
+          if (stored) {
+            const list = JSON.parse(stored);
+            const updated = list.map((h: any) =>
+              h.sessionId === sessionId ? { ...h, expiresAt: data.expiresAt, isPaymentExtended: true } : h
+            );
+            localStorage.setItem('cinemax_held_seats', JSON.stringify(updated));
+            window.dispatchEvent(new Event('cinemax_data_updated'));
+          }
+        }
+        return { success: true, expiresAt: data.expiresAt, message: data.message };
+      }
+      return { success: false, message: data.error };
+    } catch (e: any) {
+      return { success: false, message: e?.message };
+    }
+  }
+
+  /**
+   * Kích hoạt chế độ chờ đối soát ngân hàng khi khách mạng yếu (+3 phút)
+   */
+  static async requestReconciliationGracePeriod(
+    showtimeId: string | number,
+    sessionId: string
+  ): Promise<{ success: boolean; expiresAt?: number; message?: string }> {
+    try {
+      const res = await fetch('/api/seats/hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          showtimeId,
+          sessionId,
+          action: 'PENDING_RECONCILIATION',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.expiresAt) {
+        // Cập nhật localStorage
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('cinemax_held_seats');
+          if (stored) {
+            const list = JSON.parse(stored);
+            const updated = list.map((h: any) =>
+              h.sessionId === sessionId ? { ...h, expiresAt: data.expiresAt, status: 'PENDING_RECONCILIATION' } : h
+            );
+            localStorage.setItem('cinemax_held_seats', JSON.stringify(updated));
+            window.dispatchEvent(new Event('cinemax_data_updated'));
+          }
+        }
+        return { success: true, expiresAt: data.expiresAt, message: data.message };
+      }
+      return { success: false, message: data.error };
+    } catch (e: any) {
+      return { success: false, message: e?.message };
     }
   }
 
