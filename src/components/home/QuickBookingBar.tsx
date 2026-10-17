@@ -174,13 +174,6 @@ export default function QuickBookingBar({
     }
   };
 
-  const handleScrollToMovies = () => {
-    const el = document.getElementById('movies');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   return (
     <div id="quick-booking" className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 -mt-6 relative z-20">
       <div className="bg-[#1A1C26] border border-[#303645] rounded-2xl p-4 sm:p-5 shadow-2xl shadow-black/80 space-y-3.5">
@@ -209,18 +202,9 @@ export default function QuickBookingBar({
             </div>
           </div>
 
-          {/* Status info & Reset button */}
-          <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-            {totalFilteredCount !== undefined && (
-              <div className="text-xs font-semibold text-[#9EA6B8] flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#E63845] animate-pulse" />
-                <span>
-                  Tìm thấy <strong className="text-white font-bold">{totalFilteredCount}</strong> phim
-                </span>
-              </div>
-            )}
-
-            {hasActiveFilters && (
+          {/* Reset button if filters active */}
+          {hasActiveFilters && (
+            <div className="flex items-center justify-end shrink-0">
               <button
                 type="button"
                 onClick={handleReset}
@@ -229,8 +213,8 @@ export default function QuickBookingBar({
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Đặt lại</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* 4 Dropdowns lọc theo tiêu chí */}
@@ -297,18 +281,6 @@ export default function QuickBookingBar({
               <option value="night">Suất khuya (Sau 21:00)</option>
             </select>
           </div>
-        </div>
-
-        {/* Nút Tìm kiếm & Khám phá phim */}
-        <div className="flex items-center justify-end pt-1">
-          <button
-            type="button"
-            onClick={handleScrollToMovies}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#E63845] to-[#FF4E5E] hover:from-[#D12B38] hover:to-[#E63845] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
-          >
-            <Filter className="w-4 h-4" />
-            <span>Xem Danh Sách Phim Đã Lọc</span>
-          </button>
         </div>
       </div>
     </div>
