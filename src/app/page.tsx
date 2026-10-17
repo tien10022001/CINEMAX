@@ -195,60 +195,6 @@ function HomeContent() {
               onResetFilters={resetAllFilters}
             />
 
-            {/* Thanh thông báo trạng thái lọc nếu đang áp dụng bộ lọc */}
-            {(selectedGenreFilter !== 'all' ||
-              selectedCinemaFilter !== 'all' ||
-              selectedDateFilter !== 'all' ||
-              selectedShowtimeFilter !== 'all' ||
-              Boolean(searchKeyword.trim())) && (
-              <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 -mt-10">
-                <div className="bg-[#1A1C26] border border-[#E63845]/40 rounded-xl px-4 py-2.5 flex items-center justify-between gap-4 flex-wrap shadow-lg">
-                  <div className="flex items-center gap-2 flex-wrap text-xs">
-                    <span className="text-[#9EA6B8] flex items-center gap-1.5 font-medium">
-                      <Filter className="w-3.5 h-3.5 text-[#E63845]" />
-                      Đang phân loại theo:
-                    </span>
-                    {searchKeyword.trim() && (
-                      <span className="bg-[#E63845]/20 text-[#E63845] font-bold px-2.5 py-0.5 rounded-full border border-[#E63845]/30 flex items-center gap-1">
-                        Từ khóa: &quot;{searchKeyword}&quot;
-                        <button onClick={() => setSearchKeyword('')} className="hover:text-white ml-0.5 font-black">×</button>
-                      </span>
-                    )}
-                    {selectedCinemaFilter !== 'all' && (
-                      <span className="bg-blue-500/20 text-blue-400 font-bold px-2.5 py-0.5 rounded-full border border-blue-500/30 flex items-center gap-1">
-                        Rạp: {cinemas.find((c) => String(c.id) === selectedCinemaFilter)?.name || selectedCinemaFilter}
-                        <button onClick={() => setSelectedCinemaFilter('all')} className="hover:text-white ml-0.5 font-black">×</button>
-                      </span>
-                    )}
-                    {selectedGenreFilter !== 'all' && (
-                      <span className="bg-amber-500/20 text-amber-400 font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
-                        Thể loại: {selectedGenreFilter}
-                        <button onClick={() => setSelectedGenreFilter('all')} className="hover:text-white ml-0.5 font-black">×</button>
-                      </span>
-                    )}
-                    {selectedDateFilter !== 'all' && (
-                      <span className="bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
-                        Ngày: {selectedDateFilter}
-                        <button onClick={() => setSelectedDateFilter('all')} className="hover:text-white ml-0.5 font-black">×</button>
-                      </span>
-                    )}
-                    {selectedShowtimeFilter !== 'all' && (
-                      <span className="bg-purple-500/20 text-purple-400 font-bold px-2.5 py-0.5 rounded-full border border-purple-500/30 flex items-center gap-1">
-                        Suất: {selectedShowtimeFilter}
-                        <button onClick={() => setSelectedShowtimeFilter('all')} className="hover:text-white ml-0.5 font-black">×</button>
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={resetAllFilters}
-                    className="text-xs text-[#9EA6B8] hover:text-[#E63845] flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    Đặt lại tất cả
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* 3. Phim đang chiếu */}
             <section id="movies" className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 pt-4">
