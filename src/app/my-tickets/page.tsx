@@ -63,7 +63,19 @@ export default function MyTicketsPage() {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          setAllTickets(parsed);
+          const seen = new Set<string>();
+          const unique: any[] = [];
+          for (const item of parsed) {
+            const key = String(item.id || item.bookingCode || '');
+            if (!key || !seen.has(key)) {
+              if (key) seen.add(key);
+              unique.push(item);
+            }
+          }
+          if (unique.length !== parsed.length) {
+            localStorage.setItem('cinemax_user_tickets', JSON.stringify(unique));
+          }
+          setAllTickets(unique);
           return;
         }
       }
@@ -77,15 +89,25 @@ export default function MyTicketsPage() {
   const userTickets = React.useMemo(() => {
     if (!currentUser) return [];
 
-    if (currentUser.role_code === 'ADMIN' && adminViewAll) {
-      return allTickets;
+    let list = allTickets;
+    if (currentUser.role_code !== 'ADMIN' || !adminViewAll) {
+      list = allTickets.filter(
+        (t) =>
+          t.userId === currentUser.id ||
+          (t.customerEmail && t.customerEmail.toLowerCase() === currentUser.email.toLowerCase())
+      );
     }
 
-    return allTickets.filter(
-      (t) =>
-        t.userId === currentUser.id ||
-        (t.customerEmail && t.customerEmail.toLowerCase() === currentUser.email.toLowerCase())
-    );
+    const seen = new Set<string>();
+    const unique: any[] = [];
+    for (const t of list) {
+      const key = String(t.id || t.bookingCode || '');
+      if (!key || !seen.has(key)) {
+        if (key) seen.add(key);
+        unique.push(t);
+      }
+    }
+    return unique;
   }, [allTickets, currentUser, adminViewAll]);
 
   const filteredTickets = userTickets.filter((t) => {
@@ -307,9 +329,9 @@ export default function MyTicketsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {filteredTickets.map((ticket) => (
+                {filteredTickets.map((ticket, idx) => (
                   <div
-                    key={ticket.id}
+                    key={`${ticket.id || ticket.bookingCode}-${idx}`}
                     className="bg-[#1A1C26] border border-[#303645] rounded-3xl overflow-hidden flex flex-col sm:flex-row hover:border-[#E63845]/50 transition-all shadow-xl group"
                   >
                     {/* Poster */}
