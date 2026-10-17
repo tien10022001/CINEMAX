@@ -112,17 +112,7 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
         <div className="relative max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 h-full flex flex-col justify-center">
           {/* Thông tin chi tiết phim đang hiển thị */}
           <div className="max-w-xl sm:max-w-2xl space-y-4 py-8 z-10">
-            {/* ĐANG CHIẾU Badge & Thứ tự slide */}
-            <div className="flex items-center gap-2.5">
-              <span className="px-3 py-1 rounded-md text-[11px] font-black bg-[#E63845] text-white tracking-wider uppercase inline-flex items-center gap-1.5 shadow-md shadow-[#E63845]/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                ĐANG CHIẾU
-              </span>
 
-              <span className="text-[11px] font-mono text-[#9EA6B8] bg-black/40 border border-[#303645] px-2.5 py-0.5 rounded-md">
-                Phim {currentIndex + 1} / {sliderMovies.length}
-              </span>
-            </div>
 
             {/* Tên phim (Title) */}
             <h1
