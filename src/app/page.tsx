@@ -21,12 +21,22 @@ function HomeContent() {
   const [movieSubFilter, setMovieSubFilter] = useState<'ALL' | 'NOW_SHOWING' | 'SPECIAL' | 'COMING_SOON'>('ALL');
 
   // Dynamic state from DataContext (editable by Admin in real-time)
-  const { movies, cinemas, promotions, news } = useData();
+  const { movies, cinemas, showtimes, promotions, news } = useData();
 
-  // State bộ lọc phân loại nhanh từ Admin
+  // State bộ lọc phân loại nhanh từ Admin & Tìm kiếm
   const [selectedCinemaFilter, setSelectedCinemaFilter] = useState<string>('all');
   const [selectedGenreFilter, setSelectedGenreFilter] = useState<string>('all');
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all');
+  const [selectedShowtimeFilter, setSelectedShowtimeFilter] = useState<string>('all');
+  const [searchKeyword, setSearchKeyword] = useState<string>('');
+
+  const resetAllFilters = useCallback(() => {
+    setSelectedCinemaFilter('all');
+    setSelectedGenreFilter('all');
+    setSelectedDateFilter('all');
+    setSelectedShowtimeFilter('all');
+    setSearchKeyword('');
+  }, []);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -45,11 +55,24 @@ function HomeContent() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
 
-  // Lọc phim chuẩn theo phân loại của Admin (Thể loại, Rạp...)
+  // Lọc phim chuẩn theo phân loại của Admin (Từ khóa, Thể loại, Rạp, Ngày, Suất chiếu)
   const filterByClassification = useCallback(
     (movieList: Movie[]) => {
       return movieList.filter((m) => {
-        // Lọc theo thể loại phân loại từ Admin
+        // 1. Tìm theo từ khóa (tên phim, tên gốc, đạo diễn, diễn viên, tóm tắt)
+        if (searchKeyword.trim()) {
+          const normQuery = normalizeText(searchKeyword.trim());
+          const matchTitle = normalizeText(m.title).includes(normQuery);
+          const matchOrig = normalizeText(m.original_title || '').includes(normQuery);
+          const matchDirector = normalizeText(m.director || '').includes(normQuery);
+          const matchCast = normalizeText(m.cast_list || '').includes(normQuery);
+          const matchSynopsis = normalizeText(m.synopsis || '').includes(normQuery);
+          if (!matchTitle && !matchOrig && !matchDirector && !matchCast && !matchSynopsis) {
+            return false;
+          }
+        }
+
+        // 2. Lọc theo thể loại phân loại từ Admin
         if (selectedGenreFilter !== 'all') {
           const targetGenreNorm = normalizeText(selectedGenreFilter);
           const hasGenre =
@@ -63,10 +86,68 @@ function HomeContent() {
             });
           if (!hasGenre) return false;
         }
+
+        // 3. Lọc theo rạp chiếu
+        if (selectedCinemaFilter !== 'all') {
+          const cinemaMatch = (showtimes || []).some((st) => {
+            const isMatchMovie =
+              String(st.movie_id) === String(m.id) ||
+              st.movie?.id === m.id ||
+              (m.supabase_id && String(st.movie_id) === m.supabase_id);
+            if (!isMatchMovie) return false;
+            const cId = String(st.room?.cinema_id || st.room?.cinema?.id || 1);
+            return cId === String(selectedCinemaFilter);
+          });
+          if (!cinemaMatch) return false;
+        }
+
+        // 4. Lọc theo ngày chiếu
+        if (selectedDateFilter !== 'all') {
+          const dateMatch = (showtimes || []).some((st) => {
+            const isMatchMovie =
+              String(st.movie_id) === String(m.id) ||
+              st.movie?.id === m.id ||
+              (m.supabase_id && String(st.movie_id) === m.supabase_id);
+            if (!isMatchMovie) return false;
+            const stDate = (st.start_time || st.starts_at || '').slice(0, 10);
+            return stDate === selectedDateFilter;
+          });
+          if (!dateMatch) return false;
+        }
+
+        // 5. Lọc theo suất chiếu / khung giờ
+        if (selectedShowtimeFilter !== 'all') {
+          const slotMatch = (showtimes || []).some((st) => {
+            const isMatchMovie =
+              String(st.movie_id) === String(m.id) ||
+              st.movie?.id === m.id ||
+              (m.supabase_id && String(st.movie_id) === m.supabase_id);
+            if (!isMatchMovie) return false;
+
+            if (selectedDateFilter !== 'all') {
+              const stDate = (st.start_time || st.starts_at || '').slice(0, 10);
+              if (stDate !== selectedDateFilter) return false;
+            }
+
+            const timeStr = st.start_time || st.starts_at;
+            if (!timeStr) return false;
+            const d = new Date(timeStr);
+            const hour = d.getHours() + d.getMinutes() / 60;
+
+            if (selectedShowtimeFilter === 'morning') return hour >= 6 && hour < 11.5;
+            if (selectedShowtimeFilter === 'noon') return hour >= 11.5 && hour < 14;
+            if (selectedShowtimeFilter === 'afternoon') return hour >= 14 && hour < 17.5;
+            if (selectedShowtimeFilter === 'evening') return hour >= 17.5 && hour < 21;
+            if (selectedShowtimeFilter === 'night') return hour >= 21 || hour < 6;
+            return true;
+          });
+          if (!slotMatch) return false;
+        }
+
         return true;
       });
     },
-    [selectedGenreFilter]
+    [searchKeyword, selectedGenreFilter, selectedCinemaFilter, selectedDateFilter, selectedShowtimeFilter, showtimes]
   );
 
   const rawNowShowing = useMemo(
@@ -106,10 +187,20 @@ function HomeContent() {
               onGenreChange={setSelectedGenreFilter}
               selectedDate={selectedDateFilter}
               onDateChange={setSelectedDateFilter}
+              selectedShowtime={selectedShowtimeFilter}
+              onShowtimeChange={setSelectedShowtimeFilter}
+              searchKeyword={searchKeyword}
+              onSearchKeywordChange={setSearchKeyword}
+              totalFilteredCount={allFilteredMovies.length}
+              onResetFilters={resetAllFilters}
             />
 
             {/* Thanh thông báo trạng thái lọc nếu đang áp dụng bộ lọc */}
-            {(selectedGenreFilter !== 'all' || selectedCinemaFilter !== 'all') && (
+            {(selectedGenreFilter !== 'all' ||
+              selectedCinemaFilter !== 'all' ||
+              selectedDateFilter !== 'all' ||
+              selectedShowtimeFilter !== 'all' ||
+              Boolean(searchKeyword.trim())) && (
               <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 -mt-10">
                 <div className="bg-[#1A1C26] border border-[#E63845]/40 rounded-xl px-4 py-2.5 flex items-center justify-between gap-4 flex-wrap shadow-lg">
                   <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -117,23 +208,40 @@ function HomeContent() {
                       <Filter className="w-3.5 h-3.5 text-[#E63845]" />
                       Đang phân loại theo:
                     </span>
-                    {selectedGenreFilter !== 'all' && (
-                      <span className="bg-[#E63845]/20 text-[#E63845] font-bold px-2.5 py-0.5 rounded-full border border-[#E63845]/30">
-                        Thể loại: {selectedGenreFilter}
+                    {searchKeyword.trim() && (
+                      <span className="bg-[#E63845]/20 text-[#E63845] font-bold px-2.5 py-0.5 rounded-full border border-[#E63845]/30 flex items-center gap-1">
+                        Từ khóa: &quot;{searchKeyword}&quot;
+                        <button onClick={() => setSearchKeyword('')} className="hover:text-white ml-0.5 font-black">×</button>
                       </span>
                     )}
                     {selectedCinemaFilter !== 'all' && (
-                      <span className="bg-blue-500/20 text-blue-400 font-bold px-2.5 py-0.5 rounded-full border border-blue-500/30">
+                      <span className="bg-blue-500/20 text-blue-400 font-bold px-2.5 py-0.5 rounded-full border border-blue-500/30 flex items-center gap-1">
                         Rạp: {cinemas.find((c) => String(c.id) === selectedCinemaFilter)?.name || selectedCinemaFilter}
+                        <button onClick={() => setSelectedCinemaFilter('all')} className="hover:text-white ml-0.5 font-black">×</button>
+                      </span>
+                    )}
+                    {selectedGenreFilter !== 'all' && (
+                      <span className="bg-amber-500/20 text-amber-400 font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
+                        Thể loại: {selectedGenreFilter}
+                        <button onClick={() => setSelectedGenreFilter('all')} className="hover:text-white ml-0.5 font-black">×</button>
+                      </span>
+                    )}
+                    {selectedDateFilter !== 'all' && (
+                      <span className="bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                        Ngày: {selectedDateFilter}
+                        <button onClick={() => setSelectedDateFilter('all')} className="hover:text-white ml-0.5 font-black">×</button>
+                      </span>
+                    )}
+                    {selectedShowtimeFilter !== 'all' && (
+                      <span className="bg-purple-500/20 text-purple-400 font-bold px-2.5 py-0.5 rounded-full border border-purple-500/30 flex items-center gap-1">
+                        Suất: {selectedShowtimeFilter}
+                        <button onClick={() => setSelectedShowtimeFilter('all')} className="hover:text-white ml-0.5 font-black">×</button>
                       </span>
                     )}
                   </div>
                   <button
-                    onClick={() => {
-                      setSelectedGenreFilter('all');
-                      setSelectedCinemaFilter('all');
-                    }}
-                    className="text-xs text-[#9EA6B8] hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+                    onClick={resetAllFilters}
+                    className="text-xs text-[#9EA6B8] hover:text-[#E63845] flex items-center gap-1 cursor-pointer transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                     Đặt lại tất cả
@@ -174,7 +282,7 @@ function HomeContent() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => setSelectedGenreFilter('all')}
+                    onClick={resetAllFilters}
                     className="mt-2 text-xs font-bold text-[#E63845] hover:underline cursor-pointer"
                   >
                     Xem tất cả thể loại &gt;
@@ -215,7 +323,7 @@ function HomeContent() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => setSelectedGenreFilter('all')}
+                    onClick={resetAllFilters}
                     className="mt-2 text-xs font-bold text-[#E63845] hover:underline cursor-pointer"
                   >
                     Xem tất cả thể loại &gt;
@@ -243,6 +351,12 @@ function HomeContent() {
               onGenreChange={setSelectedGenreFilter}
               selectedDate={selectedDateFilter}
               onDateChange={setSelectedDateFilter}
+              selectedShowtime={selectedShowtimeFilter}
+              onShowtimeChange={setSelectedShowtimeFilter}
+              searchKeyword={searchKeyword}
+              onSearchKeywordChange={setSearchKeyword}
+              totalFilteredCount={allFilteredMovies.length}
+              onResetFilters={resetAllFilters}
             />
 
             {/* Filter pills: Tất cả, Đang chiếu, Suất chiếu đặc biệt, Sắp chiếu */}

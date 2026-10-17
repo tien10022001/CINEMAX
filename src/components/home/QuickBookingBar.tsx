@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { Search, X, Filter, RotateCcw, Sparkles, Film, Ticket } from 'lucide-react';
 import { Movie, Cinema } from '@/lib/types';
 
 interface QuickBookingBarProps {
@@ -13,6 +14,12 @@ interface QuickBookingBarProps {
   onGenreChange?: (genreSlug: string) => void;
   selectedDate?: string;
   onDateChange?: (date: string) => void;
+  selectedShowtime?: string;
+  onShowtimeChange?: (slot: string) => void;
+  searchKeyword?: string;
+  onSearchKeywordChange?: (keyword: string) => void;
+  totalFilteredCount?: number;
+  onResetFilters?: () => void;
 }
 
 export default function QuickBookingBar({
@@ -24,29 +31,34 @@ export default function QuickBookingBar({
   onGenreChange,
   selectedDate: propDate,
   onDateChange,
+  selectedShowtime: propShowtime,
+  onShowtimeChange,
+  searchKeyword: propKeyword,
+  onSearchKeywordChange,
+  totalFilteredCount,
+  onResetFilters,
 }: QuickBookingBarProps) {
   const router = useRouter();
 
-  // Internal state nếu parent không quản lý
+  // Internal states if parent doesn't provide them
   const [internalCinema, setInternalCinema] = useState<string>('all');
   const [internalGenre, setInternalGenre] = useState<string>('all');
   const [internalDate, setInternalDate] = useState<string>('all');
-  const [selectedShowtime, setSelectedShowtime] = useState<string>('all');
-  const dateOptions = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const val = `${yyyy}-${mm}-${dd}`;
-    const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
-    const label = i === 0 ? `Hôm nay (${dd}/${mm})` : `${dayNames[d.getDay()]} (${dd}/${mm})`;
-    return { val, label };
-  });
+  const [internalShowtime, setInternalShowtime] = useState<string>('all');
+  const [internalKeyword, setInternalKeyword] = useState<string>('');
 
   const currentCinema = propCinema !== undefined ? propCinema : internalCinema;
   const currentGenre = propGenre !== undefined ? propGenre : internalGenre;
   const currentDate = propDate !== undefined ? propDate : internalDate;
+  const currentShowtime = propShowtime !== undefined ? propShowtime : internalShowtime;
+  const currentKeyword = propKeyword !== undefined ? propKeyword : internalKeyword;
+
+  const hasActiveFilters =
+    currentCinema !== 'all' ||
+    currentGenre !== 'all' ||
+    currentDate !== 'all' ||
+    currentShowtime !== 'all' ||
+    Boolean(currentKeyword.trim());
 
   // 1. Danh sách rạp đồng bộ từ Admin (ưu tiên cinemas từ Admin, fallback an toàn)
   const availableCinemas = useMemo(() => {
@@ -54,17 +66,16 @@ export default function QuickBookingBar({
       return cinemas;
     }
     return [
-      { id: 1, name: 'Cinemax Hà Nội Centre' },
-      { id: 2, name: 'Cinemax Cầu Giấy' },
-      { id: 3, name: 'Cinemax Landmark 81' },
+      { id: 1, name: 'Cinemax Xuân Thủy' },
+      { id: 2, name: 'Cinemax Landmark 81' },
+      { id: 3, name: 'Cinemax Cầu Giấy' },
     ] as Cinema[];
   }, [cinemas]);
 
   // 2. Danh sách Thể loại / Phân loại chuẩn từ Admin & trích xuất từ dữ liệu phim thực tế
   const availableGenres = useMemo(() => {
-    const genreMap = new Map<string, string>(); // slug/id -> name
+    const genreMap = new Map<string, string>();
 
-    // Các thể loại chuẩn trong hệ thống Admin CinemaX
     const standardAdminGenres = [
       { name: 'Hành Động', slug: 'hanh-dong' },
       { name: 'Khoa Học Viễn Tưởng', slug: 'khoa-hoc-vien-tuong' },
@@ -78,7 +89,6 @@ export default function QuickBookingBar({
 
     standardAdminGenres.forEach((g) => genreMap.set(g.slug, g.name));
 
-    // Trích xuất thêm các thể loại thực tế mà Admin đã tạo thêm cho phim
     movies.forEach((m) => {
       if (m.genres && Array.isArray(m.genres)) {
         m.genres.forEach((g: any) => {
@@ -142,48 +152,91 @@ export default function QuickBookingBar({
     else setInternalDate(val);
   };
 
-  const handleShowtimeChange = (value: string) => {
-    setSelectedShowtime(value);
-    if (value === 'all') return;
+  const handleShowtimeChange = (val: string) => {
+    if (onShowtimeChange) onShowtimeChange(val);
+    else setInternalShowtime(val);
+  };
 
-    // Tìm phim phù hợp theo thể loại đã chọn
-    const matchedMovie =
-      currentGenre !== 'all'
-        ? movies.find((m) =>
-            m.genres?.some(
-              (g: any) =>
-                g.slug === currentGenre ||
-                g.name?.toLowerCase().includes(currentGenre.toLowerCase())
-            )
-          ) || movies[0]
-        : movies[0];
+  const handleKeywordChange = (val: string) => {
+    if (onSearchKeywordChange) onSearchKeywordChange(val);
+    else setInternalKeyword(val);
+  };
 
-    const targetMovieId = matchedMovie?.id || '1';
-    const targetCinemaId = currentCinema !== 'all' ? currentCinema : '1';
-    const targetDate = currentDate !== 'all' ? currentDate : availableDates[1]?.value || '2026-10-17';
+  const handleReset = () => {
+    if (onResetFilters) {
+      onResetFilters();
+    } else {
+      handleCinemaChange('all');
+      handleGenreChange('all');
+      handleDateChange('all');
+      handleShowtimeChange('all');
+      handleKeywordChange('');
+    }
+  };
 
-    // Map khung giờ sang showtime id tương ứng
-    const showtimeMap: Record<string, string> = {
-      morning: '101',
-      noon: '102',
-      afternoon: '103',
-      evening: '104',
-      night: '105',
-    };
-
-    const targetShowtime = showtimeMap[value] || '101';
-
-    router.push(
-      `/booking?movie=${targetMovieId}&cinema=${targetCinemaId}&date=${targetDate}&showtime=${targetShowtime}`
-    );
+  const handleScrollToMovies = () => {
+    const el = document.getElementById('movies');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (
     <div id="quick-booking" className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 -mt-6 relative z-20">
-      <div className="bg-[#1A1C26] border border-[#303645] rounded-2xl p-4 shadow-2xl shadow-black/80">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
-          {/* 1. Chọn Rạp (Đồng bộ theo Admin) */}
-          <div>
+      <div className="bg-[#1A1C26] border border-[#303645] rounded-2xl p-4 sm:p-5 shadow-2xl shadow-black/80 space-y-3.5">
+        {/* Top Search bar: Tìm theo tên phim & Badge kết quả */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-2 border-b border-[#303645]/60">
+          <div className="relative flex-1 max-w-xl">
+            <div className="flex items-center bg-[#0F1217] border border-[#303645] rounded-xl px-3.5 py-2 text-xs sm:text-sm focus-within:border-[#E63845] transition-colors">
+              <Search className="w-4 h-4 text-[#9EA6B8] mr-2.5 shrink-0" />
+              <input
+                type="text"
+                placeholder="Tìm phim theo tên, đạo diễn, diễn viên..."
+                value={currentKeyword}
+                onChange={(e) => handleKeywordChange(e.target.value)}
+                className="bg-transparent text-white placeholder-[#6E7B91] focus:outline-none w-full text-xs sm:text-sm font-medium"
+              />
+              {currentKeyword && (
+                <button
+                  type="button"
+                  onClick={() => handleKeywordChange('')}
+                  title="Xóa tìm kiếm"
+                  className="p-1 text-[#9EA6B8] hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Status info & Reset button */}
+          <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+            {totalFilteredCount !== undefined && (
+              <div className="text-xs font-semibold text-[#9EA6B8] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#E63845] animate-pulse" />
+                <span>
+                  Tìm thấy <strong className="text-white font-bold">{totalFilteredCount}</strong> phim
+                </span>
+              </div>
+            )}
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleReset}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#E63845] bg-[#E63845]/10 border border-[#E63845]/30 hover:bg-[#E63845]/20 transition-all cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Đặt lại</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 4 Dropdowns lọc theo tiêu chí */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-center">
+          {/* 1. Chọn Cụm Rạp */}
+          <div className="relative">
             <select
               value={currentCinema}
               onChange={(e) => handleCinemaChange(e.target.value)}
@@ -198,8 +251,8 @@ export default function QuickBookingBar({
             </select>
           </div>
 
-          {/* 2. Thể Loại / Phân Loại (Đồng bộ chuẩn từ Admin) */}
-          <div>
+          {/* 2. Chọn Thể Loại */}
+          <div className="relative">
             <select
               value={currentGenre}
               onChange={(e) => handleGenreChange(e.target.value)}
@@ -214,26 +267,25 @@ export default function QuickBookingBar({
             </select>
           </div>
 
-          {/* 3. Chọn Ngày (Động theo thời gian thực) */}
-          <div>
+          {/* 3. Chọn Ngày Chiếu */}
+          <div className="relative">
             <select
               value={currentDate}
               onChange={(e) => handleDateChange(e.target.value)}
               className="w-full bg-[#0F1217] border border-[#303645] text-white rounded-xl px-4 py-3 text-xs sm:text-sm font-medium focus:outline-none focus:border-[#E63845] transition-colors cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2210%22%20height%3D%226%22%20viewBox%3D%220%200%2010%206%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M1%201L5%205L9%201%22%20stroke%3D%22%239EA6B8%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_6px] bg-no-repeat bg-[position:right_16px_center]"
             >
-              <option value="all">Tất cả các ngày</option>
-              {dateOptions.map((opt) => (
-                <option key={opt.val} value={opt.val}>
+              {availableDates.map((opt) => (
+                <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* 4. Chọn Suất Chiếu */}
-          <div>
+          {/* 4. Chọn Suất Chiếu / Khung Giờ */}
+          <div className="relative">
             <select
-              value={selectedShowtime}
+              value={currentShowtime}
               onChange={(e) => handleShowtimeChange(e.target.value)}
               className="w-full bg-[#0F1217] border border-[#303645] text-white rounded-xl px-4 py-3 text-xs sm:text-sm font-medium focus:outline-none focus:border-[#E63845] transition-colors cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2210%22%20height%3D%226%22%20viewBox%3D%220%200%2010%206%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M1%201L5%205L9%201%22%20stroke%3D%22%239EA6B8%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_6px] bg-no-repeat bg-[position:right_16px_center]"
             >
@@ -245,6 +297,18 @@ export default function QuickBookingBar({
               <option value="night">Suất khuya (Sau 21:00)</option>
             </select>
           </div>
+        </div>
+
+        {/* Nút Tìm kiếm & Khám phá phim */}
+        <div className="flex items-center justify-end pt-1">
+          <button
+            type="button"
+            onClick={handleScrollToMovies}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#E63845] to-[#FF4E5E] hover:from-[#D12B38] hover:to-[#E63845] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
+          >
+            <Filter className="w-4 h-4" />
+            <span>Xem Danh Sách Phim Đã Lọc</span>
+          </button>
         </div>
       </div>
     </div>
