@@ -34,6 +34,7 @@ export interface User {
   birth_date?: string;
   avatar_url?: string;
   loyalty_points: number;
+  membership_tier?: 'MEMBER' | 'VIP' | 'VVIP' | string;
   email_verified_at?: string;
   is_active?: boolean;
   created_at?: string;

@@ -161,9 +161,10 @@ const SEED_USERS: (User & { password?: string })[] = [
     role_code: 'CUSTOMER',
     full_name: 'Nguyễn Văn A',
     email: 'user@cinemax.vn',
-    password: 'user123',
+    password: 'password123',
     phone: '0912345678',
-    loyalty_points: 150,
+    loyalty_points: 15000,
+    membership_tier: 'VIP',
     is_active: true,
     created_at: '2026-02-15',
     updated_at: '2026-02-15',
@@ -243,10 +244,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'Email không tồn tại trong hệ thống. Vui lòng đăng ký tài khoản.' };
       }
 
-      // Check password if set (support both 'staff' or 'staff123' for staff convenience)
+      // Check password if set (support both 'staff' or 'staff123' for staff, 'user123' or 'password123' for user)
       if (user.password && password) {
         const isStaff = user.role_code === 'STAFF';
-        const isMatch = user.password === password || (isStaff && (password === 'staff' || password === 'staff123'));
+        const isUserDemo = user.email.toLowerCase() === 'user@cinemax.vn';
+        const isMatch =
+          user.password === password ||
+          (isStaff && (password === 'staff' || password === 'staff123')) ||
+          (isUserDemo && (password === 'user123' || password === 'password123'));
         if (!isMatch) {
           return { success: false, error: 'Mật khẩu không chính xác.' };
         }
@@ -300,6 +305,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         phone: phone.trim() || '0900000000',
         password: password || '123456',
         loyalty_points: 50, // Welcome gift 50 points
+        membership_tier: 'MEMBER',
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

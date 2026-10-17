@@ -301,11 +301,13 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
                             ? 'QUẢN TRỊ VIÊN'
                             : currentUser.role_code === 'STAFF'
                             ? 'NHÂN VIÊN RẠP'
+                            : currentUser.membership_tier
+                            ? `HỘI VIÊN ${currentUser.membership_tier}`
                             : 'THÀNH VIÊN'}
                         </span>
-                        {currentUser.role_code === 'CUSTOMER' && (
+                        {(currentUser.role_code === 'CUSTOMER' || currentUser.role_code === 'user') && (
                           <span className="text-[10px] text-[#FABF2E] font-semibold">
-                            {currentUser.loyalty_points || 0} điểm
+                            {(currentUser.loyalty_points || 0).toLocaleString('vi-VN')} điểm
                           </span>
                         )}
                       </div>
