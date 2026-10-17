@@ -2094,16 +2094,6 @@ export default function AdminPage() {
               )}
             </div>
 
-            <Link
-              href="/staff"
-              target="_blank"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141924] hover:bg-[#1C2333] border border-[#222B3D] hover:border-[#22C55E]/50 text-xs font-bold text-white transition-all group cursor-pointer"
-              title="Mở cổng làm việc của Nhân viên (Quầy POS, Soát Vé, Bắp Nước)"
-            >
-              <CreditCard className="w-3.5 h-3.5 text-[#22C55E]" />
-              <span>Cổng Nhân Viên (Staff)</span>
-              <ExternalLink className="w-3 h-3 text-[#6E7B91] group-hover:text-white" />
-            </Link>
 
             <div className="flex items-center gap-2.5 pl-2 border-l border-[#1F2739]">
               <div className="w-8 h-8 rounded-full bg-[#1A2233] border border-[#2B374D] flex items-center justify-center text-xs font-bold text-white">

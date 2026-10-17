@@ -206,17 +206,35 @@ export class AdminDataService {
       // Merge user booked tickets from localStorage (cinemax_user_tickets)
       const userBundle = AdminDataService.getUserBookedOrdersAndTickets();
 
-      const existingOrderCodes = new Set(loadedOrders.map((o: any) => o.order_code || o.id));
-      const mergedOrders = [
-        ...userBundle.orders.filter((uo) => !existingOrderCodes.has(uo.order_code) && !existingOrderCodes.has(uo.id)),
-        ...loadedOrders
-      ];
+      // Deduplicate orders strictly by id and order_code
+      const seenOrderIds = new Set<string>();
+      const seenOrderCodes = new Set<string>();
+      const mergedOrders: Order[] = [];
 
-      const existingTicketHashes = new Set(loadedTickets.map((t: any) => t.qr_token_hash || t.id));
-      const mergedTickets = [
-        ...userBundle.tickets.filter((ut) => !existingTicketHashes.has(ut.qr_token_hash) && !existingTicketHashes.has(ut.id)),
-        ...loadedTickets
-      ];
+      [...loadedOrders, ...userBundle.orders].forEach((o: any) => {
+        const idKey = String(o.id || '').toLowerCase();
+        const codeKey = String(o.order_code || '').toLowerCase();
+        if (idKey && seenOrderIds.has(idKey)) return;
+        if (codeKey && seenOrderCodes.has(codeKey)) return;
+        if (idKey) seenOrderIds.add(idKey);
+        if (codeKey) seenOrderCodes.add(codeKey);
+        mergedOrders.push(o);
+      });
+
+      // Deduplicate tickets strictly by id and qr_token_hash
+      const seenTicketIds = new Set<string>();
+      const seenTicketQrs = new Set<string>();
+      const mergedTickets: Ticket[] = [];
+
+      [...loadedTickets, ...userBundle.tickets].forEach((t: any) => {
+        const idKey = String(t.id || '').toLowerCase();
+        const qrKey = String(t.qr_token_hash || '').toLowerCase();
+        if (idKey && seenTicketIds.has(idKey)) return;
+        if (qrKey && seenTicketQrs.has(qrKey)) return;
+        if (idKey) seenTicketIds.add(idKey);
+        if (qrKey) seenTicketQrs.add(qrKey);
+        mergedTickets.push(t);
+      });
 
       // Enrich tickets with metadata if missing
       const enrichedTickets = mergedTickets.map((t: any) => {

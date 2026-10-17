@@ -640,12 +640,12 @@ export default function OrdersFinanceView({
                     </td>
                   </tr>
                 ) : (
-                  filteredMergedList.map((item) => {
+                  filteredMergedList.map((item, idx) => {
                     const isUsed = item.status === 'used';
                     const isIssued = item.status === 'issued';
 
                     return (
-                      <tr key={item.key} className="hover:bg-[#161C2A] transition-colors">
+                      <tr key={`${item.key}-${item.qrToken}-${idx}`} className="hover:bg-[#161C2A] transition-colors">
                         {/* 1. Mã Vé & QR Token */}
                         <td className="py-3 px-3">
                           <div
@@ -918,7 +918,7 @@ export default function OrdersFinanceView({
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map((order) => {
+                  filteredOrders.map((order, orderIdx) => {
                     const ticketCount = (order.items || []).filter((i) => i.item_type === 'ticket').length;
                     const productCount = (order.items || []).filter((i) => i.item_type === 'product').length;
                     const firstMovie = (order.items || []).find((i) => i.item_type === 'ticket')?.item_snapshot?.movieTitle;
@@ -933,7 +933,7 @@ export default function OrdersFinanceView({
                     const isRefunded = order.status === 'refunded';
 
                     return (
-                      <tr key={order.id} className="hover:bg-[#161C2A] transition-colors">
+                      <tr key={`${order.id}-${order.order_code}-${orderIdx}`} className="hover:bg-[#161C2A] transition-colors">
                         {/* 1. Mã đơn & Kênh */}
                         <td className="py-3 px-3">
                           <div
@@ -1092,9 +1092,9 @@ export default function OrdersFinanceView({
             {filteredRefunds.length === 0 ? (
               <div className="p-8 text-center text-[#8E9AAF] text-xs">Không có yêu cầu hoàn tiền nào cần xử lý.</div>
             ) : (
-              filteredRefunds.map((refund) => (
+              filteredRefunds.map((refund, refundIdx) => (
                 <div
-                  key={refund.id}
+                  key={`${refund.id}-${refundIdx}`}
                   className="p-4 rounded-2xl bg-[#161D2B] border border-[#253045] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                 >
                   <div className="space-y-1">
@@ -1151,9 +1151,9 @@ export default function OrdersFinanceView({
             {filteredInvoices.length === 0 ? (
               <div className="p-8 text-center text-[#8E9AAF] text-xs">Chưa có yêu cầu xuất hóa đơn VAT nào.</div>
             ) : (
-              filteredInvoices.map((inv) => (
+              filteredInvoices.map((inv, invIdx) => (
                 <div
-                  key={inv.id}
+                  key={`${inv.id}-${invIdx}`}
                   className="p-4 rounded-2xl bg-[#161D2B] border border-[#253045] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                 >
                   <div className="space-y-1">
