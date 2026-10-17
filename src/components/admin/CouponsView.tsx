@@ -13,7 +13,8 @@ import {
   Layers,
   Sparkles,
   Gift,
-  CheckCircle2
+  CheckCircle2,
+  Edit3
 } from 'lucide-react';
 import { Coupon, DiscountType, CouponScope } from '@/lib/types-redesign';
 
@@ -33,8 +34,9 @@ export default function CouponsView({
   const [searchTerm, setSearchTerm] = useState('');
   const [scopeFilter, setScopeFilter] = useState<'ALL' | CouponScope>('ALL');
 
-  // Coupon modal
+  // Coupon modal (Create & Edit)
   const [couponModalOpen, setCouponModalOpen] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
   const [deleteConfirmCoupon, setDeleteConfirmCoupon] = useState<{ idOrCode: string; code: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -49,6 +51,36 @@ export default function CouponsView({
     usage_limit: 100
   });
 
+  const handleOpenCreate = () => {
+    setEditingCoupon(null);
+    setCouponForm({
+      code: '',
+      discount_type: 'FIXED',
+      discount_value: 30000,
+      min_order_amount: 100000,
+      apply_scope: 'ALL',
+      starts_at: new Date().toISOString().split('T')[0],
+      ends_at: new Date(Date.now() + 86400000 * 30).toISOString().split('T')[0],
+      usage_limit: 100
+    });
+    setCouponModalOpen(true);
+  };
+
+  const handleOpenEdit = (coupon: Coupon) => {
+    setEditingCoupon(coupon);
+    setCouponForm({
+      code: coupon.code,
+      discount_type: coupon.discount_type || 'FIXED',
+      discount_value: coupon.discount_value || 0,
+      min_order_amount: coupon.min_order_amount || 0,
+      apply_scope: coupon.apply_scope || 'ALL',
+      starts_at: coupon.starts_at ? new Date(coupon.starts_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      ends_at: coupon.ends_at ? new Date(coupon.ends_at).toISOString().split('T')[0] : new Date(Date.now() + 86400000 * 30).toISOString().split('T')[0],
+      usage_limit: coupon.usage_limit || 100
+    });
+    setCouponModalOpen(true);
+  };
+
   const handleSaveCouponSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!couponForm.code.trim()) {
@@ -59,6 +91,7 @@ export default function CouponsView({
     try {
       setIsSubmitting(true);
       await onSaveCoupon({
+        id: editingCoupon?.id,
         code: couponForm.code.trim().toUpperCase(),
         discount_type: couponForm.discount_type,
         discount_value: Number(couponForm.discount_value),
@@ -70,8 +103,13 @@ export default function CouponsView({
         per_user_limit: 1,
         active: true
       });
-      showToast(`Đã tạo mã giảm giá "${couponForm.code.toUpperCase()}" thành công!`);
+      showToast(
+        editingCoupon
+          ? `Đã cập nhật mã giảm giá "${couponForm.code.toUpperCase()}" thành công!`
+          : `Đã tạo mã giảm giá "${couponForm.code.toUpperCase()}" thành công!`
+      );
       setCouponModalOpen(false);
+      setEditingCoupon(null);
       setCouponForm({
         code: '',
         discount_type: 'FIXED',
@@ -83,7 +121,7 @@ export default function CouponsView({
         usage_limit: 100
       });
     } catch (err: any) {
-      showToast('Lỗi tạo mã: ' + (err.message || 'Thử lại sau'));
+      showToast('Lỗi lưu mã: ' + (err.message || 'Thử lại sau'));
     } finally {
       setIsSubmitting(false);
     }
@@ -144,7 +182,7 @@ export default function CouponsView({
           </div>
 
           <button
-            onClick={() => setCouponModalOpen(true)}
+            onClick={handleOpenCreate}
             className="px-3.5 py-1.5 rounded-xl bg-[#E63845] hover:bg-[#D42B38] text-white text-xs font-bold shadow-md shadow-[#E63845]/20 flex items-center gap-1.5 cursor-pointer shrink-0 transition-all"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -191,6 +229,13 @@ export default function CouponsView({
                     >
                       {isTicketOnly ? 'Vé Xem Phim' : isComboOnly ? 'Bắp & Nước' : 'Toàn Đơn'}
                     </span>
+                    <button
+                      onClick={() => handleOpenEdit(coupon)}
+                      title="Chỉnh sửa mã giảm giá"
+                      className="p-1.5 rounded-lg text-[#8E9AAF] hover:text-[#38BDF8] hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
                     {onDeleteCoupon && (
                       <button
                         onClick={() =>
@@ -235,20 +280,25 @@ export default function CouponsView({
         </div>
       )}
 
-      {/* Modal: Add Coupon */}
+      {/* Modal: Add / Edit Coupon */}
       {couponModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#121622] border border-[#263147] rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-[#222B3D] pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-[#E63845]/15 text-[#E63845] flex items-center justify-center">
-                  <Gift className="w-4 h-4" />
+                  {editingCoupon ? <Edit3 className="w-4 h-4" /> : <Gift className="w-4 h-4" />}
                 </div>
-                <h3 className="font-bold text-white text-base">Tạo Mã Giảm Giá Mới</h3>
+                <h3 className="font-bold text-white text-base">
+                  {editingCoupon ? `Chỉnh Sửa Mã Giảm Giá: ${editingCoupon.code}` : 'Tạo Mã Giảm Giá Mới'}
+                </h3>
               </div>
               <button
-                onClick={() => setCouponModalOpen(false)}
-                className="text-[#8E9AAF] hover:text-white p-1 rounded-lg hover:bg-white/5"
+                onClick={() => {
+                  setCouponModalOpen(false);
+                  setEditingCoupon(null);
+                }}
+                className="text-[#8E9AAF] hover:text-white p-1 rounded-lg hover:bg-white/5 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -363,7 +413,10 @@ export default function CouponsView({
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setCouponModalOpen(false)}
+                  onClick={() => {
+                    setCouponModalOpen(false);
+                    setEditingCoupon(null);
+                  }}
                   className="px-4 py-2 rounded-xl bg-[#1A202E] text-[#8E9AAF] hover:text-white cursor-pointer font-bold"
                 >
                   Hủy
@@ -373,7 +426,7 @@ export default function CouponsView({
                   disabled={isSubmitting}
                   className="px-5 py-2 rounded-xl bg-[#E63845] hover:bg-[#D42B38] text-white font-bold cursor-pointer disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Đang tạo...' : 'Tạo Mã'}
+                  {isSubmitting ? 'Đang lưu...' : editingCoupon ? 'Lưu Thay Đổi' : 'Tạo Mã'}
                 </button>
               </div>
             </form>
