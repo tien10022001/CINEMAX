@@ -41,11 +41,40 @@ export default function MovieCard({ movie, isUpcoming = false }: MovieCardProps)
           </h3>
         </Link>
 
+        {/* Phân loại thể loại từ Admin */}
+        {Array.isArray(movie.genres) && movie.genres.length > 0 && (
+          <p className="text-[11px] text-[#9EA6B8] line-clamp-1">
+            {movie.genres
+              .map((g: any) => (typeof g === 'string' ? g : g?.name || g?.slug))
+              .filter(Boolean)
+              .slice(0, 2)
+              .join(' • ')}
+          </p>
+        )}
+
         <div className="flex items-center gap-2 text-xs text-[#9EA6B8]">
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-[#E63845] text-white">
-            {movie.age_rating}
+          <span
+            className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+              movie.age_rating === 'P'
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                : movie.age_rating === 'K'
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                : movie.age_rating === 'T16'
+                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40'
+                : movie.age_rating === 'T18'
+                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+            }`}
+          >
+            {movie.age_rating || 'T13'}
           </span>
-          <span>{movie.duration_min} phút</span>
+          <span>{movie.duration_min || (movie as any).duration_minutes || 120} phút</span>
+
+          {movie.formats && movie.formats.length > 0 && (
+            <span className="text-[10px] font-bold text-white/70 px-1 py-0.2 rounded bg-white/5 border border-white/10">
+              {movie.formats[0]}
+            </span>
+          )}
         </div>
       </div>
 

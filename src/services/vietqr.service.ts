@@ -41,14 +41,14 @@ export const POPULAR_VIETQR_BANKS: BankDefinition[] = [
 
 const ADMIN_BANK_CONFIG_KEY = 'cinemax_admin_bank_config';
 
-// Cấu hình ngân hàng mặc định
+// Cấu hình ngân hàng doanh nghiệp CINEMAX mặc định
 export const DEFAULT_BANK_INFO: BankAccountInfo = {
   bankId: '970423',
   bankName: 'Ngân hàng TMCP Tiên Phong',
   bankShortName: 'TPBank',
   bankCode: 'TPB',
-  accountNumber: '08341902000',
-  accountName: 'TRUONG CONG TIEN',
+  accountNumber: '03011232003',
+  accountName: 'TRUONG VAN HOAN',
 };
 
 export class VietQRService {
@@ -65,6 +65,12 @@ export class VietQRService {
       const stored = localStorage.getItem(ADMIN_BANK_CONFIG_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        // Tự động chuyển đổi nếu còn lưu tài khoản thử nghiệm cũ
+        if (parsed.accountNumber === '08341902000' || parsed.accountName === 'TRUONG CONG TIEN') {
+          this.saveBankInfo(DEFAULT_BANK_INFO);
+          return DEFAULT_BANK_INFO;
+        }
+
         if (parsed.accountNumber && parsed.accountName) {
           return {
             bankId: parsed.bankId || DEFAULT_BANK_INFO.bankId,

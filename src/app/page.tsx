@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -8,8 +8,9 @@ import HeroBanner from '@/components/home/HeroBanner';
 import QuickBookingBar from '@/components/home/QuickBookingBar';
 import MovieCard from '@/components/home/MovieCard';
 import { useData } from '@/lib/data-context';
+import { Movie } from '@/lib/types';
 import Link from 'next/link';
-import { MapPin, Ticket, Newspaper, ArrowRight, Film, Flame } from 'lucide-react';
+import { MapPin, Ticket, Newspaper, ArrowRight, Film, Flame, X, Filter } from 'lucide-react';
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -22,6 +23,11 @@ function HomeContent() {
   // Dynamic state from DataContext (editable by Admin in real-time)
   const { movies, cinemas, promotions, news } = useData();
 
+  // State bộ lọc phân loại nhanh từ Admin
+  const [selectedCinemaFilter, setSelectedCinemaFilter] = useState<string>('all');
+  const [selectedGenreFilter, setSelectedGenreFilter] = useState<string>('all');
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all');
+
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab && ['home', 'movies', 'cinemas', 'promotions', 'news'].includes(tab)) {
@@ -29,14 +35,53 @@ function HomeContent() {
     }
   }, [searchParams]);
 
-  const nowShowingMovies = movies.filter(
-    (m) => m.status?.toUpperCase() === 'NOW_SHOWING' || m.status === 'now_showing'
+  // Chuẩn hóa văn bản tiếng Việt để so khớp thể loại linh hoạt
+  const normalizeText = (text: string) =>
+    (text || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+
+  // Lọc phim chuẩn theo phân loại của Admin (Thể loại, Rạp...)
+  const filterByClassification = useCallback(
+    (movieList: Movie[]) => {
+      return movieList.filter((m) => {
+        // Lọc theo thể loại phân loại từ Admin
+        if (selectedGenreFilter !== 'all') {
+          const targetGenreNorm = normalizeText(selectedGenreFilter);
+          const hasGenre =
+            Array.isArray(m.genres) &&
+            m.genres.some((g: any) => {
+              if (!g) return false;
+              if (typeof g === 'string') return normalizeText(g) === targetGenreNorm || normalizeText(g).includes(targetGenreNorm);
+              if (g.slug && normalizeText(g.slug) === targetGenreNorm) return true;
+              if (g.name && (normalizeText(g.name) === targetGenreNorm || normalizeText(g.name).includes(targetGenreNorm))) return true;
+              return false;
+            });
+          if (!hasGenre) return false;
+        }
+        return true;
+      });
+    },
+    [selectedGenreFilter]
   );
-  const upcomingMovies = movies.filter(
-    (m) => m.status?.toUpperCase() === 'COMING_SOON' || m.status === 'coming_soon'
+
+  const rawNowShowing = useMemo(
+    () => movies.filter((m) => m.status?.toUpperCase() === 'NOW_SHOWING' || m.status === 'now_showing'),
+    [movies]
   );
-  // Suất chiếu đặc biệt (Sneak Show / Suất chiếu sớm)
-  const specialMovies = movies.slice(0, 3);
+  const rawUpcoming = useMemo(
+    () => movies.filter((m) => m.status?.toUpperCase() === 'COMING_SOON' || m.status === 'coming_soon'),
+    [movies]
+  );
+
+  const nowShowingMovies = useMemo(() => filterByClassification(rawNowShowing), [rawNowShowing, filterByClassification]);
+  const upcomingMovies = useMemo(() => filterByClassification(rawUpcoming), [rawUpcoming, filterByClassification]);
+  const specialMovies = useMemo(() => filterByClassification(movies).slice(0, 3), [movies, filterByClassification]);
+  const allFilteredMovies = useMemo(() => filterByClassification(movies), [movies, filterByClassification]);
 
   return (
     <div className="min-h-screen bg-[#0F1217] flex flex-col">
@@ -52,7 +97,50 @@ function HomeContent() {
             <HeroBanner movies={nowShowingMovies} />
 
             {/* 2. Thanh Mua Vé Nhanh */}
-            <QuickBookingBar movies={movies} cinemas={cinemas} />
+            <QuickBookingBar
+              movies={movies}
+              cinemas={cinemas}
+              selectedCinema={selectedCinemaFilter}
+              onCinemaChange={setSelectedCinemaFilter}
+              selectedGenre={selectedGenreFilter}
+              onGenreChange={setSelectedGenreFilter}
+              selectedDate={selectedDateFilter}
+              onDateChange={setSelectedDateFilter}
+            />
+
+            {/* Thanh thông báo trạng thái lọc nếu đang áp dụng bộ lọc */}
+            {(selectedGenreFilter !== 'all' || selectedCinemaFilter !== 'all') && (
+              <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 -mt-10">
+                <div className="bg-[#1A1C26] border border-[#E63845]/40 rounded-xl px-4 py-2.5 flex items-center justify-between gap-4 flex-wrap shadow-lg">
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="text-[#9EA6B8] flex items-center gap-1.5 font-medium">
+                      <Filter className="w-3.5 h-3.5 text-[#E63845]" />
+                      Đang phân loại theo:
+                    </span>
+                    {selectedGenreFilter !== 'all' && (
+                      <span className="bg-[#E63845]/20 text-[#E63845] font-bold px-2.5 py-0.5 rounded-full border border-[#E63845]/30">
+                        Thể loại: {selectedGenreFilter}
+                      </span>
+                    )}
+                    {selectedCinemaFilter !== 'all' && (
+                      <span className="bg-blue-500/20 text-blue-400 font-bold px-2.5 py-0.5 rounded-full border border-blue-500/30">
+                        Rạp: {cinemas.find((c) => String(c.id) === selectedCinemaFilter)?.name || selectedCinemaFilter}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedGenreFilter('all');
+                      setSelectedCinemaFilter('all');
+                    }}
+                    className="text-xs text-[#9EA6B8] hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Đặt lại tất cả
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* 3. Phim đang chiếu */}
             <section id="movies" className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 pt-4">
@@ -72,11 +160,27 @@ function HomeContent() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
-                {nowShowingMovies.map((movie, idx) => (
-                  <MovieCard key={movie.id ? String(movie.id) : `now-${idx}`} movie={movie} />
-                ))}
-              </div>
+              {nowShowingMovies.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+                  {nowShowingMovies.map((movie, idx) => (
+                    <MovieCard key={movie.id ? String(movie.id) : `now-${idx}`} movie={movie} />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-[#14161F] border border-[#303645] rounded-2xl py-10 px-4 text-center">
+                  <Film className="w-8 h-8 text-[#9EA6B8] mx-auto mb-2 opacity-40" />
+                  <p className="text-sm text-[#9EA6B8] font-medium">
+                    Không tìm thấy phim đang chiếu nào thuộc phân loại này.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGenreFilter('all')}
+                    className="mt-2 text-xs font-bold text-[#E63845] hover:underline cursor-pointer"
+                  >
+                    Xem tất cả thể loại &gt;
+                  </button>
+                </div>
+              )}
             </section>
 
             {/* 4. Phim sắp chiếu */}
@@ -97,11 +201,27 @@ function HomeContent() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
-                {upcomingMovies.map((movie, idx) => (
-                  <MovieCard key={movie.id ? String(movie.id) : `up-${idx}`} movie={movie} isUpcoming={true} />
-                ))}
-              </div>
+              {upcomingMovies.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+                  {upcomingMovies.map((movie, idx) => (
+                    <MovieCard key={movie.id ? String(movie.id) : `up-${idx}`} movie={movie} isUpcoming={true} />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-[#14161F] border border-[#303645] rounded-2xl py-10 px-4 text-center">
+                  <Film className="w-8 h-8 text-[#9EA6B8] mx-auto mb-2 opacity-40" />
+                  <p className="text-sm text-[#9EA6B8] font-medium">
+                    Không tìm thấy phim sắp chiếu nào thuộc phân loại này.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGenreFilter('all')}
+                    className="mt-2 text-xs font-bold text-[#E63845] hover:underline cursor-pointer"
+                  >
+                    Xem tất cả thể loại &gt;
+                  </button>
+                </div>
+              )}
             </section>
           </div>
         )}
@@ -114,7 +234,16 @@ function HomeContent() {
         {activeTab === 'movies' && (
           <div className="space-y-10 pt-6">
             {/* 1 thanh Quick Booking Bar ở trên cùng giữ nguyên như ảnh */}
-            <QuickBookingBar movies={movies} cinemas={cinemas} />
+            <QuickBookingBar
+              movies={movies}
+              cinemas={cinemas}
+              selectedCinema={selectedCinemaFilter}
+              onCinemaChange={setSelectedCinemaFilter}
+              selectedGenre={selectedGenreFilter}
+              onGenreChange={setSelectedGenreFilter}
+              selectedDate={selectedDateFilter}
+              onDateChange={setSelectedDateFilter}
+            />
 
             {/* Filter pills: Tất cả, Đang chiếu, Suất chiếu đặc biệt, Sắp chiếu */}
             <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20">
@@ -133,7 +262,7 @@ function HomeContent() {
                         : 'text-[#9EA6B8] hover:text-white'
                     }`}
                   >
-                    Tất cả phim ({movies.length})
+                    Tất cả phim ({allFilteredMovies.length})
                   </button>
                   <button
                     onClick={() => setMovieSubFilter('NOW_SHOWING')}

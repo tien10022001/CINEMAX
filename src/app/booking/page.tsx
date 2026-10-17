@@ -19,6 +19,9 @@ import { syncOrderToSupabase } from '@/lib/supabase/queries';
 import {
   Clock,
   CheckCircle,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
   Plus,
   Minus,
   ArrowLeft,
@@ -30,12 +33,15 @@ import {
   Mail,
   AlertTriangle,
   Sparkles,
+  ShieldAlert,
 } from 'lucide-react';
 import VietQRModal from '@/components/booking/VietQRModal';
 import ShowtimeModal from '@/components/common/ShowtimeModal';
+import UnifiedTicketModal from '@/components/common/UnifiedTicketModal';
 import { BookingService } from '@/services/booking.service';
 import { TicketScannerService } from '@/services/ticket-scanner.service';
 import { checkAllSelectedSeatsForOrphans, OrphanSeatCheckResult } from '@/lib/seat-rules';
+import { ContactValidator, PhoneValidationResult, EmailValidationResult } from '@/lib/contact-validator';
 
 function BookingContent() {
   const searchParams = useSearchParams();
@@ -129,6 +135,56 @@ function BookingContent() {
   const [guestPhone, setGuestPhone] = useState<string>('');
   const [guestEmail, setGuestEmail] = useState<string>('');
   const [guestError, setGuestError] = useState<string>('');
+  const [phoneValidation, setPhoneValidation] = useState<PhoneValidationResult | null>(null);
+  const [emailValidation, setEmailValidation] = useState<EmailValidationResult | null>(null);
+  const [emailDnsResult, setEmailDnsResult] = useState<{ isValid: boolean; error?: string } | null>(null);
+  const [isCheckingEmailDns, setIsCheckingEmailDns] = useState<boolean>(false);
+
+  // Kiểm tra tính hợp lệ của số điện thoại thời gian thực
+  useEffect(() => {
+    if (!guestPhone.trim()) {
+      setPhoneValidation(null);
+      return;
+    }
+    const res = ContactValidator.validateVietnamesePhone(guestPhone);
+    setPhoneValidation(res);
+  }, [guestPhone]);
+
+  // Kiểm tra tính hợp lệ của Email và ping server DNS MX ngầm
+  useEffect(() => {
+    if (!guestEmail.trim()) {
+      setEmailValidation(null);
+      setEmailDnsResult(null);
+      return;
+    }
+    const res = ContactValidator.validateEmail(guestEmail);
+    setEmailValidation(res);
+    setEmailDnsResult(null);
+
+    if (res.isValid) {
+      const timer = setTimeout(async () => {
+        try {
+          setIsCheckingEmailDns(true);
+          const apiRes = await fetch('/api/validate/email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: guestEmail }),
+          });
+          const data = await apiRes.json();
+          setEmailDnsResult({
+            isValid: data.isValid,
+            error: data.error,
+          });
+        } catch {
+          // Bỏ qua nếu lỗi mạng DNS
+        } finally {
+          setIsCheckingEmailDns(false);
+        }
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [guestEmail]);
 
   // Food Items State: { [foodId]: quantity }
   const [foodQuantities, setFoodQuantities] = useState<{ [id: string | number]: number }>({
@@ -154,22 +210,29 @@ function BookingContent() {
     payerEmail: string;
     payerPhone: string;
     seatsStr: string;
+    foodsStr?: string;
+    foods?: any[];
   } | null>(null);
   const [completedBooking, setCompletedBooking] = useState<{
     bookingCode: string;
     paidAt: string;
     totalAmount: number;
     seatsStr: string;
+    foodsStr?: string;
     customerName: string;
     customerEmail: string;
     customerPhone: string;
+    isOverduePaid?: boolean;
+    overdueWarningMessage?: string;
   } | null>(null);
+  const [showUnifiedModal, setShowUnifiedModal] = useState<boolean>(false);
 
   // Chuyển đổi Guest thành Member (Post-payment conversion)
   const [memberPassword, setMemberPassword] = useState<string>('');
   const [memberCreated, setMemberCreated] = useState<boolean>(false);
   const [memberError, setMemberError] = useState<string>('');
   const [isRegisteringMember, setIsRegisteringMember] = useState<boolean>(false);
+  const [dismissMemberBanner, setDismissMemberBanner] = useState<boolean>(false);
 
   // Mã phiên giữ ghế độc lập cho tab trình duyệt này (Session ID)
   const [sessionId] = useState<string>(() => {
@@ -190,6 +253,7 @@ function BookingContent() {
 
   // 10-minute hold timer (Figma Screen 3: "⏱ Giữ ghế còn 09:42")
   const [timeLeft, setTimeLeft] = useState<number>(600); // 10:00 initial
+  const [isPaymentGraceApplied, setIsPaymentGraceApplied] = useState<boolean>(false);
 
   // Helper: Sinh sơ đồ ghế chuẩn xác 10 cột khớp 100% với Nhân viên quầy vé Staff POS
   function getDynamicShowtimeSeats(
@@ -243,190 +307,251 @@ function BookingContent() {
     return dynamicSeats;
   }
 
-  useEffect(() => {
-    let isMounted = true;
-    async function loadSeats() {
-      // Tự động giải phóng các ghế giữ tạm đã hết hạn
-      await BookingService.releaseExpiredHolds();
+  const loadSeats = React.useCallback(async () => {
+    // Tự động giải phóng các ghế giữ tạm đã hết hạn
+    await BookingService.releaseExpiredHolds();
 
-      // 1. Đọc danh sách vé đã đặt từ localStorage CHỈ cho đúng rạp, phim và suất chiếu này
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
-      const localTickets = stored ? JSON.parse(stored) : [];
-      const bookedSeatLabels = new Set<string>();
+    // 1. Đọc danh sách vé đã đặt từ localStorage CHỈ cho đúng rạp, phim và suất chiếu này
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
+    const localTickets = stored ? JSON.parse(stored) : [];
+    const bookedSeatLabels = new Set<string>();
 
-      // Đọc từ soldSeatsByShowtime trong DataContext chỉ khi đúng suất chiếu trong DB
-      if (foundShowtime) {
-        const ctxSold = (soldSeatsByShowtime as Record<string | number, string[]>)?.[foundShowtime.id];
-        if (Array.isArray(ctxSold)) {
-          ctxSold.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
-        }
+    // Đọc từ soldSeatsByShowtime trong DataContext chỉ khi đúng suất chiếu trong DB
+    if (foundShowtime) {
+      const ctxSold = (soldSeatsByShowtime as Record<string | number, string[]>)?.[foundShowtime.id];
+      if (Array.isArray(ctxSold)) {
+        ctxSold.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
       }
-
-      localTickets.forEach((t: any) => {
-        const matchExactShowtime =
-          t.showtimeId &&
-          t.showtimeId.toString() === queryShowtimeId.toString();
-
-        const matchAttributes =
-          ((t.movieId && t.movieId.toString() === selectedMovie.id.toString()) || t.movieTitle === selectedMovie.title) &&
-          (t.cinemaId?.toString() === queryCinemaId.toString() || t.cinemaName === selectedCinema.name) &&
-          (t.showtimeDate === queryDate || t.date === queryDate || (t.showtime && t.showtime.includes(queryDate))) &&
-          (t.showtimeTime === queryTime || (t.showtime && t.showtime.includes(queryTime)));
-
-        if (matchExactShowtime || matchAttributes) {
-          if (Array.isArray(t.seats)) {
-            t.seats.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
-          } else if (typeof t.seats === 'string') {
-            t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
-          }
-        }
-      });
-
-      // Also sync seats sold from Staff POS (cinemax_booked_seats_v2)
-      try {
-        const posSeatsRaw = localStorage.getItem('cinemax_booked_seats_v2');
-        if (posSeatsRaw) {
-          const posSeatsMap = JSON.parse(posSeatsRaw);
-          const stSeats = posSeatsMap?.[queryShowtimeId];
-          if (Array.isArray(stSeats)) {
-            stSeats.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
-          }
-        }
-      } catch (e) {
-        // POS seats sync fallback
-      }
-
-      // Also sync maintenance/broken seats locked from Admin & Staff Room Management
-      const blockedSeatLabels = new Set<string>();
-      try {
-        const currentAudId = selectedShowtime?.auditorium_id || selectedShowtime?.room?.supabase_id;
-        const currentRoomName = selectedShowtime?.room?.name || 'Phòng 1';
-
-        // 1. From cinemax_seats_v2 (Admin seat status: BLOCKED)
-        const adminSeatsRaw = localStorage.getItem('cinemax_seats_v2');
-        if (adminSeatsRaw) {
-          const adminSeats = JSON.parse(adminSeatsRaw);
-          if (Array.isArray(adminSeats)) {
-            adminSeats.forEach((s: any) => {
-              if (s.status === 'BLOCKED' && (!currentAudId || s.auditorium_id === currentAudId)) {
-                blockedSeatLabels.add(`${s.row_label}${s.seat_number}`);
-              }
-            });
-          }
-        }
-
-        // 2. From cinemax_maintenance_seats_v2 (Staff & Admin Room Management)
-        const maintRaw = localStorage.getItem('cinemax_maintenance_seats_v2');
-        if (maintRaw) {
-          const maintMap = JSON.parse(maintRaw);
-          const roomBroken =
-            (currentAudId && maintMap[currentAudId]) ||
-            maintMap[currentRoomName] ||
-            (currentRoomName.includes('2')
-              ? maintMap['room-q1-2']
-              : currentRoomName.includes('3')
-              ? maintMap['room-q1-3']
-              : maintMap['room-q1-1']);
-          if (Array.isArray(roomBroken)) {
-            roomBroken.forEach((s: string) => blockedSeatLabels.add(String(s).trim().toUpperCase()));
-          }
-        }
-      } catch (e) {
-        console.warn('Maintenance seats sync error:', e);
-      }
-
-      // 2. Đọc danh sách ghế đang bị giữ tạm (HELD) bởi phiên khác còn hạn
-      const heldMap = BookingService.getLocalHeldSeats(queryShowtimeId);
-      const heldSeatLabels = new Set<string>();
-      heldMap.forEach((info, label) => {
-        if (info.sessionId !== sessionId) {
-          heldSeatLabels.add(label);
-        }
-      });
-
-      // 3. Nếu suất chiếu có ID UUID hợp lệ trong DB Supabase, tải trực tiếp sơ đồ ghế từ DB
-      const targetShowtimeUuid =
-        selectedShowtime?.supabase_id ||
-        (typeof queryShowtimeId === 'string' && queryShowtimeId.length === 36 ? queryShowtimeId : null);
-
-      if (targetShowtimeUuid) {
-        try {
-          const dbSeats = await BookingService.getShowtimeSeats(targetShowtimeUuid);
-          if (dbSeats && dbSeats.length > 0) {
-            const mapped: Seat[] = dbSeats.map((s) => {
-              const seatLabel = `${s.row_label}${s.seat_number}`;
-              const isBookedLocally = bookedSeatLabels.has(seatLabel);
-              const isHeldLocally = heldSeatLabels.has(seatLabel);
-              const isBlockedLocally = blockedSeatLabels.has(seatLabel) || String(s.status).toUpperCase() === 'BLOCKED';
-
-              let seatStatus: any = s.status;
-              if (isBookedLocally) seatStatus = 'sold';
-              else if (isHeldLocally) seatStatus = 'held';
-              else if (isBlockedLocally) seatStatus = 'blocked';
-
-              return {
-                id: s.id,
-                row_label: s.row_label,
-                seat_number: s.seat_number,
-                grid_row: s.grid_row,
-                grid_col: s.grid_col,
-                seat_type: {
-                  id: s.seat_type || 'standard',
-                  code: (s.seat_type || 'STANDARD').toUpperCase() as any,
-                  name: (s.seat_type || 'STANDARD').toUpperCase(),
-                },
-                seat_group: s.seat_group,
-                status: seatStatus,
-              };
-            });
-            if (isMounted) setSeats(mapped);
-            return;
-          }
-        } catch (err) {
-          console.warn('Lỗi tải ghế Supabase, dùng sơ đồ riêng cho rạp:', err);
-        }
-      }
-
-      // 4. Với tất cả các phim và suất chiếu khác: Sinh sơ đồ ghế độc lập
-      const dynamicSeats = getDynamicShowtimeSeats(
-        Number(selectedShowtime?.room_id) || 1,
-        selectedCinema?.id || queryCinemaId,
-        queryShowtimeId,
-        queryDate,
-        queryTime,
-        bookedSeatLabels,
-        heldSeatLabels,
-        blockedSeatLabels
-      );
-
-      if (isMounted) setSeats(dynamicSeats);
     }
 
+    localTickets.forEach((t: any) => {
+      const matchExactShowtime =
+        t.showtimeId &&
+        selectedShowtime?.id &&
+        t.showtimeId.toString() === selectedShowtime.id.toString();
+
+      const matchCinema =
+        t.cinemaName === selectedCinema?.name ||
+        (t.cinemaId && t.cinemaId.toString() === queryCinemaId.toString());
+
+      const matchMovie =
+        (t.movieId && selectedMovie?.id && t.movieId.toString() === selectedMovie.id.toString()) ||
+        t.movieTitle === selectedMovie?.title;
+
+      const matchDate =
+        t.showtimeDate === queryDate ||
+        t.date === queryDate ||
+        (t.showtime && t.showtime.includes(queryDate));
+
+      const matchTime =
+        t.showtimeTime === queryTime ||
+        (t.showtime && t.showtime.includes(queryTime));
+
+      if (matchExactShowtime || (matchCinema && matchMovie && matchDate && matchTime)) {
+        if (Array.isArray(t.seats)) {
+          t.seats.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
+        } else if (typeof t.seats === 'string') {
+          t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
+        }
+      }
+    });
+
+    // Also sync seats sold from Staff POS (cinemax_booked_seats_v2)
+    try {
+      const posSeatsRaw = localStorage.getItem('cinemax_booked_seats_v2');
+      if (posSeatsRaw) {
+        const posSeatsMap = JSON.parse(posSeatsRaw);
+        const stSeats = posSeatsMap?.[queryShowtimeId] || (selectedShowtime?.id ? posSeatsMap?.[selectedShowtime.id] : null);
+        if (Array.isArray(stSeats)) {
+          stSeats.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
+        }
+      }
+    } catch (e) {
+      // POS seats sync fallback
+    }
+
+    // Also sync maintenance/broken seats locked from Admin & Staff Room Management
+    const blockedSeatLabels = new Set<string>();
+    try {
+      const currentAudId = selectedShowtime?.auditorium_id || selectedShowtime?.room?.supabase_id;
+      const currentRoomName = selectedShowtime?.room?.name || 'Phòng 1';
+
+      // 1. From cinemax_seats_v2 (Admin seat status: BLOCKED)
+      const adminSeatsRaw = localStorage.getItem('cinemax_seats_v2');
+      if (adminSeatsRaw) {
+        const adminSeats = JSON.parse(adminSeatsRaw);
+        if (Array.isArray(adminSeats)) {
+          adminSeats.forEach((s: any) => {
+            if (s.status === 'BLOCKED' && (!currentAudId || s.auditorium_id === currentAudId)) {
+              blockedSeatLabels.add(`${s.row_label}${s.seat_number}`);
+            }
+          });
+        }
+      }
+
+      // 2. From cinemax_maintenance_seats_v2 (Staff & Admin Room Management)
+      const maintRaw = localStorage.getItem('cinemax_maintenance_seats_v2');
+      if (maintRaw) {
+        const maintMap = JSON.parse(maintRaw);
+        const roomBroken =
+          (currentAudId && maintMap[currentAudId]) ||
+          maintMap[currentRoomName] ||
+          (currentRoomName.includes('2')
+            ? maintMap['room-q1-2']
+            : currentRoomName.includes('3')
+            ? maintMap['room-q1-3']
+            : maintMap['room-q1-1']);
+        if (Array.isArray(roomBroken)) {
+          roomBroken.forEach((s: string) => blockedSeatLabels.add(String(s).trim().toUpperCase()));
+        }
+      }
+    } catch (e) {
+      console.warn('Maintenance seats sync error:', e);
+    }
+
+    // 2. Đọc danh sách ghế đang bị giữ tạm (HELD) bởi phiên khác còn hạn
+    const currentShowtimeKey = selectedShowtime?.id || queryShowtimeId;
+    const heldMap = BookingService.getLocalHeldSeats(currentShowtimeKey);
+
+    try {
+      const serverHeldMap = await BookingService.syncServerHeldSeats(currentShowtimeKey);
+      serverHeldMap.forEach((info, label) => {
+        heldMap.set(label, info);
+      });
+    } catch {}
+
+    const heldSeatLabels = new Set<string>();
+    heldMap.forEach((info, label) => {
+      if (info.sessionId !== sessionId) {
+        heldSeatLabels.add(label);
+      }
+    });
+
+    // Nếu ghế người này đang chọn bị phiên khác giữ trước -> Tự động loại bỏ khỏi giỏ hàng
+    setSelectedSeats((prev) => {
+      const conflicted = prev.filter((s) => {
+        const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+        return heldSeatLabels.has(label) || bookedSeatLabels.has(label);
+      });
+      if (conflicted.length > 0) {
+        return prev.filter((s) => !conflicted.some((c) => c.id === s.id));
+      }
+      return prev;
+    });
+
+    // 3. Nếu là suất chiếu thật của rạp Hà Nội Centre trong DB Supabase
+    const stId = selectedShowtime?.id?.toString();
+    const isRealDbShowtime =
+      stId &&
+      stId === '85608755-35ca-4157-87bd-96b50577e0e5' &&
+      (selectedCinema?.id === 1 || selectedCinema?.name?.includes('Hà Nội'));
+
+    if (isRealDbShowtime) {
+      try {
+        const dbSeats = await BookingService.getShowtimeSeats(stId);
+        if (dbSeats && dbSeats.length > 0) {
+          const mapped: Seat[] = dbSeats.map((s) => {
+            const seatLabel = `${s.row_label}${s.seat_number}`;
+            const isBookedLocally = bookedSeatLabels.has(seatLabel);
+            const isHeldLocally = heldSeatLabels.has(seatLabel);
+
+            let seatStatus: any = s.status;
+            if (isBookedLocally) seatStatus = 'sold';
+            else if (isHeldLocally) seatStatus = 'held';
+
+            return {
+              id: s.id,
+              row_label: s.row_label,
+              seat_number: s.seat_number,
+              grid_row: s.grid_row,
+              grid_col: s.grid_col,
+              seat_type: {
+                id: s.seat_type || 'standard',
+                code: (s.seat_type || 'STANDARD').toUpperCase() as any,
+                name: (s.seat_type || 'STANDARD').toUpperCase(),
+              },
+              seat_group: s.seat_group,
+              status: seatStatus,
+            };
+          });
+          setSeats(mapped);
+          return;
+        }
+      } catch (err) {
+        console.warn('Lỗi tải ghế Supabase, dùng sơ đồ riêng cho rạp:', err);
+      }
+    }
+
+    // 4. Với các rạp khác (Landmark 81, Cầu Giấy...) hoặc các suất chiếu khác:
+    const dynamicSeats = getDynamicShowtimeSeats(
+      Number(selectedShowtime?.room_id) || 1,
+      selectedCinema?.id || queryCinemaId,
+      selectedShowtime?.id || queryShowtimeId,
+      queryDate,
+      queryTime,
+      bookedSeatLabels,
+      heldSeatLabels,
+      blockedSeatLabels
+    );
+
+    setSeats(dynamicSeats);
+  }, [selectedShowtime, queryCinemaId, queryShowtimeId, queryDate, queryTime, selectedCinema, sessionId]);
+
+  useEffect(() => {
     loadSeats();
     const handleUpdate = () => loadSeats();
     window.addEventListener('cinemax_data_updated', handleUpdate);
     window.addEventListener('cinemax_db_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('cinemax_seat_sync');
+        bc.onmessage = () => {
+          loadSeats();
+        };
+      }
+    } catch {}
+
+    // Polling tự động mỗi 2.5s để cập nhật tức thời ghế khi có khách khác vào từ trình duyệt/thiết bị khác
+    const pollInterval = setInterval(() => {
+      loadSeats();
+    }, 2500);
+
+    const handleBeforeUnload = () => {
+      if (currentStep !== 3) {
+        BookingService.releaseSessionHold(sessionId);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
-      isMounted = false;
       window.removeEventListener('cinemax_data_updated', handleUpdate);
       window.removeEventListener('cinemax_db_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      clearInterval(pollInterval);
+      bc?.close();
     };
-  }, [selectedShowtime, queryCinemaId, queryDate, queryTime, selectedCinema, sessionId]);
+  }, [loadSeats, sessionId, currentStep]);
 
   useEffect(() => {
     if (currentStep === 1 || currentStep === 2) {
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
+            // Nếu khách đang mở VietQR Modal và thực hiện thanh toán, không giải phóng đột ngột để modal hỗ trợ cứu vé
+            if (isVietQRModalOpen) {
+              return 0;
+            }
             clearInterval(timer);
             BookingService.releaseSessionHold(sessionId);
             alert('Đã hết thời gian giữ ghế! Hệ thống đã giải phóng ghế của bạn.');
             setSelectedSeats([]);
             setOrphanWarning(null);
             setCurrentStep(1);
+            setIsPaymentGraceApplied(false);
             return 600;
           }
           return prev - 1;
@@ -434,7 +559,7 @@ function BookingContent() {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [currentStep, sessionId]);
+  }, [currentStep, sessionId, isVietQRModalOpen]);
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -442,7 +567,7 @@ function BookingContent() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleSeatClick = (seat: Seat) => {
+  const handleSeatClick = async (seat: Seat) => {
     const isUnavailable =
       seat.status === 'SOLD' ||
       seat.status === 'sold' ||
@@ -495,6 +620,28 @@ function BookingContent() {
       nextSelected = [...selectedSeats, ...seatsToAdd.filter((s) => !selectedSeats.some((sel) => sel.id === s.id))];
     }
 
+    // Đồng bộ lập tức việc giữ ghế tạm (HELD) giữa các tab để chống chọn trùng đồng thời
+    const nextSeatLabels = nextSelected.map((s) =>
+      s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`
+    );
+
+    if (nextSeatLabels.length > 0) {
+      const holdRes = await BookingService.holdSeatsLocal({
+        showtimeId: selectedShowtime?.id || queryShowtimeId,
+        sessionId,
+        seatLabels: nextSeatLabels,
+        holdMinutes: 10,
+      });
+
+      if (!holdRes.success) {
+        alert(holdRes.error || 'Ghế vừa được người khác giữ chỗ. Vui lòng chọn ghế khác!');
+        loadSeats();
+        return;
+      }
+    } else {
+      BookingService.releaseSessionHold(sessionId);
+    }
+
     setSelectedSeats(nextSelected);
 
     // Kiểm tra quy tắc ghế trống đơn lẻ (Orphan / Single Seat Rule)
@@ -526,7 +673,7 @@ function BookingContent() {
     }
   };
 
-  const handleAddOrphanSeats = (orphanLabels: string[]) => {
+  const handleAddOrphanSeats = async (orphanLabels: string[]) => {
     const seatsToAdd = seats.filter((s) => {
       const label = `${s.row_label}${s.seat_number}`;
       return orphanLabels.includes(label) && !selectedSeats.some((sel) => sel.id === s.id);
@@ -538,13 +685,27 @@ function BookingContent() {
         return;
       }
       const updated = [...selectedSeats, ...seatsToAdd];
+      const updatedLabels = updated.map((s) =>
+        s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`
+      );
+      const holdRes = await BookingService.holdSeatsLocal({
+        showtimeId: selectedShowtime?.id || queryShowtimeId,
+        sessionId,
+        seatLabels: updatedLabels,
+        holdMinutes: 10,
+      });
+      if (!holdRes.success) {
+        alert(holdRes.error || 'Không thể chọn thêm ghế gợi ý do ghế vừa được giữ.');
+        loadSeats();
+        return;
+      }
       setSelectedSeats(updated);
       setOrphanWarning(null);
       setAcknowledgedOrphan(true);
     }
   };
 
-  const handleProceedToStep2 = () => {
+  const handleProceedToStep2 = async () => {
     if (selectedSeats.length === 0) {
       alert('Vui lòng chọn ít nhất một ghế');
       return;
@@ -561,7 +722,7 @@ function BookingContent() {
     // Cơ chế chống trùng vé (Concurrency Control): Giữ ghế 10 phút
     const seatLabels = selectedSeats.map((s) => `${s.row_label}${s.seat_number}`);
 
-    const holdRes = BookingService.holdSeatsLocal({
+    const holdRes = await BookingService.holdSeatsLocal({
       showtimeId: selectedShowtime?.id || queryShowtimeId,
       sessionId,
       seatLabels,
@@ -573,7 +734,7 @@ function BookingContent() {
       return;
     }
 
-    // Đồng bộ trạng thái giữ ghế lên server API (/api/seats/hold - Logic Quách Khánh)
+    // Đồng bộ trạng thái giữ ghế lên server API (/api/seats/hold)
     fetch('/api/seats/hold', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -585,7 +746,12 @@ function BookingContent() {
       }),
     }).catch((err) => console.warn('API Hold sync:', err));
 
-    setTimeLeft(600);
+    // Khi sang bước thanh toán: tự động cộng thêm 1 phút (tối đa 11 phút) và giữ timer đếm tiếp
+    if (!isPaymentGraceApplied) {
+      await BookingService.extendPaymentGracePeriod(selectedShowtime?.id || queryShowtimeId, sessionId);
+      setTimeLeft((prev) => Math.min(prev + 60, 660));
+      setIsPaymentGraceApplied(true);
+    }
     setCurrentStep(2);
   };
 
@@ -704,14 +870,35 @@ function BookingContent() {
       }
     }
 
-    // Tải sơ đồ ghế riêng biệt theo rạp và suất mới (không trùng lặp với rạp/suất khác)
+    // Đọc các vé đã bán từ localStorage để khóa ghế đã có người mua
+    const storedTickets = localStorage.getItem('cinemax_user_tickets');
+    const bookedSeatLabels = new Set<string>();
+    if (storedTickets) {
+      try {
+        const tickets = JSON.parse(storedTickets);
+        tickets.forEach((t: any) => {
+          if (
+            (t.showtimeId && t.showtimeId?.toString() === slot.id?.toString()) ||
+            (t.cinemaId?.toString() === newCinemaId?.toString() &&
+              t.movieId?.toString() === selectedMovie?.id?.toString() &&
+              (t.showtimeDate === newDate || t.date === newDate) &&
+              (t.showtimeTime === slot.time || t.showtime?.includes(slot.time)))
+          ) {
+            if (Array.isArray(t.seats)) t.seats.forEach((s: string) => bookedSeatLabels.add(s.trim()));
+            else if (typeof t.seats === 'string') t.seats.split(',').forEach((s: string) => bookedSeatLabels.add(s.trim()));
+          }
+        });
+      } catch {}
+    }
+
+    // Tải sơ đồ ghế riêng biệt theo rạp và suất mới (khóa các ghế đã bán)
     const newSeats = getDynamicShowtimeSeats(
       1,
       newCinemaId,
       slot.id,
       newDate,
       slot.time,
-      new Set(),
+      bookedSeatLabels,
       new Set(),
       new Set()
     );
@@ -731,8 +918,32 @@ function BookingContent() {
     let payerPhone = currentUser?.phone || guestPhone.trim();
 
     if (!currentUser) {
-      if (!guestName.trim() || !guestPhone.trim() || !guestEmail.trim()) {
-        setGuestError('Vui lòng điền đầy đủ họ tên, số điện thoại và email nhận vé.');
+      if (!guestName.trim()) {
+        setGuestError('Vui lòng nhập họ và tên người nhận vé.');
+        const el = document.getElementById('guest-info-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+
+      const phoneRes = ContactValidator.validateVietnamesePhone(guestPhone);
+      if (!phoneRes.isValid) {
+        setGuestError(phoneRes.error || 'Số điện thoại không hợp lệ (cần 10 chữ số đúng nhà mạng VN).');
+        const el = document.getElementById('guest-info-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+      payerPhone = phoneRes.normalizedPhone || guestPhone.trim();
+
+      const emailRes = ContactValidator.validateEmail(guestEmail);
+      if (!emailRes.isValid) {
+        setGuestError(emailRes.error || 'Địa chỉ email không hợp lệ.');
+        const el = document.getElementById('guest-info-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+
+      if (emailDnsResult && !emailDnsResult.isValid) {
+        setGuestError(emailDnsResult.error || 'Email không có máy chủ nhận thư (Mail Server) hợp lệ.');
         const el = document.getElementById('guest-info-section');
         if (el) el.scrollIntoView({ behavior: 'smooth' });
         return;
@@ -807,6 +1018,21 @@ function BookingContent() {
       const generatedCode = orderRes.order_code;
       const seatsStr = selectedSeats.map((s) => `${s.row_label}${s.seat_number}`).join(', ');
 
+      // Lưu chi tiết các món Bắp Nước & Combo khách đã mua
+      const purchasedFoods = Object.entries(foodQuantities)
+        .filter(([_, qty]) => qty > 0)
+        .map(([id, qty]) => {
+          const food = foods.find((f) => f.id === parseInt(id));
+          return {
+            id: parseInt(id),
+            name: food?.name || `Món #${id}`,
+            price: food?.price || 0,
+            quantity: qty,
+            total: (food?.price || 0) * qty,
+          };
+        });
+      const foodsStr = purchasedFoods.map((f) => `${f.quantity}x ${f.name}`).join(', ');
+
       // Nếu phương thức thanh toán là VIETQR -> Mở Modal VietQR để khách quét mã chuyển tiền
       if (paymentMethod === 'VIETQR') {
         setPendingVietQROrder({
@@ -817,6 +1043,8 @@ function BookingContent() {
           payerEmail,
           payerPhone,
           seatsStr,
+          foodsStr: foodsStr || undefined,
+          foods: purchasedFoods,
         });
         setIsVietQRModalOpen(true);
         setIsProcessingPayment(false);
@@ -851,6 +1079,7 @@ function BookingContent() {
         paidAt: paidTime,
         totalAmount: finalTotal,
         seatsStr: seatsStr,
+        foodsStr: foodsStr || undefined,
         customerName: payerName,
         customerEmail: payerEmail,
         customerPhone: payerPhone,
@@ -925,13 +1154,21 @@ function BookingContent() {
           bookingCode: generatedCode,
           showtimeId: selectedShowtime?.id || queryShowtimeId,
           movieTitle: selectedMovie.title,
-          ageRating: selectedMovie.age_rating,
           posterUrl: selectedMovie.poster_url,
+          ageRating: selectedMovie.age_rating,
+          format: selectedShowtime?.format || '2D Digital',
           cinemaName: selectedCinema.name,
+          cinemaId: selectedCinema.id,
           roomName: selectedShowtime?.room?.name || 'Phòng 01 (IMAX)',
+          auditoriumName: selectedShowtime?.room?.name || 'Phòng 01 (IMAX)',
+          showtimeId: selectedShowtime?.id || queryShowtimeId,
+          showtimeDate: queryDate,
+          showtimeTime: queryTime,
           showtime: `${queryTime} • ${queryDate || '14/10/2026'}`,
           seats: seatsStr,
           audienceLabel: 'Người lớn (Đặt Online)',
+          foods: purchasedFoods,
+          foodsStr: foodsStr || undefined,
           foodSummary: chosenFoodsStr || 'Không kèm bắp nước',
           foodFulfilled: !chosenFoodsStr,
           paymentMethod: paymentMethod,
@@ -1007,11 +1244,45 @@ function BookingContent() {
     const bankTxnId = txDetails?.transactionId || `FT-${Date.now()}`;
     const senderBank = txDetails?.senderBank || 'TPBank';
 
-    if (pendingVietQROrder.orderId && pendingVietQROrder.orderId.length === 36) {
+    // Chỉ kích hoạt cảnh báo quá hạn khi và chỉ khi có lỗi thực sự:
+    // 1. Khách để quá hạn giữ chỗ (timeLeft <= 0) VÀ ghế thực sự bị một phiên (sessionId) khác chiếm
+    // 2. Hoặc Supabase Backend báo lỗi tranh chấp ghế khi gọi confirmPayment
+    let isOverduePaid = false;
+    let overdueWarningMessage: string | undefined = undefined;
+
+    const targetSeats = selectedSeats.map((s) =>
+      s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`
+    );
+
+    const currentShowtimeKey = selectedShowtime?.id || queryShowtimeId;
+    const heldMap = BookingService.getLocalHeldSeats(currentShowtimeKey);
+
+    // Ghế chỉ bị coi là cướp mất nếu: Thời gian giữ chỗ đã hết (timeLeft <= 0) VÀ một sessionId KHÁC đang giữ ghế đó
+    const stolenSeats = targetSeats.filter((seatLabel) => {
+      const holdInfo = heldMap.get(seatLabel);
+      return holdInfo && holdInfo.sessionId !== sessionId && holdInfo.expiresAt > Date.now();
+    });
+
+    if (timeLeft <= 0 && stolenSeats.length > 0) {
+      isOverduePaid = true;
+      overdueWarningMessage = `Ghế (${stolenSeats.join(', ')}) đã được khách hàng khác đặt trong lúc giao dịch bị chậm trễ do mạng. Khoản tiền ${pendingVietQROrder.amount.toLocaleString('vi-VN')} đ đã được ghi nhận thành công trên hệ thống. Vui lòng liên hệ Quầy vé hoặc Hotline 1900 6868 với Mã đơn ${pendingVietQROrder.orderCode} để được xếp ghế tương đương miễn phí hoặc hoàn tiền 100%!`;
+    }
+
+    if (pendingVietQROrder.orderId && !pendingVietQROrder.orderId.startsWith('mock-')) {
       try {
         await PaymentService.confirmPayment(pendingVietQROrder.orderId, 'CARD', bankTxnId);
-      } catch (payErr) {
-        console.warn('Xác nhận thanh toán Supabase RPC fallback:', payErr);
+      } catch (payErr: any) {
+        console.error('Lỗi xác nhận thanh toán Supabase:', payErr);
+        const errMsg = payErr?.message || '';
+        if (
+          errMsg.includes('expired') ||
+          errMsg.includes('đã có người') ||
+          errMsg.includes('không còn khả dụng') ||
+          errMsg.includes('conflict')
+        ) {
+          isOverduePaid = true;
+          overdueWarningMessage = `Ghế (${targetSeats.join(', ')}) đã được khách hàng khác hoàn tất trước trên hệ thống. Khoản tiền ${pendingVietQROrder.amount.toLocaleString('vi-VN')} đ đã được ghi nhận thành công. Vui lòng liên hệ Quầy vé hoặc Hotline 1900 6868 với Mã đơn ${pendingVietQROrder.orderCode} để được đổi ghế hoặc hoàn tiền!`;
+        }
       }
     }
 
@@ -1034,9 +1305,12 @@ function BookingContent() {
       paidAt: paidTime,
       totalAmount: pendingVietQROrder.amount,
       seatsStr: pendingVietQROrder.seatsStr,
+      foodsStr: pendingVietQROrder.foodsStr,
       customerName: pendingVietQROrder.payerName,
       customerEmail: pendingVietQROrder.payerEmail,
       customerPhone: pendingVietQROrder.payerPhone,
+      isOverduePaid,
+      overdueWarningMessage,
     };
 
     setCompletedBooking(newBooking);
@@ -1096,8 +1370,8 @@ function BookingContent() {
     }
 
     try {
-      const stored = localStorage.getItem('cinemax_user_tickets');
-      const list = stored ? JSON.parse(stored) : [];
+      const storedTickets = localStorage.getItem('cinemax_user_tickets');
+      const list = storedTickets ? JSON.parse(storedTickets) : [];
       const ticketRecord = {
         id: pendingVietQROrder.orderId,
         userId: currentUser ? currentUser.id : 'guest',
@@ -1107,22 +1381,31 @@ function BookingContent() {
         bookingCode: pendingVietQROrder.orderCode,
         movieTitle: selectedMovie.title,
         movieId: selectedMovie.id,
-        ageRating: selectedMovie.age_rating,
         posterUrl: selectedMovie.poster_url,
+        moviePoster: selectedMovie.poster_url,
+        ageRating: selectedMovie.age_rating,
+        format: selectedShowtime?.format || '2D Digital',
         cinemaName: selectedCinema.name,
         cinemaId: selectedCinema.id,
         roomName: selectedShowtime?.room?.name || 'Phòng 01 (IMAX)',
+        auditoriumName: selectedShowtime?.room?.name || 'Phòng 01 (IMAX)',
         showtimeId: selectedShowtime?.id || queryShowtimeId,
         showtimeDate: queryDate,
         showtimeTime: queryTime,
         showtime: `${queryTime} • ${queryDate || '14/10/2026'}`,
-        seats: pendingVietQROrder.seatsStr,
+        seats: pendingVietQROrder.seatsStr || selectedSeats.map((s) => `${s.row_label}${s.seat_number}`).join(', '),
+        seatsStr: pendingVietQROrder.seatsStr,
         audienceLabel: 'Người lớn (Đặt Online)',
+        foods: pendingVietQROrder.foods || [],
+        foodsStr: pendingVietQROrder.foodsStr,
         foodSummary: chosenFoodsStr || 'Không kèm bắp nước',
         foodFulfilled: !chosenFoodsStr,
+        channel: 'ONLINE',
         totalAmount: pendingVietQROrder.amount,
-        status: 'ĐÃ THANH TOÁN',
-        paymentMethod: `VIETQR (${senderBank}) • ${bankTxnId}`,
+        status: isOverduePaid ? 'THANH TOÁN QUÁ HẠN (CHỜ XẾP GHẾ)' : 'ĐÃ THANH TOÁN',
+        isOverduePaid,
+        overdueWarningMessage,
+        paymentMethod: `VIETQR (${senderBank || 'TPBank'}) • ${bankTxnId}`,
         bankTxnId,
         senderBank,
         paidAt: paidTime,
@@ -1138,22 +1421,24 @@ function BookingContent() {
       localStorage.setItem('cinemax_user_tickets', JSON.stringify(dedupedList));
       localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
 
-      // Cập nhật số ghế trống khả dụng của suất chiếu trong cinemax_showtimes_v2
-      const showtimesStored = localStorage.getItem('cinemax_showtimes_v2');
-      if (showtimesStored) {
-        const showtimesList = JSON.parse(showtimesStored);
-        const targetShowtimeId = selectedShowtime?.id || queryShowtimeId;
-        const updatedShowtimes = showtimesList.map((st: any) => {
-          if (st.id?.toString() === targetShowtimeId?.toString()) {
-            const curSeats = st.available_seats ?? 75;
-            return {
-              ...st,
-              available_seats: Math.max(0, curSeats - selectedSeats.length),
-            };
-          }
-          return st;
-        });
-        localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(updatedShowtimes));
+      // Cập nhật số ghế trống khả dụng nếu không bị tranh chấp
+      if (!isOverduePaid) {
+        const showtimesStored = localStorage.getItem('cinemax_showtimes_v2');
+        if (showtimesStored) {
+          const showtimesList = JSON.parse(showtimesStored);
+          const targetShowtimeId = selectedShowtime?.id || queryShowtimeId;
+          const updatedShowtimes = showtimesList.map((st: any) => {
+            if (st.id?.toString() === targetShowtimeId?.toString()) {
+              const curSeats = st.available_seats ?? 75;
+              return {
+                ...st,
+                available_seats: Math.max(0, curSeats - selectedSeats.length),
+              };
+            }
+            return st;
+          });
+          localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(updatedShowtimes));
+        }
       }
 
       BookingService.releaseSessionHold(sessionId);
@@ -1171,15 +1456,32 @@ function BookingContent() {
       console.warn('Lỗi lưu ticket localStorage:', e);
     }
 
-    // Đánh dấu các ghế vừa mua thành đã bán ngay lập tức
-    setSeats((prev) =>
-      prev.map((s) =>
-        selectedSeats.some((sel) => sel.id === s.id) ? { ...s, status: 'sold' as any } : s
-      )
-    );
+    // Đánh dấu các ghế vừa mua thành đã bán nếu không bị tranh chấp
+    if (!isOverduePaid) {
+      setSeats((prev) =>
+        prev.map((s) =>
+          selectedSeats.some((sel) => sel.id === s.id) ? { ...s, status: 'sold' as any } : s
+        )
+      );
+    }
 
     setIsVietQRModalOpen(false);
     setCurrentStep(3);
+  };
+
+  const handleForwardToRegister = () => {
+    if (!completedBooking) return;
+    try {
+      sessionStorage.setItem(
+        'cinemax_prefill_register',
+        JSON.stringify({
+          name: completedBooking.customerName || guestName || '',
+          email: completedBooking.customerEmail || guestEmail || '',
+          phone: completedBooking.customerPhone || guestPhone || '',
+        })
+      );
+    } catch {}
+    openAuthModal('REGISTER');
   };
 
   const handleQuickRegisterMember = async (e: React.FormEvent) => {
@@ -1233,29 +1535,72 @@ function BookingContent() {
         {/* STEPPER & COUNTDOWN (Figma Screen 3 & 4) */}
         {currentStep < 3 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[#303645] pb-6">
-            {/* Stepper matching Figma: 1 Chọn ghế > 2 Bắp nước > 3 Thanh toán */}
-            <div className="flex items-center gap-3 text-xs sm:text-sm font-bold">
-              <span className={currentStep === 1 ? 'text-[#E63845]' : 'text-white'}>
-                1. Chọn ghế
-              </span>
-              <span className="text-[#9EA6B8]">&gt;</span>
-              <span className={currentStep === 2 ? 'text-[#E63845]' : 'text-[#9EA6B8]'}>
-                2. Bắp nước
-              </span>
-              <span className="text-[#9EA6B8]">&gt;</span>
-              <span className={currentStep === 2 ? 'text-white' : 'text-[#9EA6B8]'}>
-                3. Thanh toán
-              </span>
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Nút Quay Lại Bước Trước Nổi Bật */}
+              {currentStep === 2 ? (
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(1)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#303645] bg-[#1A1C26] hover:bg-[#242836] text-[#9EA6B8] hover:text-white text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                  title="Quay lại bước chọn ghế"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-[#FABF2E]" />
+                  <span>Quay lại chọn ghế</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#303645] bg-[#1A1C26] hover:bg-[#242836] text-[#9EA6B8] hover:text-white text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                  title="Quay lại trang trước"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-[#FABF2E]" />
+                  <span>Quay lại</span>
+                </button>
+              )}
+
+              {/* Stepper: Cho phép click vào các bước trước đó */}
+              <div className="flex items-center gap-2.5 text-xs sm:text-sm font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentStep === 2) setCurrentStep(1);
+                  }}
+                  className={`flex items-center gap-1 transition-colors ${
+                    currentStep === 1
+                      ? 'text-[#E63845] font-black cursor-default'
+                      : 'text-[#33C773] hover:text-white cursor-pointer underline decoration-dotted'
+                  }`}
+                  title={currentStep === 2 ? 'Nhấn để quay lại bước chọn ghế' : undefined}
+                >
+                  {currentStep > 1 && <CheckCircle className="w-3.5 h-3.5 text-[#33C773]" />}
+                  <span>1. Chọn ghế</span>
+                </button>
+                <span className="text-[#9EA6B8]">&gt;</span>
+                <span className={currentStep === 2 ? 'text-[#E63845]' : 'text-[#9EA6B8]'}>
+                  2. Bắp nước
+                </span>
+                <span className="text-[#9EA6B8]">&gt;</span>
+                <span className={currentStep === 2 ? 'text-white' : 'text-[#9EA6B8]'}>
+                  3. Thanh toán
+                </span>
+              </div>
             </div>
 
             {/* Countdown Timer (Figma Screen 3: "⏱ Giữ ghế còn 09:42") */}
-            <div className="flex items-center gap-2 text-[#FABF2E] font-bold text-xs sm:text-sm bg-[#1A1C26] px-4 py-2 rounded-full border border-[#FABF2E]/30">
+            <div className="flex items-center gap-2 text-[#FABF2E] font-bold text-xs sm:text-sm bg-[#1A1C26] px-4 py-2 rounded-full border border-[#FABF2E]/30 shrink-0">
               <Clock className="w-4 h-4 animate-pulse text-[#FABF2E]" />
               <span>Giữ ghế còn:</span>
               <span className="font-mono text-sm sm:text-base font-black">{formatTime(timeLeft)}</span>
+              {currentStep === 2 && isPaymentGraceApplied && (
+                <span className="bg-[#FABF2E]/20 text-[#FABF2E] text-[10px] px-2 py-0.5 rounded-full border border-[#FABF2E]/40 font-semibold">
+                  +1p thanh toán
+                </span>
+              )}
             </div>
           </div>
         )}
+
 
         {/* ======================================================== */}
         {/* FIGMA SCREEN 3: CHỌN GHẾ */}
@@ -1264,6 +1609,61 @@ function BookingContent() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Seat Map (Left 2 cols) */}
             <div className="lg:col-span-2 bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 flex flex-col items-center">
+              {/* Thống kê đếm đúng số ghế và số ghế trống thời gian thực */}
+              <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-[#0F1217] p-3 rounded-2xl border border-[#303645] mb-8 text-xs select-none shadow-inner">
+                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#1A1C26] px-3 py-2 rounded-xl border border-[#303645]/70">
+                  <span className="text-[#9EA6B8]">Tổng số ghế:</span>
+                  <span className="font-bold text-white font-mono">{totalSeatsCount} ghế</span>
+                </div>
+                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#33C773]/10 px-3 py-2 rounded-xl border border-[#33C773]/30">
+                  <span className="text-[#9EA6B8]">Ghế trống:</span>
+                  <span className="font-bold text-[#33C773] font-mono">{availableSeatsCount} ghế</span>
+                </div>
+                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#383D4D]/40 px-3 py-2 rounded-xl border border-[#383D4D]">
+                  <span className="text-[#9EA6B8]">Đã bán:</span>
+                  <span className="font-bold text-gray-300 font-mono">{soldSeatsCount} ghế</span>
+                </div>
+                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#E63845]/10 px-3 py-2 rounded-xl border border-[#E63845]/30">
+                  <span className="text-[#9EA6B8]">Đang chọn:</span>
+                  <span className="font-bold text-[#E63845] font-mono">{selectedSeatsCount} ghế</span>
+                </div>
+              </div>
+
+              {/* Banner cảnh báo ghế trống đơn lẻ (Orphan Seat Warning - Phương án A) */}
+              {orphanWarning && orphanWarning.hasOrphanSeats && (
+                <div className="w-full bg-[#FABF2E]/10 border border-[#FABF2E]/40 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 shadow-lg">
+                  <div className="flex items-start gap-2.5 text-[#FABF2E]">
+                    <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold text-white text-sm">
+                        Cảnh báo: Phát hiện ghế trống đơn lẻ bị kẹp
+                      </div>
+                      <p className="text-gray-300 mt-1 leading-relaxed">
+                        {orphanWarning.suggestionMessage}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0 pt-1 sm:pt-0">
+                    <button
+                      type="button"
+                      onClick={() => handleAddOrphanSeats(orphanWarning.orphanSeats)}
+                      className="px-3.5 py-1.5 rounded-lg bg-[#FABF2E] hover:bg-yellow-400 text-black font-bold text-xs cursor-pointer transition-colors shadow-md"
+                    >
+                      + Chọn luôn ghế {orphanWarning.orphanSeats.join(', ')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAcknowledgedOrphan(true);
+                        setOrphanWarning(null);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-[#303645] hover:bg-[#383D4D] text-gray-300 hover:text-white font-medium text-xs cursor-pointer transition-colors"
+                    >
+                      Bỏ qua & Tiếp tục
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* Red Screen Curve (Figma Screen 3) */}
               <div className="w-full max-w-xl mx-auto flex flex-col items-center mb-10">
                 <div className="w-full h-3 rounded-t-[100%] border-t-2 border-[#E63845] shadow-[0_-10px_20px_rgba(230,56,69,0.35)] mb-3" />
@@ -1449,13 +1849,24 @@ function BookingContent() {
                   </span>
                 </div>
 
-                <button
-                  disabled={selectedSeats.length === 0}
-                  onClick={() => setCurrentStep(2)}
-                  className="w-full bg-[#E63845] hover:bg-[#CC2B37] disabled:opacity-40 disabled:cursor-not-allowed text-white py-3.5 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
-                >
-                  Tiếp tục
-                </button>
+                <div className="space-y-2">
+                  <button
+                    disabled={selectedSeats.length === 0}
+                    onClick={handleProceedToStep2}
+                    className="w-full bg-[#E63845] hover:bg-[#CC2B37] disabled:opacity-40 disabled:cursor-not-allowed text-white py-3.5 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
+                  >
+                    Tiếp tục chọn bắp nước & thanh toán
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => router.back()}
+                    className="w-full border border-[#303645] hover:border-white/40 bg-[#0F1217] hover:bg-[#1A1C26] text-[#9EA6B8] hover:text-white py-2.5 rounded-full font-semibold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Quay lại trang trước</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1465,7 +1876,23 @@ function BookingContent() {
         {/* FIGMA SCREEN 4: BẮP NƯỚC & THANH TOÁN */}
         {/* ======================================================== */}
         {currentStep === 2 && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="space-y-6">
+            {/* Thanh điều hướng quay lại bước chọn ghế */}
+            <div className="flex items-center justify-between bg-[#1A1C26] border border-[#303645] rounded-2xl px-5 py-3 shadow-md">
+              <button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className="flex items-center gap-2 text-xs sm:text-sm font-bold text-white hover:text-[#FABF2E] transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4 text-[#FABF2E]" />
+                <span>Quay lại bước chọn ghế ({selectedSeats.length} ghế đang giữ)</span>
+              </button>
+              <span className="text-xs text-[#9EA6B8] hidden sm:inline font-mono">
+                Ghế đang giữ: <strong className="text-white">{selectedSeats.map(s => `${s.row_label}${s.seat_number}`).join(', ')}</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left: Food, Guest Info, Voucher & Payment (Figma Screen 4) */}
             <div className="lg:col-span-2 space-y-8">
               {/* Bắp nước & combo */}
@@ -1570,9 +1997,10 @@ function BookingContent() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {/* Họ và tên */}
                       <div>
-                        <label className="text-xs text-[#9EA6B8] block mb-1">Họ và tên *</label>
+                        <label className="text-xs text-[#9EA6B8] block mb-1 font-medium">Họ và tên *</label>
                         <input
                           type="text"
                           required
@@ -1582,27 +2010,92 @@ function BookingContent() {
                           className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
                         />
                       </div>
+
+                      {/* Số điện thoại */}
                       <div>
-                        <label className="text-xs text-[#9EA6B8] block mb-1">Số điện thoại *</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-[#9EA6B8] font-medium">Số điện thoại *</label>
+                          {phoneValidation?.isValid && (
+                            <span className="text-[10px] font-bold text-[#33C773] bg-[#33C773]/15 px-2 py-0.5 rounded-full">
+                              ✓ {phoneValidation.carrier}
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="tel"
                           required
                           placeholder="0912 345 678"
                           value={guestPhone}
                           onChange={(e) => setGuestPhone(e.target.value)}
-                          className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
+                          className={`w-full bg-[#0F1217] border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-colors ${
+                            phoneValidation && !phoneValidation.isValid
+                              ? 'border-[#E63845] focus:border-[#E63845]'
+                              : phoneValidation && phoneValidation.isValid
+                              ? 'border-[#33C773] focus:border-[#33C773]'
+                              : 'border-[#303645] focus:border-[#E63845]'
+                          }`}
                         />
+                        {phoneValidation && !phoneValidation.isValid && (
+                          <p className="mt-1 text-[11px] text-[#FFA4A4] flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 shrink-0 text-[#E63845]" />
+                            <span>{phoneValidation.error}</span>
+                          </p>
+                        )}
                       </div>
+
+                      {/* Email nhận vé */}
                       <div>
-                        <label className="text-xs text-[#9EA6B8] block mb-1">Email nhận vé *</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-[#9EA6B8] font-medium">Email nhận vé *</label>
+                          {isCheckingEmailDns ? (
+                            <span className="text-[10px] text-[#FABF2E] flex items-center gap-1">
+                              <RefreshCw className="w-2.5 h-2.5 animate-spin" /> DNS
+                            </span>
+                          ) : emailDnsResult?.isValid ? (
+                            <span className="text-[10px] font-bold text-[#33C773] bg-[#33C773]/15 px-2 py-0.5 rounded-full">
+                              ✓ MX OK
+                            </span>
+                          ) : null}
+                        </div>
                         <input
                           type="email"
                           required
                           placeholder="email@example.com"
                           value={guestEmail}
                           onChange={(e) => setGuestEmail(e.target.value)}
-                          className="w-full bg-[#0F1217] border border-[#303645] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#E63845]"
+                          className={`w-full bg-[#0F1217] border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-colors ${
+                            (emailValidation && !emailValidation.isValid) || (emailDnsResult && !emailDnsResult.isValid)
+                              ? 'border-[#E63845] focus:border-[#E63845]'
+                              : emailValidation && emailValidation.isValid
+                              ? 'border-[#33C773] focus:border-[#33C773]'
+                              : 'border-[#303645] focus:border-[#E63845]'
+                          }`}
                         />
+                        {/* Lỗi cú pháp hoặc disposable */}
+                        {emailValidation && !emailValidation.isValid && (
+                          <div className="mt-1 space-y-1">
+                            <p className="text-[11px] text-[#FFA4A4] flex items-start gap-1">
+                              <AlertCircle className="w-3 h-3 shrink-0 mt-0.5 text-[#E63845]" />
+                              <span>{emailValidation.error}</span>
+                            </p>
+                            {emailValidation.suggestion && (
+                              <button
+                                type="button"
+                                onClick={() => setGuestEmail(emailValidation.suggestion!)}
+                                className="text-[11px] text-[#FABF2E] hover:underline font-bold text-left cursor-pointer"
+                              >
+                                👉 Đổi thành: {emailValidation.suggestion}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {/* Lỗi máy chủ MX */}
+                        {emailValidation?.isValid && emailDnsResult && !emailDnsResult.isValid && (
+                          <p className="mt-1 text-[11px] text-[#FFA4A4] flex items-start gap-1">
+                            <AlertCircle className="w-3 h-3 shrink-0 mt-0.5 text-[#E63845]" />
+                            <span>{emailDnsResult.error}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1791,25 +2284,26 @@ function BookingContent() {
                   </span>
                 </div>
 
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(1)}
-                    className="border border-[#303645] text-white p-3.5 rounded-full hover:bg-[#0F1217] cursor-pointer"
-                    title="Quay lại chọn ghế"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </button>
-
+                <div className="space-y-2">
                   <button
                     disabled={isProcessingPayment}
                     onClick={handleCheckout}
-                    className="flex-1 bg-[#E63845] hover:bg-[#CC2B37] text-white py-3.5 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
+                    className="w-full bg-[#E63845] hover:bg-[#CC2B37] text-white py-3.5 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     {isProcessingPayment ? 'Đang xử lý...' : `Thanh toán ${finalTotal.toLocaleString('vi-VN')}đ`}
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(1)}
+                    className="w-full border border-[#303645] hover:border-[#FABF2E]/50 bg-[#0F1217] hover:bg-[#1A1C26] text-[#9EA6B8] hover:text-white py-2.5 rounded-full font-semibold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5 text-[#FABF2E]" />
+                    <span>Quay lại bước chọn ghế ({selectedSeats.length} ghế)</span>
+                  </button>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         )}
@@ -1819,58 +2313,136 @@ function BookingContent() {
         {/* ======================================================== */}
         {currentStep === 3 && completedBooking && (
           <div className="max-w-2xl mx-auto space-y-6 pt-4">
-            {/* Green Header: ✓ THANH TOÁN THÀNH CÔNG */}
-            <div className="flex items-center justify-center gap-2 text-[#33C773] text-center font-black text-xl">
-              <CheckCircle className="w-7 h-7" />
-              <span>THANH TOÁN THÀNH CÔNG</span>
-            </div>
+            {/* Header: ✓ THANH TOÁN THÀNH CÔNG hoặc ⚠️ CHỜ XẾP GHẾ DO QUÁ HẠN GIỮ CHỖ */}
+            {completedBooking.isOverduePaid ? (
+              <div className="bg-[#FABF2E]/15 border border-[#FABF2E]/40 rounded-2xl p-4 text-center space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-center gap-2 text-[#FABF2E] font-black text-lg">
+                  <AlertTriangle className="w-6 h-6 text-[#FABF2E]" />
+                  <span>TIỀN ĐÃ NHẬN THÀNH CÔNG • CẦN CHỌN LẠI GHẾ TẠI QUẦY</span>
+                </div>
+                <p className="text-xs text-[#D1D5DB] leading-relaxed max-w-xl mx-auto">
+                  {completedBooking.overdueWarningMessage}
+                </p>
+                <div className="inline-block bg-[#1A1C26] px-3 py-1 rounded-full text-[11px] font-bold text-[#FABF2E] border border-[#FABF2E]/30">
+                  Hotline Hỗ Trợ 24/7: 1900 6868 • Quầy vé CinemaX sẵn sàng phục vụ
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-[#33C773] text-center font-black text-xl">
+                <CheckCircle className="w-7 h-7" />
+                <span>THANH TOÁN THÀNH CÔNG</span>
+              </div>
+            )}
 
-            {/* Perforated Cinema Ticket Card (Figma Screen 5) */}
-            <div className="relative bg-[#1A1C26] border border-[#303645] rounded-3xl overflow-hidden shadow-2xl">
+            {/* Perforated Cinema Ticket Card (Synchronized with Staff Gate Check-in View) */}
+            <div className="relative bg-[#1A1C26] border border-[#303645] rounded-3xl overflow-hidden shadow-2xl space-y-0">
+              {/* Top Header Bar Matching Staff Verification Screen */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#2B3448] bg-[#141924]/80">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-[#22C55E] text-black shadow-lg shadow-[#22C55E]/20 flex items-center justify-center font-black text-lg">
+                    ✓
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black tracking-widest text-[#E63845] uppercase">
+                        CINEMAX THEATER
+                      </span>
+                      <span className="text-[10px] text-[#5C677D]">•</span>
+                      <span className="text-[11px] font-mono text-[#8E9AAF]">{completedBooking.bookingCode}</span>
+                    </div>
+                    <h2 className="text-base sm:text-lg font-black text-white">
+                      VÉ HỢP LỆ — SẴN SÀNG VÀO RẠP
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider bg-[#22C55E]/20 text-[#22C55E] border border-[#22C55E]/40">
+                    HỢP LỆ (ACTIVE)
+                  </span>
+                </div>
+              </div>
+
               <div className="flex flex-col md:flex-row">
-                {/* Left Ticket Details */}
-                <div className="flex-1 p-6 sm:p-8 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded text-[11px] font-black bg-[#E63845] text-white">
-                      {selectedMovie.age_rating}
-                    </span>
-                    <span className="text-xs text-[#9EA6B8] font-bold">CINEMAX TICKET</span>
+                {/* Left Ticket Details (Formatted according to Staff POS Ticket Receipt) */}
+                <div className="flex-1 p-6 sm:p-8 space-y-3.5">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#2B3448] pb-3">
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] font-black text-[#E63845] tracking-widest uppercase">
+                        CINEMAX THEATER
+                      </div>
+                      <h3 className="text-base font-black text-white">HÓA ĐƠN XUẤT VÉ & BẮP NƯỚC</h3>
+                      <p className="text-[11px] font-mono text-[#8E9AAF]">Mã: {completedBooking.bookingCode}</p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2.5 py-0.5 rounded text-[11px] font-black bg-[#E63845] text-white">
+                        {selectedMovie.age_rating}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-[#06B6D4]/15 border border-[#06B6D4]/30 text-[#06B6D4] font-bold text-[10px]">
+                        {selectedShowtime?.format || '2D Digital'}
+                      </span>
+                    </div>
                   </div>
 
-                  <h2 className="text-2xl font-black text-white">{selectedMovie.title}</h2>
+                  <div className="space-y-2.5 text-xs">
+                    <div>
+                      <span className="text-[#8E9AAF] block text-[11px]">Phim:</span>
+                      <span className="text-lg font-black text-white block">{selectedMovie.title}</span>
+                    </div>
 
-                  <div className="space-y-2 text-xs sm:text-sm text-[#9EA6B8] pt-1">
-                    <div>
-                      <span className="text-white/60 block text-[11px]">Người nhận vé:</span>
-                      <span className="font-semibold text-white">
-                        {completedBooking.customerName} ({completedBooking.customerPhone || completedBooking.customerEmail})
-                      </span>
+                    <div className="flex justify-between text-[#8E9AAF]">
+                      <span>Rạp: <strong className="text-white">{selectedCinema.name}</strong></span>
+                      <span>Trạng thái: <strong className="text-[#22C55E] uppercase">ĐÃ THANH TOÁN</strong></span>
                     </div>
-                    <div>
-                      <span className="text-white/60 block text-[11px]">Rạp chiếu:</span>
-                      <span className="font-semibold text-white">{selectedCinema.name}</span>
+
+                    <div className="flex justify-between text-[#8E9AAF]">
+                      <span>Phòng: <strong className="text-white">{selectedShowtime.room?.name || 'Phòng 01 (IMAX)'}</strong></span>
+                      <span>Định dạng: <strong className="text-[#06B6D4]">{selectedShowtime?.format || '2D Digital'}</strong></span>
                     </div>
-                    <div>
-                      <span className="text-white/60 block text-[11px]">Phòng & Suất chiếu:</span>
-                      <span className="text-[#FABF2E] font-bold">
-                        {selectedShowtime.room?.name || 'Phòng 01 (IMAX)'} • {queryTime} - {queryDate}
-                      </span>
+                    <div className="flex justify-between text-[#8E9AAF]">
+                      <span>Giờ chiếu:</span>
+                      <span className="font-mono text-white font-bold">{queryTime} • {queryDate}</span>
                     </div>
-                    <div>
-                      <span className="text-white/60 block text-[11px]">Ghế:</span>
-                      <span className="text-white font-bold">{completedBooking.seatsStr}</span>
+
+                    {/* Seats breakdown box */}
+                    <div className="p-2.5 rounded-xl bg-[#171E2D] border border-[#253045] space-y-1">
+                      <span className="text-[11px] font-bold text-[#FABF2E] block">Ghế ngồi:</span>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-white font-mono font-bold text-sm text-[#06B6D4]">{completedBooking.seatsStr}</span>
+                        <span className="text-[10px] text-[#8E9AAF] bg-[#141924] px-2 py-0.5 rounded border border-[#253045]">
+                          Đã giữ chỗ
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-white/60 block text-[11px]">Mã đặt vé:</span>
-                      <span className="font-mono font-black text-[#FABF2E] text-base tracking-wider">
-                        {completedBooking.bookingCode}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-white/60 block text-[11px]">Tổng tiền đã thanh toán:</span>
-                      <span className="font-bold text-[#E63845] text-base">
-                        {completedBooking.totalAmount.toLocaleString('vi-VN')} đ
-                      </span>
+
+                    {/* Foods breakdown box */}
+                    {completedBooking.foodsStr && (
+                      <div className="p-2.5 rounded-xl bg-[#171E2D] border border-[#253045] space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[11px] font-bold text-[#FABF2E] block">Bắp nước:</span>
+                          <span className="text-[9px] bg-[#FABF2E]/20 text-[#FABF2E] px-2 py-0.5 rounded-full border border-[#FABF2E]/40 font-semibold uppercase">
+                            Nhận tại quầy
+                          </span>
+                        </div>
+                        <div className="text-white font-semibold text-xs">{completedBooking.foodsStr}</div>
+                      </div>
+                    )}
+
+                    {/* Financial breakdown */}
+                    <div className="pt-2 border-t border-[#242E40] space-y-1">
+                      <div className="flex justify-between text-[#8E9AAF] text-xs">
+                        <span>Người nhận vé:</span>
+                        <span className="text-white font-semibold">
+                          {completedBooking.customerName} ({completedBooking.customerPhone || completedBooking.customerEmail})
+                        </span>
+                      </div>
+                      <div className="flex justify-between font-bold text-sm text-white">
+                        <span>Tổng tiền:</span>
+                        <span className="font-mono text-[#22C55E] text-base">
+                          {completedBooking.totalAmount.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1901,21 +2473,48 @@ function BookingContent() {
                     <div className="text-[9px] text-[#9EA6B8]">
                       Đưa mã vào đầu đọc Kiosk hoặc cửa soát vé
                     </div>
+                    {/* Cảnh báo bảo mật mini trong khung QR */}
+                    <div className="mt-2 text-[8.5px] font-semibold text-[#FFA4A4] bg-[#E63845]/15 border border-[#E63845]/40 rounded-lg p-2 text-left space-y-0.5">
+                      <div className="flex items-center gap-1 text-[#E63845] font-black uppercase text-[8.5px]">
+                        <ShieldAlert className="w-3 h-3 shrink-0" />
+                        <span>Bảo mật mã vé:</span>
+                      </div>
+                      <p className="leading-tight text-[8px] text-[#D1D5DB]">
+                        Không chia sẻ mã QR và mã vé để tránh bị người khác quét vào rạp trước bạn.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* CRITICAL AGE RATING ALERT BOX (Synchronized with Staff Gate Rules) */}
+              {(selectedMovie.age_rating === 'T16' || selectedMovie.age_rating === 'T18' || selectedMovie.age_rating === 'T13') && (
+                <div className="m-5 p-4 rounded-2xl bg-gradient-to-r from-[#2B1518] to-[#1C1215] border border-[#EF4444]/50 flex items-start gap-3">
+                  <span className="w-8 h-8 rounded-xl bg-[#EF4444] text-white font-black text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-md">
+                    {selectedMovie.age_rating}
+                  </span>
+                  <div className="space-y-1 text-xs">
+                    <h4 className="font-black text-[#EF4444] uppercase tracking-wide">
+                      LƯU Ý QUY ĐỊNH ĐỘ TUỔI ({selectedMovie.age_rating})
+                    </h4>
+                    <p className="text-[#D1D5DB] leading-relaxed text-[11px]">
+                      Phim không dành cho khán giả dưới {selectedMovie.age_rating === 'T18' ? '18' : selectedMovie.age_rating === 'T16' ? '16' : '13'} tuổi. Nhân viên soát vé tại cửa rạp bắt buộc sẽ đối chiếu <strong className="text-[#FABF2E]">CCCD hoặc VNeID</strong> trước khi cho vào phòng chiếu.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Gợi ý chuyển đổi Guest sang Member nhận 50 điểm thưởng (Kế hoạch thanh toán Guest) */}
-            {!currentUser && (
-              <div className="bg-gradient-to-r from-[#1A1C26] via-[#241B2E] to-[#1A1C26] border border-[#FABF2E]/40 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            {/* Gợi ý chuyển đổi Guest sang Member nhận 50 điểm thưởng (Nút chuyển tiếp tinh tế) */}
+            {!currentUser && !dismissMemberBanner && (
+              <div className="bg-gradient-to-r from-[#1A1C26] via-[#241B2E] to-[#1A1C26] border border-[#FABF2E]/30 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
                 <div className="flex items-start gap-3.5">
                   <div className="w-10 h-10 rounded-2xl bg-[#FABF2E]/20 text-[#FABF2E] flex items-center justify-center shrink-0 mt-0.5">
                     <Sparkles className="w-5 h-5" />
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <h4 className="text-base font-bold text-white">
+                      <h4 className="text-sm sm:text-base font-bold text-white">
                         Tặng 50 Điểm Thưởng Hội Viên (~25.000đ)
                       </h4>
                       <span className="text-[10px] bg-[#FABF2E] text-black font-black px-2 py-0.5 rounded-full">
@@ -1923,52 +2522,49 @@ function BookingContent() {
                       </span>
                     </div>
                     <p className="text-xs text-[#9EA6B8]">
-                      Đăng ký tài khoản thành viên CINEMAX bằng email <strong className="text-[#FABF2E]">{completedBooking.customerEmail}</strong> để nhận ngay 50 điểm thưởng đổi bắp nước và quản lý vé trọn đời.
+                      Lưu vé này vào tài khoản để quản lý trọn đời và tích điểm đổi bắp nước miễn phí.
                     </p>
                   </div>
                 </div>
 
-                {memberCreated ? (
-                  <div className="p-3 bg-[#33C773]/15 border border-[#33C773]/40 rounded-2xl flex items-center gap-2.5 text-xs text-[#33C773] font-semibold">
-                    <CheckCircle className="w-4 h-4 shrink-0" />
-                    <span>Chúc mừng! Bạn đã đăng ký tài khoản thành công và nhận 50 điểm thưởng. Vé vừa mua đã được đồng bộ vào tài khoản của bạn.</span>
-                  </div>
-                ) : (
-                  <form onSubmit={handleQuickRegisterMember} className="flex flex-col sm:flex-row gap-2.5 pt-1">
-                    <input
-                      type="password"
-                      value={memberPassword}
-                      onChange={(e) => {
-                        setMemberPassword(e.target.value);
-                        setMemberError('');
-                      }}
-                      placeholder="Thiết lập mật khẩu (tối thiểu 6 ký tự)"
-                      className="flex-1 bg-[#0F1217] border border-[#303645] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#FABF2E]"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isRegisteringMember}
-                      className="bg-[#FABF2E] hover:bg-[#E5AC26] text-black px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer shrink-0"
-                    >
-                      {isRegisteringMember ? 'Đang tạo...' : 'Kích Hoạt Tài Khoản & Nhận Quà'}
-                    </button>
-                  </form>
-                )}
-                {memberError && (
-                  <p className="text-xs text-[#E63845] font-medium">{memberError}</p>
-                )}
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setDismissMemberBanner(true)}
+                    className="px-3 py-2 text-xs text-[#9EA6B8] hover:text-white cursor-pointer"
+                  >
+                    Để sau
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleForwardToRegister}
+                    className="bg-[#FABF2E] hover:bg-[#E5AC26] text-black px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>Đăng Ký Hội Viên Nhận Quà</span>
+                    <span className="text-sm font-black">→</span>
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Action Buttons: Tải vé PDF (Red) & Xem vé của tôi (Outline) (Figma Screen 5) */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            {/* Action Buttons: Tải vé PDF (Red), Xem modal vé chuẩn, Xem vé của tôi (Outline) & Về trang chủ */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowUnifiedModal(true)}
+                className="flex-1 bg-[#FABF2E] hover:bg-[#E5AC24] text-black py-3.5 rounded-full font-black text-sm shadow-lg shadow-[#FABF2E]/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <QrCode className="w-4 h-4" />
+                Mở Thẻ Vé Kiosk & Soát Vé
+              </button>
+
               <button
                 type="button"
                 onClick={() => window.print()}
                 className="flex-1 bg-[#E63845] hover:bg-[#CC2B37] text-white py-3.5 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
                 <Download className="w-4 h-4" />
-                Tải vé PDF
+                In / Tải PDF
               </button>
 
               <button
@@ -1977,9 +2573,43 @@ function BookingContent() {
                 className="flex-1 border border-[#303645] bg-[#1A1C26] hover:bg-[#242836] text-white py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
                 <TicketIcon className="w-4 h-4 text-[#FABF2E]" />
-                Xem vé của tôi
+                Vé của tôi
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push('/')}
+                className="flex-1 border border-[#303645] bg-[#0F1217] hover:bg-[#1A1C26] text-[#9EA6B8] hover:text-white py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <ArrowLeft className="w-4 h-4 text-[#FABF2E]" />
+                Trang chủ
               </button>
             </div>
+
+            {/* Unified Ticket Modal for Completed Booking */}
+            {showUnifiedModal && (
+              <UnifiedTicketModal
+                ticket={{
+                  bookingCode: completedBooking.bookingCode,
+                  movieTitle: selectedMovie.title,
+                  posterUrl: selectedMovie.poster_url,
+                  ageRating: selectedMovie.age_rating,
+                  format: selectedShowtime?.format || '2D Digital',
+                  cinemaName: selectedCinema.name,
+                  roomName: selectedShowtime.room?.name || 'Phòng 01 (IMAX)',
+                  showtime: `${queryTime} • ${queryDate}`,
+                  seats: completedBooking.seatsStr,
+                  seatsStr: completedBooking.seatsStr,
+                  totalAmount: completedBooking.totalAmount,
+                  foodsStr: completedBooking.foodsStr,
+                  customerName: completedBooking.customerName,
+                  customerPhone: completedBooking.customerPhone,
+                  customerEmail: completedBooking.customerEmail,
+                  status: 'ĐÃ THANH TOÁN',
+                }}
+                onClose={() => setShowUnifiedModal(false)}
+              />
+            )}
           </div>
         )}
       </main>
@@ -1992,6 +2622,18 @@ function BookingContent() {
           amount={pendingVietQROrder.amount}
           orderCode={pendingVietQROrder.orderCode}
           timeLeftSeconds={timeLeft}
+          onGracePeriodRequested={async () => {
+            const res = await BookingService.requestReconciliationGracePeriod(
+              selectedShowtime?.id || queryShowtimeId,
+              sessionId
+            );
+            if (res.success && res.expiresAt) {
+              const remainingSec = Math.max(0, Math.floor((res.expiresAt - Date.now()) / 1000));
+              setTimeLeft(remainingSec);
+            } else {
+              setTimeLeft((prev) => prev + 180);
+            }
+          }}
         />
       )}
 

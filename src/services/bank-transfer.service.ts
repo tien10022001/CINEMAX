@@ -12,8 +12,8 @@ export interface BankTransaction {
   amount: number;        // Số tiền chuyển
   senderBank: string;    // Ngân hàng chuyển (Vietcombank, MB, Techcombank, TPBank, ...)
   receiverBank: string;  // TPBank (Ngân hàng nhận của CINEMAX)
-  accountNumber: string; // 08341902000
-  accountName: string;   // TRUONG CONG TIEN
+  accountNumber: string; // 03011232003
+  accountName: string;   // TRUONG VAN HOAN
   description: string;   // Nội dung chuyển khoản
   transactionTime: string;
   status: 'SUCCESS' | 'PENDING' | 'FAILED';

@@ -1,4 +1,6 @@
 import { createClient as baseCreateClient } from '@/lib/supabase/client';
+import { ContactValidator } from '@/lib/contact-validator';
+import { EmailService } from '@/services/email.service';
 
 const createClient = (): any => baseCreateClient();
 
@@ -7,7 +9,9 @@ export interface LookupChallengeResult {
   message: string;
   challengeId?: string;
   orderId?: string;
-  debugOtp?: string; // Dùng để test demo trên môi trường dev khi chưa tích hợp SMS/Email Gateway thật
+  channel?: 'email' | 'sms';
+  maskedDestination?: string;
+  debugOtp?: string; // Dùng để test demo trên môi trường dev
 }
 
 export interface VerifyOtpResult {
@@ -19,75 +23,156 @@ export interface VerifyOtpResult {
 
 export class OtpService {
   /**
-   * Tạo challenge tra cứu vé Zero-Leakage (Bảo vệ thông tin khách hàng)
+   * Tạo challenge tra cứu vé: Kiểm tra Email/SĐT từ bước đầu tiên và gửi OTP thật
    */
   static async requestLookupOtp(orderCode: string, contact: string): Promise<LookupChallengeResult> {
-    const supabase = createClient();
-    const cleanCode = orderCode.trim().toUpperCase();
-    const cleanContact = contact.trim();
+    const cleanCode = (orderCode || '').trim().toUpperCase();
+    const cleanContact = (contact || '').trim();
 
-    // 1. Tìm đơn hàng khớp mã đơn và email hoặc số điện thoại
-    const { data: order, error } = await supabase
-      .from('orders')
-      .select('id, order_code, contact_email, contact_phone')
-      .eq('order_code', cleanCode)
-      .single();
-
-    // Zero-Leakage: Luôn phản hồi thông báo thành công chung
-    const genericResponse: LookupChallengeResult = {
-      success: true,
-      message: 'Nếu mã đơn hàng và thông tin liên hệ chính xác, mã xác thực OTP đã được gửi đến bạn.',
-    };
-
-    if (error || !order) {
-      return genericResponse;
+    if (!cleanCode) {
+      return { success: false, message: 'Vui lòng nhập mã đơn hàng.' };
     }
 
-    // Kiểm tra liên hệ có khớp email hoặc phone không
-    const matchEmail = order.contact_email?.toLowerCase() === cleanContact.toLowerCase();
-    const matchPhone = order.contact_phone === cleanContact;
-    if (!matchEmail && !matchPhone) {
-      return genericResponse;
+    // 1. KIỂM TRA TÍNH HỢP LỆ CỦA EMAIL / SỐ ĐIỆN THOẠI NGAY TỪ BƯỚC ĐẦU TIÊN
+    const validation = ContactValidator.validateContact(cleanContact);
+    if (!validation.isValid) {
+      return {
+        success: false,
+        message: validation.error || 'Thông tin liên hệ không hợp lệ. Vui lòng kiểm tra lại!',
+      };
     }
 
-    // 2. Sinh mã OTP 6 số ngẫu nhiên
+    const channel: 'email' | 'sms' = validation.type === 'EMAIL' ? 'email' : 'sms';
+    const maskedDest = ContactValidator.maskContact(cleanContact);
+
+    // 2. ĐỐI CHIẾU DỮ LIỆU ĐƠN HÀNG
+    let matchedOrder: any = null;
+
+    // A. Đối chiếu trong Supabase Cloud Database (Bảng orders)
+    try {
+      const supabase = createClient();
+      const { data: order } = await supabase
+        .from('orders')
+        .select('id, order_code, contact_name, contact_email, contact_phone')
+        .eq('order_code', cleanCode)
+        .single();
+
+      if (order) {
+        const matchEmail = order.contact_email?.toLowerCase() === cleanContact.toLowerCase();
+        const matchPhone = order.contact_phone?.replace(/[\s\-\.]/g, '') === cleanContact.replace(/[\s\-\.]/g, '');
+        if (matchEmail || matchPhone) {
+          matchedOrder = order;
+        }
+      }
+    } catch (err) {
+      console.warn('Lỗi kết nối Supabase orders, đối soát sang local cache:', err);
+    }
+
+    // B. Đối chiếu dự phòng trong LocalStorage (Vé máy khách / Offline / Mock)
+    if (!matchedOrder && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cinemax_user_tickets');
+        if (stored) {
+          const list = JSON.parse(stored);
+          const found = list.find(
+            (t: any) =>
+              (t.bookingCode?.toUpperCase() === cleanCode || t.id === cleanCode) &&
+              (t.customerEmail?.toLowerCase() === cleanContact.toLowerCase() ||
+                t.customerPhone?.replace(/[\s\-\.]/g, '') === cleanContact.replace(/[\s\-\.]/g, ''))
+          );
+          if (found) {
+            matchedOrder = {
+              id: found.id || 'local-order-' + cleanCode,
+              order_code: found.bookingCode || cleanCode,
+              contact_name: found.customerName || 'Khách hàng',
+              contact_email: found.customerEmail,
+              contact_phone: found.customerPhone,
+            };
+          }
+        }
+      } catch (localErr) {
+        console.warn('Lỗi đọc local tickets:', localErr);
+      }
+    }
+
+    // Nếu không khớp mã đơn hoặc thông tin liên hệ
+    if (!matchedOrder) {
+      return {
+        success: false,
+        message: `Không tìm thấy đơn hàng "${cleanCode}" khớp với thông tin liên hệ ${maskedDest}. Vui lòng kiểm tra lại mã đơn và email/SĐT khi đặt vé!`,
+      };
+    }
+
+    // 3. SINH MÃ OTP 6 CHỮ SỐ
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 phút
 
-    // Đơn giản hóa hash lưu trữ cho demo MVP
     const otpHash = btoa(`otp_${otp}_salt_${cleanCode}`);
     const tokenHash = btoa(`token_${Date.now()}_${cleanCode}`);
     const destHash = btoa(cleanContact);
+    const challengeId = 'chal_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
 
-    // Xóa các challenge cũ của đơn hàng này
-    await supabase.from('order_access_challenges').delete().eq('order_id', order.id);
-
-    // Lưu challenge mới
-    const { data: challenge, error: cErr } = await supabase
-      .from('order_access_challenges')
-      .insert({
-        order_id: order.id,
-        channel: matchEmail ? 'email' : 'sms',
+    // 4. LƯU CHALLENGE XÁC THỰC VÀO SUPABASE (hoặc Session Cache)
+    try {
+      const supabase = createClient();
+      await supabase.from('order_access_challenges').delete().eq('order_id', matchedOrder.id);
+      await supabase.from('order_access_challenges').insert({
+        id: challengeId.length === 36 ? challengeId : undefined,
+        order_id: matchedOrder.id,
+        channel,
         destination_hash: destHash,
         otp_hash: otpHash,
         token_hash: tokenHash,
         expires_at: expiresAt,
         attempts: 0,
-      })
-      .select('id')
-      .single();
+      });
+    } catch (cErr) {
+      // Lưu local session fallback
+    }
 
-    if (cErr || !challenge) {
-      console.error('Error creating challenge:', cErr);
-      return genericResponse;
+    // Lưu challenge dự phòng ở client
+    if (typeof window !== 'undefined') {
+      try {
+        const challengeRecord = {
+          id: challengeId,
+          orderId: matchedOrder.id,
+          orderCode: cleanCode,
+          channel,
+          destination: cleanContact,
+          otpHash,
+          expiresAt: Date.now() + 10 * 60 * 1000,
+          attempts: 0,
+        };
+        sessionStorage.setItem(`cinemax_otp_challenge_${challengeId}`, JSON.stringify(challengeRecord));
+      } catch {}
+    }
+
+    let isRealDelivery = false;
+    // 5. GỬI MÃ OTP THỰC TẾ
+    if (channel === 'email') {
+      // Gửi Email thật qua EmailService (Resend / SMTP)
+      const sendRes = await EmailService.sendOtpEmail({
+        toEmail: cleanContact,
+        otpCode: otp,
+        orderCode: cleanCode,
+        customerName: matchedOrder.contact_name,
+        expiresMinutes: 10,
+      });
+      if (sendRes.provider === 'RESEND') {
+        isRealDelivery = true;
+      }
+    } else {
+      console.log(`[SMS Gateway Mock] Gửi SMS Brandname CINEMAX tới ${cleanContact}: "Ma OTP tra cuu ve cua ban la: ${otp}. Hieu luc 10 phut."`);
     }
 
     return {
       success: true,
-      message: genericResponse.message,
-      challengeId: challenge.id,
-      orderId: order.id,
-      debugOtp: otp, // Trả về để hiện gợi ý thử nghiệm trên giao diện
+      message: `Mã OTP đã được gửi thành công tới ${channel === 'email' ? 'hòm thư Email' : 'số điện thoại'} ${maskedDest}.`,
+      challengeId,
+      orderId: matchedOrder.id,
+      channel,
+      maskedDestination: maskedDest,
+      debugOtp: isRealDelivery ? undefined : otp, // Khi đã gửi email thật thì ẩn mã khỏi màn hình để bảo mật
     };
   }
 
@@ -95,34 +180,51 @@ export class OtpService {
    * Xác thực mã OTP tra cứu đơn hàng
    */
   static async verifyLookupOtp(challengeId: string, inputOtp: string): Promise<VerifyOtpResult> {
-    const supabase = createClient();
+    const cleanOtp = (inputOtp || '').trim();
+    if (!cleanOtp) {
+      return { success: false, message: 'Vui lòng nhập mã OTP 6 chữ số.' };
+    }
 
-    // 1. Lấy challenge
-    const { data: challenge, error } = await supabase
-      .from('order_access_challenges')
-      .select('*')
-      .eq('id', challengeId)
-      .single();
+    let challenge: any = null;
 
-    if (error || !challenge) {
+    // 1. Lấy challenge từ Supabase
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('order_access_challenges')
+        .select('*')
+        .eq('id', challengeId)
+        .single();
+      challenge = data;
+    } catch {}
+
+    // 2. Lấy challenge từ Session fallback nếu Supabase không có
+    if (!challenge && typeof window !== 'undefined') {
+      try {
+        const str = sessionStorage.getItem(`cinemax_otp_challenge_${challengeId}`);
+        if (str) challenge = JSON.parse(str);
+      } catch {}
+    }
+
+    if (!challenge) {
       return { success: false, message: 'Yêu cầu tra cứu không tồn tại hoặc đã hết hạn.' };
     }
 
-    // 2. Kiểm tra số lần thử sai
+    // Kiểm tra số lần thử sai
     if (challenge.attempts >= 5) {
-      return { success: false, message: 'Bạn đã nhập sai quá 5 lần. Yêu cầu tra cứu này đã bị khóa vì lý do bảo mật!' };
+      return { success: false, message: 'Bạn đã nhập sai quá 5 lần. Yêu cầu này đã bị khóa vì lý do an toàn!' };
     }
 
-    // 3. Kiểm tra thời hạn
-    if (new Date(challenge.expires_at) < new Date()) {
-      return { success: false, message: 'Mã OTP đã hết thời hạn 10 phút. Vui lòng yêu cầu mã mới.' };
+    // Kiểm tra thời hạn
+    const expTime = typeof challenge.expiresAt === 'number' ? challenge.expiresAt : new Date(challenge.expires_at).getTime();
+    if (expTime < Date.now()) {
+      return { success: false, message: 'Mã OTP đã hết thời hạn 10 phút. Vui lòng gửi lại mã mới.' };
     }
 
-    // 4. So khớp OTP
-    const cleanOtp = inputOtp.trim();
+    // So khớp OTP
     let isMatch = false;
     try {
-      const decoded = atob(challenge.otp_hash);
+      const decoded = atob(challenge.otp_hash || challenge.otpHash);
       isMatch = decoded.startsWith(`otp_${cleanOtp}_`);
     } catch {
       isMatch = false;
@@ -130,59 +232,75 @@ export class OtpService {
 
     if (!isMatch) {
       // Tăng số lần thử sai
-      await supabase
-        .from('order_access_challenges')
-        .update({ attempts: challenge.attempts + 1 })
-        .eq('id', challengeId);
-
+      challenge.attempts = (challenge.attempts || 0) + 1;
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(`cinemax_otp_challenge_${challengeId}`, JSON.stringify(challenge));
+      }
       return {
         success: false,
-        message: `Mã OTP không chính xác. Bạn còn ${4 - challenge.attempts} lần thử lại.`,
+        message: `Mã OTP không chính xác. Bạn còn ${5 - challenge.attempts} lần thử lại.`,
       };
     }
 
-    // 5. Xác minh thành công -> Đánh dấu verified
-    await supabase
-      .from('order_access_challenges')
-      .update({ verified_at: new Date().toISOString() })
-      .eq('id', challengeId);
+    // 3. Lấy thông tin đơn hàng và vé hoàn chỉnh
+    let orderResult: any = null;
+    let ticketsResult: any[] = [];
 
-    // 6. Lấy thông tin đơn hàng và vé chi tiết
-    const { data: order } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items (
-          *,
-          showtimes (
-            starts_at,
-            ends_at,
-            auditoriums (name),
-            movies (title, poster_url)
-          )
-        )
-      `)
-      .eq('id', challenge.order_id)
-      .single();
+    // Tìm trong LocalStorage tickets
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cinemax_user_tickets');
+        if (stored) {
+          const list = JSON.parse(stored);
+          const found = list.find((t: any) => t.id === challenge.orderId || t.bookingCode === challenge.orderCode);
+          if (found) {
+            orderResult = {
+              order_code: found.bookingCode,
+              movie_title: found.movieTitle,
+              cinema_name: found.cinemaName,
+              room_name: found.roomName,
+              showtime: found.showtime,
+              seats: found.seats,
+              total_amount: found.totalAmount,
+              customer_name: found.customerName,
+              customer_email: found.customerEmail,
+              customer_phone: found.customerPhone,
+              status: found.status || 'ĐÃ THANH TOÁN',
+              foodsStr: found.foodsStr,
+              paid_at: found.paidAt || found.createdAt,
+            };
+            ticketsResult = [
+              {
+                id: found.id,
+                qr_token_hash: found.bookingCode,
+                status: 'issued',
+              },
+            ];
+          }
+        }
+      } catch {}
+    }
 
-    const { data: tickets } = await supabase
-      .from('tickets')
-      .select(`
-        id,
-        qr_token_hash,
-        status,
-        order_items!inner (
-          order_id,
-          item_snapshot
-        )
-      `)
-      .eq('order_items.order_id', challenge.order_id);
+    // Nếu tìm trong DB Supabase
+    if (!orderResult) {
+      try {
+        const supabase = createClient();
+        const { data: dbOrder } = await supabase
+          .from('orders')
+          .select('*, order_items(*, showtimes(*, auditoriums(*), movies(*)))')
+          .eq('id', challenge.order_id)
+          .single();
+        if (dbOrder) {
+          orderResult = dbOrder;
+        }
+      } catch {}
+    }
 
     return {
       success: true,
       message: 'Xác thực mã OTP thành công!',
-      order,
-      tickets: tickets || [],
+      order: orderResult || { order_code: challenge.orderCode || 'CNM-ORDER' },
+      tickets: ticketsResult,
     };
   }
 }

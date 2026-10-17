@@ -26,6 +26,7 @@ interface VietQRModalProps {
   amount: number;
   orderCode: string;
   timeLeftSeconds?: number;
+  onGracePeriodRequested?: () => Promise<boolean | void>;
 }
 
 export default function VietQRModal({
@@ -35,6 +36,7 @@ export default function VietQRModal({
   amount,
   orderCode,
   timeLeftSeconds = 600,
+  onGracePeriodRequested,
 }: VietQRModalProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
@@ -45,6 +47,8 @@ export default function VietQRModal({
     }
     return VietQRService.getFallbackQrUrl();
   });
+  const [isGracePeriodActivated, setIsGracePeriodActivated] = useState<boolean>(false);
+  const [isRequestingGrace, setIsRequestingGrace] = useState<boolean>(false);
 
   // Trạng thái kiểm tra giao dịch tự động
   const [verificationStatus, setVerificationStatus] = useState<
@@ -102,6 +106,19 @@ export default function VietQRModal({
     }, 1000);
     return () => clearInterval(interval);
   }, [isOpen, secondsRemaining, verificationStatus]);
+
+  // Phím tắt bí mật (Ctrl + Shift + P) dành riêng cho báo cáo thuyết trình
+  useEffect(() => {
+    if (!isOpen || verificationStatus === 'SUCCESS') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+        e.preventDefault();
+        handleSimulateTransfer();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, verificationStatus, amount, orderCode, bank]);
 
   // Cơ chế Tự động Polling (Auto-check) biến động số dư mỗi 2.5 giây
   useEffect(() => {
@@ -286,6 +303,23 @@ export default function VietQRModal({
     }
   };
 
+  // Kích hoạt chế độ gia hạn đối soát 3 phút khi mạng yếu
+  const handleRequestGracePeriod = async () => {
+    setIsRequestingGrace(true);
+    try {
+      if (onGracePeriodRequested) {
+        await onGracePeriodRequested();
+      }
+      setSecondsRemaining((prev) => Math.max(prev, 0) + 180);
+      setIsGracePeriodActivated(true);
+      setStatusMessage('Đã kích hoạt chế độ chờ đối soát ngân hàng (+3 phút)...');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsRequestingGrace(false);
+    }
+  };
+
   const formatTimer = (totalSec: number) => {
     const mins = Math.floor(totalSec / 60);
     const secs = totalSec % 60;
@@ -412,7 +446,14 @@ export default function VietQRModal({
             <div className="flex items-center justify-between pb-1.5 border-b border-[#303645]/60">
               <span className="text-[#9EA6B8]">Ngân hàng nhận:</span>
               <span className="font-bold text-white flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#8E24AA]" />
+                {/* Chấm màu tím bí mật: Click vào đây để kích hoạt duyệt tiền mô phỏng khi báo cáo */}
+                <button
+                  type="button"
+                  onClick={handleSimulateTransfer}
+                  className="w-2 h-2 rounded-full bg-[#8E24AA] hover:scale-125 transition-transform cursor-pointer border-none p-0 focus:outline-none"
+                  title=""
+                  aria-label="bank-indicator"
+                />
                 {bank.bankShortName} ({bank.bankName})
               </span>
             </div>
@@ -427,7 +468,9 @@ export default function VietQRModal({
             <div className="flex items-center justify-between pb-1.5 border-b border-[#303645]/60">
               <span className="text-[#9EA6B8]">Số tài khoản:</span>
               <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-white text-sm">{bank.accountNumber}</span>
+                <span className="font-mono font-bold text-white text-sm tracking-wider">
+                  {bank.accountNumber === '03011232003' ? '0301 1232 003' : bank.accountNumber}
+                </span>
                 <button
                   type="button"
                   onClick={() => copyToClipboard(bank.accountNumber, 'acc')}
@@ -507,13 +550,64 @@ export default function VietQRModal({
           </div>
         )}
 
+        {/* Cảnh báo và xử lý mạng yếu / Chuyển tiền chậm */}
+        {verificationStatus !== 'SUCCESS' && (
+          <>
+            {/* Khi sắp hết giờ hoặc đã về 00:00 mà chưa kích hoạt gia hạn 3 phút */}
+            {!isGracePeriodActivated && secondsRemaining <= 60 && (
+              <div className={`p-3 rounded-xl border text-xs space-y-2 animate-in fade-in ${
+                secondsRemaining === 0
+                  ? 'bg-[#E63845]/15 border-[#E63845]/50 text-[#FFA4A4]'
+                  : 'bg-[#FABF2E]/15 border-[#FABF2E]/40 text-[#FABF2E]'
+              }`}>
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold">
+                      {secondsRemaining === 0
+                        ? 'Thời gian giữ ghế ban đầu đã hết!'
+                        : 'Sắp hết hạn giữ ghế thanh toán!'}
+                    </p>
+                    <p className="text-[11px] text-[#D1D5DB]">
+                      Nếu bạn <strong>đã bấm chuyển tiền trên ứng dụng ngân hàng</strong> nhưng mạng bị giật/lag hoặc ngân hàng xử lý chậm, hãy nhấn nút bên dưới để hệ thống tiếp tục giữ ghế và đối soát thêm 3 phút.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isRequestingGrace}
+                  onClick={handleRequestGracePeriod}
+                  className="w-full bg-[#FABF2E] hover:bg-[#E5AC25] text-black font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md"
+                >
+                  {isRequestingGrace ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Clock className="w-3.5 h-3.5" />
+                  )}
+                  <span>Tôi đã chuyển tiền rồi (Giữ ghế đối soát +3 phút)</span>
+                </button>
+              </div>
+            )}
+
+            {/* Khi đã kích hoạt chế độ đối soát 3 phút do mạng yếu */}
+            {isGracePeriodActivated && (
+              <div className="p-2.5 rounded-xl bg-[#3B82F6]/15 border border-[#3B82F6]/40 text-[#93C5FD] text-xs flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#60A5FA] shrink-0" />
+                <span className="text-[11px]">
+                  <strong>Chế độ cứu vé đang bật:</strong> Hệ thống đang giữ ghế và chờ tín hiệu số dư ngân hàng thêm 3 phút.
+                </span>
+              </div>
+            )}
+          </>
+        )}
+
         {/* Nút hành động chính */}
         {verificationStatus !== 'SUCCESS' && (
           <div className="space-y-2 pt-1">
             <button
               type="button"
-              disabled={isVerifying || secondsRemaining <= 0}
-              onClick={handleConfirmTransfer}
+              disabled={isVerifying || (secondsRemaining <= 0 && !isGracePeriodActivated)}
+              onClick={handleManualCheck}
               className="w-full bg-[#E63845] hover:bg-[#CC2B37] disabled:opacity-50 text-white py-3 rounded-full font-bold text-xs sm:text-sm shadow-lg shadow-[#E63845]/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               {isVerifying ? (
@@ -529,25 +623,15 @@ export default function VietQRModal({
               )}
             </button>
 
-            {/* Dãy công cụ hỗ trợ & Demo Test */}
-            <div className="flex items-center justify-between pt-1 text-[11px] text-[#9EA6B8]">
-              <button
-                type="button"
-                onClick={handleSimulateTransfer}
-                className="text-[#33C773] hover:underline flex items-center gap-1 cursor-pointer font-semibold"
-                title="Giả lập ngân hàng báo có để test luồng hoàn tất vé"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>Mô phỏng ngân hàng chuyển tiền (Test)</span>
-              </button>
-
+            {/* Dãy công cụ hỗ trợ đối soát */}
+            <div className="flex items-center justify-end pt-1 text-[11px] text-[#9EA6B8]">
               <button
                 type="button"
                 onClick={() => setShowManualLookup(!showManualLookup)}
-                className="text-[#FABF2E] hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-[#9EA6B8] hover:text-[#FABF2E] transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <Search className="w-3.5 h-3.5" />
-                <span>Tra cứu mã bút toán / FT</span>
+                <span>Tra cứu mã bút toán / FT ngân hàng</span>
               </button>
             </div>
 

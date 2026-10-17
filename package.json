@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sync:db": "node scripts/sync-to-supabase.js"
+    "sync:db": "node scripts/sync-to-supabase.js",
+    "setup:resend": "node scripts/setup-resend.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

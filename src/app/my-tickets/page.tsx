@@ -6,26 +6,39 @@ import QRCode from 'qrcode';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { useAuth } from '@/lib/auth-context';
-import { Ticket, QrCode, Download, Calendar, MapPin, X, Lock, Search, ShieldCheck } from 'lucide-react';
+import { Ticket, QrCode, Download, Calendar, MapPin, X, Lock, Search, ShieldCheck, Coffee, Printer } from 'lucide-react';
 import { TicketScannerService } from '@/services/ticket-scanner.service';
 import { createClient } from '@/lib/supabase/client';
+import UnifiedTicketModal from '@/components/common/UnifiedTicketModal';
 
 interface StoredTicket {
-  id: number;
+  id: number | string;
   userId?: string;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
   bookingCode: string;
   movieTitle: string;
-  posterUrl: string;
+  posterUrl?: string;
+  moviePoster?: string;
   cinemaName: string;
   roomName: string;
+  auditoriumName?: string;
+  format?: string;
   showtime: string;
-  seats: string;
+  showtimeDate?: string;
+  showtimeTime?: string;
+  seats: string | string[];
+  seatsStr?: string;
   totalAmount: number;
-  createdAt: string;
+  createdAt?: string;
   status: string;
+  foodsStr?: string;
+  foods?: any[];
+  ageRating?: string;
+  age_rating?: string;
+  isCheckedIn?: boolean;
+  checkedInAt?: string;
 }
 
 export default function MyTicketsPage() {
@@ -360,24 +373,104 @@ export default function MyTicketsPage() {
                 </button>
               </form>
 
-              {/* Kết quả tra cứu vé cho khách */}
+              {/* Kết quả tra cứu vé cho khách (Formatted according to Staff POS Ticket Receipt) */}
               {lookupResult && (
                 <div className="mt-4 pt-4 border-t border-[#303645] space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-[#33C773] font-bold">✓ Đã tìm thấy vé của bạn:</span>
+                    <span className="text-xs text-[#22C55E] font-bold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
+                      ✓ Đã tìm thấy vé của bạn:
+                    </span>
                     <button
                       type="button"
                       onClick={() => setSelectedQrTicket(lookupResult)}
-                      className="bg-[#E63845] text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 cursor-pointer"
+                      className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#E63845]/20"
                     >
-                      <QrCode className="w-3.5 h-3.5" /> Xem QR
+                      <QrCode className="w-3.5 h-3.5" /> Xem Thẻ Vé & QR
                     </button>
                   </div>
-                  <div className="bg-[#0F1217] border border-[#303645] rounded-2xl p-4 space-y-1 text-xs">
-                    <div className="font-bold text-white text-sm">{lookupResult.movieTitle}</div>
-                    <div className="text-[#9EA6B8]">{lookupResult.cinemaName} • {lookupResult.roomName}</div>
-                    <div className="text-[#FABF2E] font-semibold">Suất: {lookupResult.showtime} - Ghế: {lookupResult.seats}</div>
-                    <div className="text-white">Người đặt: {lookupResult.customerName || 'Khách vãng lai'}</div>
+
+                  <div className="bg-[#121622] border border-[#2C384E] rounded-2xl p-5 space-y-3 text-xs shadow-xl">
+                    <div className="border-b border-[#242E40] pb-2.5 flex items-center justify-between">
+                      <div>
+                        <div className="text-[10px] font-black text-[#E63845] tracking-widest uppercase">
+                          CINEMAX THEATER
+                        </div>
+                        <h4 className="text-sm font-black text-white">HÓA ĐƠN XUẤT VÉ & BẮP NƯỚC</h4>
+                      </div>
+                      <span className="font-mono text-[11px] text-[#FABF2E] font-bold">
+                        {lookupResult.bookingCode}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <span className="text-[#8E9AAF] block text-[11px]">Phim:</span>
+                        <span className="text-sm font-bold text-white block">{lookupResult.movieTitle}</span>
+                      </div>
+
+                      <div className="flex justify-between text-[#8E9AAF]">
+                        <span>Rạp: <strong className="text-white">{lookupResult.cinemaName}</strong></span>
+                        <span>Trạng thái: <strong className="text-[#22C55E] uppercase">{lookupResult.status}</strong></span>
+                      </div>
+
+                      <div className="flex justify-between text-[#8E9AAF]">
+                        <span>Phòng: <strong className="text-white">{lookupResult.roomName}</strong></span>
+                        <span>Định dạng: <strong className="text-[#06B6D4]">{lookupResult.format || (lookupResult.roomName?.includes('IMAX') ? 'IMAX Laser' : '2D Digital')}</strong></span>
+                      </div>
+
+                      <div className="flex justify-between text-[#8E9AAF]">
+                        <span>Giờ chiếu:</span>
+                        <span className="font-mono text-white font-bold">{lookupResult.showtime}</span>
+                      </div>
+
+                      {/* Seats breakdown box */}
+                      <div className="p-2.5 rounded-xl bg-[#171E2D] border border-[#253045] space-y-1">
+                        <span className="text-[11px] font-bold text-[#FABF2E] block">Ghế ngồi:</span>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-white font-mono font-bold text-sm text-[#06B6D4]">
+                            {Array.isArray(lookupResult.seats) ? lookupResult.seats.join(', ') : lookupResult.seats}
+                          </span>
+                          <span className="text-[10px] text-[#8E9AAF] bg-[#141924] px-2 py-0.5 rounded border border-[#253045]">
+                            Đã giữ chỗ
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Foods breakdown box */}
+                      {(lookupResult.foodsStr || (lookupResult.foods && lookupResult.foods.length > 0)) && (
+                        <div className="p-2.5 rounded-xl bg-[#171E2D] border border-[#253045] space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-[#FABF2E] block">Bắp nước:</span>
+                            <span className="text-[9px] bg-[#FABF2E]/20 text-[#FABF2E] px-2 py-0.5 rounded-full border border-[#FABF2E]/40 font-semibold uppercase">
+                              Nhận tại quầy
+                            </span>
+                          </div>
+                          <div className="text-white font-semibold text-xs">
+                            {lookupResult.foodsStr || lookupResult.foods?.map((f: any) => `${f.quantity || f.qty}x ${f.name}`).join(', ')}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Financial breakdown */}
+                      <div className="pt-2 border-t border-[#242E40] space-y-1">
+                        <div className="flex justify-between text-[#8E9AAF] text-xs">
+                          <span>Người nhận vé:</span>
+                          <span className="text-white font-semibold">
+                            {lookupResult.customerName || 'Khách vãng lai'}{' '}
+                            {lookupResult.customerPhone ? `(${lookupResult.customerPhone})` : ''}
+                          </span>
+                        </div>
+                        {lookupResult.totalAmount !== undefined && (
+                          <div className="flex justify-between font-bold text-sm text-white">
+                            <span>Tổng tiền:</span>
+                            <span className="font-mono text-[#22C55E] text-base">
+                              {lookupResult.totalAmount.toLocaleString('vi-VN')} đ
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -457,7 +550,7 @@ export default function MyTicketsPage() {
                             </div>
                             <div>
                               <span>Ghế: </span>
-                              <span className="text-white font-bold">{ticket.seats}</span>
+                              <span className="text-white font-bold">{Array.isArray(ticket.seats) ? ticket.seats.join(', ') : ticket.seats}</span>
                             </div>
                           </div>
                           <div className="flex items-center justify-between">
@@ -471,6 +564,14 @@ export default function MyTicketsPage() {
                               </span>
                             )}
                           </div>
+                          {(ticket.foodsStr || (ticket.foods && ticket.foods.length > 0)) && (
+                            <div className="bg-[#141722] px-2.5 py-1.5 rounded-xl border border-[#FABF2E]/30 text-xs">
+                              <span className="text-[#FABF2E] font-bold">🍿 Bắp nước: </span>
+                              <span className="text-white font-medium">
+                                {ticket.foodsStr || ticket.foods?.map((f: any) => `${f.quantity}x ${f.name}`).join(', ')}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -511,67 +612,11 @@ export default function MyTicketsPage() {
 
       <Footer />
 
-      {/* QR Code Popup Modal */}
-      {selectedQrTicket && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center space-y-4 relative shadow-2xl animate-in fade-in zoom-in-95">
-            <button
-              onClick={() => setSelectedQrTicket(null)}
-              className="absolute top-4 right-4 text-[#9EA6B8] hover:text-white cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-bold text-white">Vé Điện Tử</h3>
-            <p className="text-xs text-[#9EA6B8]">{selectedQrTicket.movieTitle}</p>
-
-            <div className="bg-white p-3 rounded-2xl inline-block shadow-lg">
-              <img
-                src={qrDataUrl || TicketScannerService.generateTicketQrUrl(selectedQrTicket.bookingCode, 240)}
-                alt={`Mã QR vé ${selectedQrTicket.bookingCode}`}
-                className="w-48 h-48 object-contain"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="text-[10px] text-[#FABF2E] font-bold uppercase tracking-wider">
-                MÃ QUÉT SOÁT VÉ / IN KIOSK
-              </div>
-              <div className="font-mono text-base font-black text-white bg-[#0F1217] py-1 px-3 rounded-lg border border-[#303645] inline-block tracking-widest">
-                {selectedQrTicket.bookingCode}
-              </div>
-              <div className="text-xs text-white/90">
-                {selectedQrTicket.cinemaName} • Ghế {selectedQrTicket.seats}
-              </div>
-              <div className="text-[11px] text-[#9EA6B8]">
-                Người đặt: <span className="text-white font-medium">{selectedQrTicket.customerName || 'Khách vãng lai'}</span>
-              </div>
-              <div className="text-[10px] text-gray-400 italic pt-0.5">
-                Đưa mã này vào đầu đọc Kiosk để in vé giấy hoặc cửa soát vé
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              {qrDataUrl && (
-                <a
-                  href={qrDataUrl}
-                  download={`QR-${selectedQrTicket.bookingCode}.png`}
-                  className="bg-[#0F1217] border border-[#303645] hover:border-white text-white py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Tải ảnh QR</span>
-                </a>
-              )}
-              <button
-                onClick={() => setSelectedQrTicket(null)}
-                className={`${qrDataUrl ? '' : 'col-span-2'} bg-[#E63845] hover:bg-[#CC2B37] text-white py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer`}
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Unified Cinema Ticket Modal (Synchronized with Staff Gate Check-in & POS View) */}
+      <UnifiedTicketModal
+        ticket={selectedQrTicket}
+        onClose={() => setSelectedQrTicket(null)}
+      />
     </div>
   );
 }
