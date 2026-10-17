@@ -1030,6 +1030,53 @@ export default function StaffWorkspacePage() {
     handleInspectTicketRef.current = handleInspectTicket;
   }, [handleInspectTicket]);
 
+  // Concession (Bắp nước) Scanner & POS States
+  const [concessionSubTab, setConcessionSubTab] = useState<'redeem' | 'pos' | 'inventory'>('redeem');
+  const [concessionScanInput, setConcessionScanInput] = useState<string>('');
+  const [inspectedConcessionOrder, setInspectedConcessionOrder] = useState<SharedTicketOrder | null>(null);
+  const [concessionScanError, setConcessionScanError] = useState<string | null>(null);
+  const [concessionSearchCode, setConcessionSearchCode] = useState<string>('');
+  const [addonFoodQuantities, setAddonFoodQuantities] = useState<Record<number, number>>({});
+  const [addonFoodModifiers, setAddonFoodModifiers] = useState<Record<number, { flavor?: string; drinkSize?: string }>>({});
+  const [directFoodQuantities, setDirectFoodQuantities] = useState<Record<number, number>>({});
+  const [directFoodModifiers, setDirectFoodModifiers] = useState<Record<number, { flavor?: string; drinkSize?: string }>>({});
+  const [directPaymentMethod, setDirectPaymentMethod] = useState<'CASH' | 'VNPAY'>('CASH');
+  const [concessionSubmitting, setConcessionSubmitting] = useState<boolean>(false);
+
+  const handleInspectConcessionTicket = useCallback(
+    (codeToSearch?: string) => {
+      const rawQuery = (codeToSearch ?? concessionScanInput).trim();
+      const query = extractBookingCodeFromQrPayload(rawQuery);
+      if (!query) {
+        setConcessionScanError('Vui lòng nhập mã vé xem phim hoặc đưa mã QR vào khung quét.');
+        return;
+      }
+      const found = orders.find(
+        (o) =>
+          o.id.toLowerCase() === query.toLowerCase() ||
+          o.id.toLowerCase().includes(query.toLowerCase()) ||
+          query.toLowerCase().includes(o.id.toLowerCase()) ||
+          o.customer_phone.includes(query)
+      );
+      if (!found) {
+        setInspectedConcessionOrder(null);
+        setConcessionScanError(`Không tìm thấy vé xem phim hoặc đơn hàng khớp với mã "${query}".`);
+        return;
+      }
+      setConcessionScanError(null);
+      setInspectedConcessionOrder(found);
+      setConcessionScanInput(found.id);
+      setAddonFoodQuantities({});
+    },
+    [concessionScanInput, orders, extractBookingCodeFromQrPayload]
+  );
+
+  const handleInspectConcessionTicketRef = useRef(handleInspectConcessionTicket);
+  useEffect(() => {
+    handleInspectConcessionTicketRef.current = handleInspectConcessionTicket;
+  }, [handleInspectConcessionTicket]);
+
+
   // Generate real QR code for thermal print modal
   useEffect(() => {
     if (!printingOrder) {
@@ -1047,7 +1094,8 @@ export default function StaffWorkspacePage() {
 
   // Real Live Webcam QR Scanner Loop using jsQR
   useEffect(() => {
-    if (!cameraActive || activeTab !== 'checkin') {
+    const isConcessionRedeem = activeTab === 'concession' && concessionSubTab === 'redeem';
+    if (!cameraActive || (activeTab !== 'checkin' && !isConcessionRedeem)) {
       return;
     }
 
@@ -1125,7 +1173,11 @@ export default function StaffWorkspacePage() {
                   if (cleanCode && cleanCode !== lastScannedCodeRef.current) {
                     lastScannedCodeRef.current = cleanCode;
                     playScannerBeep();
-                    handleInspectTicketRef.current(cleanCode);
+                    if (activeTab === 'concession') {
+                      handleInspectConcessionTicketRef.current(cleanCode);
+                    } else {
+                      handleInspectTicketRef.current(cleanCode);
+                    }
                     showToast(`Đã quét mã QR thành công: ${cleanCode}`);
                     setTimeout(() => {
                       lastScannedCodeRef.current = '';
@@ -1167,7 +1219,7 @@ export default function StaffWorkspacePage() {
         activeStream.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [cameraActive, activeTab, extractBookingCodeFromQrPayload, playScannerBeep]);
+  }, [cameraActive, activeTab, concessionSubTab, extractBookingCodeFromQrPayload, playScannerBeep]);
 
   // Decode QR code from uploaded image file
   const handleQrFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1192,10 +1244,19 @@ export default function StaffWorkspacePage() {
         if (qrResult && qrResult.data) {
           const cleanCode = extractBookingCodeFromQrPayload(qrResult.data);
           playScannerBeep();
-          handleInspectTicket(cleanCode);
+          if (activeTab === 'concession') {
+            handleInspectConcessionTicket(cleanCode);
+          } else {
+            handleInspectTicket(cleanCode);
+          }
           showToast(`Đã đọc mã QR từ ảnh: ${cleanCode}`);
         } else {
-          setScanError('Không nhận diện được mã QR trong ảnh này. Vui lòng chọn ảnh rõ nét hơn.');
+          const errMsg = 'Không nhận diện được mã QR trong ảnh này. Vui lòng chọn ảnh rõ nét hơn.';
+          if (activeTab === 'concession') {
+            setConcessionScanError(errMsg);
+          } else {
+            setScanError(errMsg);
+          }
         }
       };
       img.src = String(reader.result);
@@ -1635,14 +1696,10 @@ export default function StaffWorkspacePage() {
   };
 
   // ==========================================================================
-  // TAB 3: BẮP NƯỚC & KHO (CLEAN SUB-TAB SWITCHER)
+  // TAB 3: BẮP NƯỚC (CONCESSION) ACTIONS & INVENTORY
   // ==========================================================================
-  const [concessionSubTab, setConcessionSubTab] = useState<'fulfill' | 'inventory'>('fulfill');
-  const [concessionSearchCode, setConcessionSearchCode] = useState<string>('');
   const [inventoryProductId, setInventoryProductId] = useState<number>(foods[0]?.id || 1);
-  const [inventoryMoveType, setInventoryMoveType] = useState<'IMPORT' | 'LOSS' | 'ADJUSTMENT'>(
-    'IMPORT'
-  );
+  const [inventoryMoveType, setInventoryMoveType] = useState<'IMPORT' | 'LOSS' | 'ADJUSTMENT'>('IMPORT');
   const [inventoryMoveQty, setInventoryMoveQty] = useState<number>(20);
   const [inventoryMoveReason, setInventoryMoveReason] = useState<string>('Nhập bổ sung đầu ca');
 
@@ -1657,8 +1714,160 @@ export default function StaffWorkspacePage() {
         : o
     );
     saveOrders(nextOrders);
+    if (inspectedConcessionOrder && inspectedConcessionOrder.id === orderId) {
+      setInspectedConcessionOrder({
+        ...inspectedConcessionOrder,
+        food_fulfilled: true,
+        foods: inspectedConcessionOrder.foods.map((f) => ({ ...f, fulfilled: true })),
+      });
+    }
     await syncConcessionFulfillmentToSupabase(orderId, staffName);
-    showToast(`Đã xác nhận giao đủ combo cho đơn #${orderId.slice(0, 8)} (Đã đồng bộ Supabase)!`);
+    showToast(`Đã xác nhận giao đủ combo bắp nước cho đơn #${orderId.slice(0, 8)} (Đã đồng bộ Supabase)!`);
+  };
+
+  const handleAddFoodToTicket = async () => {
+    if (!inspectedConcessionOrder) return;
+    const selectedEntries = Object.entries(addonFoodQuantities).filter(([, qty]) => qty > 0);
+    if (selectedEntries.length === 0) {
+      showToast('Vui lòng chọn ít nhất 1 sản phẩm bắp / nước để thêm vào vé.');
+      return;
+    }
+
+    setConcessionSubmitting(true);
+    try {
+      const addedFoodItems: FoodOrderItem[] = [];
+      let addedTotal = 0;
+
+      for (const [idStr, qty] of selectedEntries) {
+        const prod = foods.find((f) => f.id === Number(idStr));
+        if (!prod) continue;
+        const mod = addonFoodModifiers[prod.id] || {};
+        const isUpcharge = mod.drinkSize === 'Coca (L +10K)';
+        const unitPrice = prod.price + (isUpcharge ? 10000 : 0);
+        const lineTotal = unitPrice * qty;
+        addedTotal += lineTotal;
+
+        addedFoodItems.push({
+          name: prod.name,
+          qty,
+          price: unitPrice,
+          flavor: mod.flavor || 'Vị Phô Mai',
+          drinkSize: mod.drinkSize || 'Coca (M)',
+          fulfilled: true,
+        });
+
+        // Deduct inventory
+        const currentStock = prod.stock ?? 150;
+        const newStock = Math.max(0, currentStock - qty);
+        updateFoodItem(prod.id, { stock: newStock });
+        if (prod.supabase_id) {
+          await syncStockMovementToSupabase({
+            productUuid: prod.supabase_id,
+            productName: prod.name,
+            movementType: 'SALE',
+            quantity: -qty,
+            newStock,
+            reason: `Bán thêm bắp nước tại quầy gắn vào vé #${inspectedConcessionOrder.id}`,
+          });
+        }
+      }
+
+      const updatedOrder: SharedTicketOrder = {
+        ...inspectedConcessionOrder,
+        foods: [...(inspectedConcessionOrder.foods || []), ...addedFoodItems],
+        food_fulfilled: true,
+        total_amount: inspectedConcessionOrder.total_amount + addedTotal,
+      };
+
+      const nextOrders = orders.map((o) => (o.id === updatedOrder.id ? updatedOrder : o));
+      saveOrders(nextOrders);
+      setInspectedConcessionOrder(updatedOrder);
+      setAddonFoodQuantities({});
+      await syncConcessionFulfillmentToSupabase(updatedOrder.id, staffName);
+      showToast(`Đã thêm bắp nước vào vé #${updatedOrder.id.slice(0, 8)} và hoàn tất xuất kho!`);
+    } finally {
+      setConcessionSubmitting(false);
+    }
+  };
+
+  const handleDirectConcessionSale = async () => {
+    const selectedEntries = Object.entries(directFoodQuantities).filter(([, qty]) => qty > 0);
+    if (selectedEntries.length === 0) {
+      showToast('Vui lòng chọn ít nhất 1 sản phẩm bắp / nước để thanh toán.');
+      return;
+    }
+
+    setConcessionSubmitting(true);
+    try {
+      const soldItems: FoodOrderItem[] = [];
+      let totalAmount = 0;
+
+      for (const [idStr, qty] of selectedEntries) {
+        const prod = foods.find((f) => f.id === Number(idStr));
+        if (!prod) continue;
+        const mod = directFoodModifiers[prod.id] || {};
+        const isUpcharge = mod.drinkSize === 'Coca (L +10K)';
+        const unitPrice = prod.price + (isUpcharge ? 10000 : 0);
+        totalAmount += unitPrice * qty;
+
+        soldItems.push({
+          name: prod.name,
+          qty,
+          price: unitPrice,
+          flavor: mod.flavor || 'Vị Phô Mai',
+          drinkSize: mod.drinkSize || 'Coca (M)',
+          fulfilled: true,
+        });
+
+        // Deduct inventory
+        const currentStock = prod.stock ?? 150;
+        const newStock = Math.max(0, currentStock - qty);
+        updateFoodItem(prod.id, { stock: newStock });
+        if (prod.supabase_id) {
+          await syncStockMovementToSupabase({
+            productUuid: prod.supabase_id,
+            productName: prod.name,
+            movementType: 'SALE',
+            quantity: -qty,
+            newStock,
+            reason: `Bán lẻ bắp nước tại quầy POS`,
+          });
+        }
+      }
+
+      const newConcessionOrder: SharedTicketOrder = {
+        id: `FOD-${Date.now().toString(36).toUpperCase()}`,
+        movie_title: 'Khách mua Bắp Nước tại quầy',
+        age_rating: 'P',
+        cinema_name: 'Cinemax Quận 1',
+        room_name: 'Quầy Bắp Nước',
+        screen_type: 'Concession',
+        start_time: new Date().toISOString(),
+        seats: [],
+        checked_in_seats: [],
+        audience_type: 'ADULT',
+        foods: soldItems,
+        food_fulfilled: true,
+        promo_code: null,
+        discount_amount: 0,
+        total_amount: totalAmount,
+        payment_method: directPaymentMethod,
+        customer_name: 'Khách Vãng Lai Quầy',
+        customer_phone: '0900000000',
+        customer_email: 'guest.snack@cinemax.vn',
+        status: 'USED',
+        created_at: new Date().toLocaleString('vi-VN'),
+        channel: 'POS',
+        showtime_id: 1,
+      };
+
+      const nextOrders = [newConcessionOrder, ...orders];
+      saveOrders(nextOrders);
+      setDirectFoodQuantities({});
+      showToast(`Đã thanh toán ${totalAmount.toLocaleString('vi-VN')}đ & xuất bắp nước thành công!`);
+    } finally {
+      setConcessionSubmitting(false);
+    }
   };
 
   const handleRecordInventoryMovement = async () => {
@@ -3119,160 +3328,929 @@ export default function StaffWorkspacePage() {
           )}
 
           {/* ================================================================ */}
-          {/* TAB 6: BẮP NƯỚC & KHO — CLEAN TOGGLE (ONLY 1 VIEW AT A TIME)      */}
+          {/* TAB 6: BẮP NƯỚC & KHO (CONCESSION COUNTER & QR SCANNING)         */}
           {/* ================================================================ */}
           {activeTab === 'concession' && (
-            <div className="max-w-4xl space-y-5">
-              <div className="flex items-center justify-between">
-                <h1 className="text-lg font-extrabold text-white">Quầy Bắp Nước &amp; Kho</h1>
+            <div className="space-y-5">
+              {/* Header & Sub-tab Switcher */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[#11141D] border border-[#1E2433] rounded-xl p-4">
+                <div>
+                  <h1 className="text-base font-extrabold text-white flex items-center gap-2">
+                    <span>🍿</span> Quầy Bắp Nước &amp; Bán Hàng
+                  </h1>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Quét vé xem phim trả combo, bán lẻ bắp nước tại quầy và kiểm kê kho hàng
+                  </p>
+                </div>
 
-                <div className="flex bg-[#11141D] p-1 rounded-lg border border-[#1E2433]">
+                <div className="flex bg-[#161A26] p-1 rounded-lg border border-[#242B3D] self-start sm:self-auto">
                   <button
                     type="button"
-                    onClick={() => setConcessionSubTab('fulfill')}
-                    className={`px-4 py-1.5 rounded text-xs font-bold transition ${
-                      concessionSubTab === 'fulfill'
-                        ? 'bg-[#E63845] text-white'
+                    onClick={() => setConcessionSubTab('redeem')}
+                    className={`px-3.5 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 ${
+                      concessionSubTab === 'redeem'
+                        ? 'bg-[#E63845] text-white shadow'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Trả hàng Combo
+                    <span>📷</span> Quét Vé &amp; Trả Combo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConcessionSubTab('pos')}
+                    className={`px-3.5 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 ${
+                      concessionSubTab === 'pos'
+                        ? 'bg-[#E63845] text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>🛒</span> Bán Lẻ Tại Quầy
                   </button>
                   <button
                     type="button"
                     onClick={() => setConcessionSubTab('inventory')}
-                    className={`px-4 py-1.5 rounded text-xs font-bold transition ${
+                    className={`px-3.5 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 ${
                       concessionSubTab === 'inventory'
-                        ? 'bg-[#E63845] text-white'
+                        ? 'bg-[#E63845] text-white shadow'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Kiểm kê Kho
+                    <span>📦</span> Kiểm Kê Kho
                   </button>
                 </div>
               </div>
 
-              {concessionSubTab === 'fulfill' ? (
-                <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-5 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-300">
-                      Danh sách đơn có bắp nước
-                    </span>
-                    <input
-                      type="text"
-                      value={concessionSearchCode}
-                      onChange={(e) => setConcessionSearchCode(e.target.value)}
-                      placeholder="Nhập mã đơn..."
-                      className="bg-[#161A26] border border-[#262D40] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
-                    />
+              {/* ------------------------------------------------------------- */}
+              {/* SUBTAB 1: QUÉT VÉ & TRẢ COMBO (QR SCANNER & FULFILLMENT)      */}
+              {/* ------------------------------------------------------------- */}
+              {concessionSubTab === 'redeem' && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  {/* Left Column (5 cols): QR Scanner & Manual Input */}
+                  <div className="lg:col-span-5 space-y-4">
+                    {/* Scanner Card */}
+                    <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <span>📷</span> Khung Quét QR Vé Xem Phim
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setCameraActive((prev) => !prev)}
+                            className="px-2 py-1 rounded bg-[#1A1F2C] hover:bg-[#252C3E] text-[11px] font-semibold text-slate-300 transition"
+                          >
+                            {cameraActive ? 'Tắt Cam' : 'Bật Cam'}
+                          </button>
+                          <label className="px-2 py-1 rounded bg-[#1A1F2C] hover:bg-[#252C3E] text-[11px] font-semibold text-slate-300 transition cursor-pointer">
+                            Tải ảnh QR
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={qrFileInputRef}
+                              onChange={handleQrFileUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Webcam Viewfinder Box */}
+                      <div
+                        onClick={() => {
+                          if (!cameraActive) setCameraActive(true);
+                        }}
+                        className="relative aspect-video w-full bg-black rounded-lg overflow-hidden border border-[#22283A] flex items-center justify-center cursor-pointer group"
+                      >
+                        <video
+                          ref={videoRef}
+                          className={`w-full h-full object-cover ${
+                            cameraActive && !cameraError ? 'block' : 'hidden'
+                          }`}
+                          muted
+                          autoPlay
+                          playsInline
+                        />
+                        <canvas ref={canvasRef} className="hidden" />
+
+                        {/* Scanner Target Reticle */}
+                        <div className="w-[140px] h-[140px] relative z-10 flex flex-col items-center justify-center text-center px-2">
+                          <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-[#E63845]" />
+                          <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-[#E63845]" />
+                          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-[#E63845]" />
+                          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-[#E63845]" />
+
+                          {!cameraActive && (
+                            <span className="text-xs text-slate-400">
+                              Camera đang tắt (Bấm để bật)
+                            </span>
+                          )}
+
+                          {cameraActive && cameraError && (
+                            <div className="space-y-1.5">
+                              <p className="text-[11px] text-[#F87171] leading-tight">
+                                {cameraError}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCameraActive(false);
+                                  setTimeout(() => setCameraActive(true), 150);
+                                }}
+                                className="px-2.5 py-1 rounded bg-[#E63845] text-white text-[10px] font-bold"
+                              >
+                                Thử lại
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {cameraActive && !cameraError && (
+                          <div className="absolute bottom-2 inset-x-2 z-10 text-center pointer-events-none">
+                            <span className="inline-block bg-black/75 px-2.5 py-0.5 rounded text-[10px] text-slate-300">
+                              Đưa mã QR trên vé vào khung ngắm
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Quick Test Demo Buttons */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-slate-500 font-semibold">Thử nhanh:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleInspectConcessionTicket('69b6447c80200b3d4a2df75f')}
+                          className="px-2 py-0.5 rounded text-[10px] bg-[#1A2234] hover:bg-[#232F49] text-sky-400 border border-sky-800/40"
+                        >
+                          Vé có bắp (#69b644)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleInspectConcessionTicket('69c19f44d8230a1c9e4fa109')}
+                          className="px-2 py-0.5 rounded text-[10px] bg-[#2E2018] hover:bg-[#3D2B20] text-amber-400 border border-amber-800/40"
+                        >
+                          Vé chưa bắp (#69c19f)
+                        </button>
+                      </div>
+
+                      {/* Manual Code Input */}
+                      <div className="pt-2 border-t border-[#1C2230]">
+                        <label className="block text-[11px] text-slate-400 font-medium mb-1.5">
+                          Nhập mã vé thủ công (nếu không quét được QR):
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={concessionScanInput}
+                            onChange={(e) => setConcessionScanInput(e.target.value)}
+                            onKeyDown={(e) =>
+                              e.key === 'Enter' && handleInspectConcessionTicket()
+                            }
+                            placeholder="Nhập mã vé hoặc SĐT..."
+                            className="flex-1 bg-[#161A26] border border-[#262D40] rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-[#E63845]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleInspectConcessionTicket()}
+                            className="bg-[#E63845] hover:bg-[#D02B38] text-white font-bold text-xs px-4 py-1.5 rounded-lg transition shrink-0"
+                          >
+                            Kiểm tra
+                          </button>
+                        </div>
+
+                        {concessionScanError && (
+                          <div className="mt-2 text-xs text-[#F87171] bg-[#2E1418] border border-[#E63845]/30 rounded-lg p-2.5">
+                            {concessionScanError}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Quick Queue of Orders with Food */}
+                    <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-300">
+                          Hàng đợi vé kèm bắp nước gần đây
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {orders.filter((o) => o.foods && o.foods.length > 0).length} đơn
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                        {orders
+                          .filter((o) => o.foods && o.foods.length > 0)
+                          .slice(0, 6)
+                          .map((ord) => (
+                            <button
+                              key={ord.id}
+                              type="button"
+                              onClick={() => {
+                                setConcessionScanInput(ord.id);
+                                handleInspectConcessionTicket(ord.id);
+                              }}
+                              className={`w-full text-left p-2.5 rounded-lg border transition flex items-center justify-between ${
+                                inspectedConcessionOrder?.id === ord.id
+                                  ? 'bg-[#1C2333] border-[#E63845]'
+                                  : 'bg-[#161A26] border-[#222838] hover:bg-[#1A2030]'
+                              }`}
+                            >
+                              <div className="text-xs space-y-0.5">
+                                <div className="font-bold text-white flex items-center gap-1.5">
+                                  <span className="font-mono text-[#F87171]">
+                                    #{ord.id.slice(0, 8)}
+                                  </span>
+                                  <span className="truncate max-w-[130px]">{ord.customer_name}</span>
+                                </div>
+                                <div className="text-[11px] text-slate-400">
+                                  {ord.foods.map((f) => `${f.qty}x ${f.name}`).join(' • ')}
+                                </div>
+                              </div>
+
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  ord.food_fulfilled
+                                    ? 'bg-[#14261C] text-emerald-400 border border-emerald-800/40'
+                                    : 'bg-[#2E1E14] text-amber-400 border border-amber-800/40'
+                                }`}
+                              >
+                                {ord.food_fulfilled ? 'Đã nhận' : 'Chờ lấy'}
+                              </span>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-2.5">
-                    {orders
-                      .filter(
-                        (o) =>
-                          o.foods &&
-                          o.foods.length > 0 &&
-                          (!concessionSearchCode.trim() ||
-                            o.id.toLowerCase().includes(concessionSearchCode.toLowerCase()))
-                      )
-                      .map((ord) => (
-                        <div
-                          key={ord.id}
-                          className="bg-[#161A26] border border-[#242B3D] rounded-lg p-3.5 flex items-center justify-between gap-4"
-                        >
-                          <div className="text-xs space-y-1">
-                            <div className="font-bold text-white">
-                              <span className="font-mono text-[#F87171] mr-2">
-                                #{ord.id.slice(0, 8)}
-                              </span>
-                              {ord.customer_name} ({ord.room_name} - {ord.seats.join(', ')})
+                  {/* Right Column (7 cols): Scanned Ticket Details & Fulfillment */}
+                  <div className="lg:col-span-7">
+                    <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-5 min-h-[460px] flex flex-col justify-between">
+                      {!inspectedConcessionOrder ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center py-16 space-y-3">
+                          <div className="w-16 h-16 rounded-2xl bg-[#171C28] border border-[#252C3E] flex items-center justify-center text-3xl">
+                            🍿
+                          </div>
+                          <div className="space-y-1">
+                            <h3 className="text-sm font-bold text-white">
+                              Chưa có vé nào được quét
+                            </h3>
+                            <p className="text-xs text-slate-400 max-w-sm">
+                              Đưa mã QR trên vé xem phim của khách vào camera bên trái hoặc nhập mã vé để tra cứu bắp nước.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {/* Ticket Header & Customer Profile */}
+                          <div className="bg-[#161A26] border border-[#242B3D] rounded-xl p-4 space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#202738] pb-3">
+                              <div>
+                                <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
+                                  Mã vé xem phim
+                                </span>
+                                <span className="font-mono text-base font-bold text-white">
+                                  #{inspectedConcessionOrder.id}
+                                </span>
+                              </div>
+
+                              <div>
+                                {inspectedConcessionOrder.foods &&
+                                inspectedConcessionOrder.foods.length > 0 ? (
+                                  inspectedConcessionOrder.food_fulfilled ? (
+                                    <span className="px-3 py-1 rounded-full bg-[#132E1F] border border-[#22C55E]/60 text-[#4ADE80] text-xs font-bold flex items-center gap-1.5">
+                                      <span>✓</span> ĐÃ GIAO BẮP NƯỚC
+                                    </span>
+                                  ) : (
+                                    <span className="px-3 py-1 rounded-full bg-[#2E2013] border border-[#F59E0B]/60 text-[#FBBF24] text-xs font-bold flex items-center gap-1.5">
+                                      <span>⏳</span> CHỜ TRẢ COMBO BẮP NƯỚC
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="px-3 py-1 rounded-full bg-[#1A2634] border border-sky-500/40 text-sky-300 text-xs font-bold flex items-center gap-1.5">
+                                    <span>ℹ️</span> VÉ CHƯA KÈM BẮP NƯỚC
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-slate-300">
-                              {ord.foods
-                                .map(
-                                  (f) =>
-                                    `${f.qty}x ${f.name} (${f.flavor || 'Vị Phô Mai'}, ${
-                                      f.drinkSize || 'Coca L'
-                                    })`
-                                )
-                                .join(' • ')}
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                              <div>
+                                <span className="text-slate-400 block text-[11px]">Khách hàng</span>
+                                <span className="font-semibold text-white">
+                                  {inspectedConcessionOrder.customer_name}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[11px]">Số điện thoại</span>
+                                <span className="font-mono text-white">
+                                  {inspectedConcessionOrder.customer_phone}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[11px]">Phòng &amp; Ghế</span>
+                                <span className="font-bold text-[#F87171]">
+                                  {inspectedConcessionOrder.room_name} ({inspectedConcessionOrder.seats.join(', ')})
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[11px]">Phim</span>
+                                <span className="font-semibold text-white truncate block">
+                                  {inspectedConcessionOrder.movie_title}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            disabled={ord.food_fulfilled}
-                            onClick={() => handleFulfillFoodOrder(ord.id)}
-                            className={`px-3.5 py-2 rounded-lg text-xs font-bold shrink-0 ${
-                              ord.food_fulfilled
-                                ? 'bg-[#1C212E] text-slate-500'
-                                : 'bg-[#E63845] text-white'
-                            }`}
-                          >
-                            {ord.food_fulfilled ? 'Đã giao' : 'Giao Combo'}
-                          </button>
+                          {/* CASE A: TICKET HAS FOOD */}
+                          {inspectedConcessionOrder.foods &&
+                          inspectedConcessionOrder.foods.length > 0 ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-300">
+                                  Chi tiết combo bắp nước cần giao ({inspectedConcessionOrder.foods.length} món)
+                                </h3>
+                                {inspectedConcessionOrder.food_fulfilled && (
+                                  <span className="text-[11px] text-emerald-400 font-semibold">
+                                    Đã xuất kho thành công
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="space-y-2">
+                                {inspectedConcessionOrder.foods.map((food, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="bg-[#161A26] border border-[#242B3D] rounded-lg p-3.5 flex items-center justify-between gap-3"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-9 h-9 rounded-lg bg-[#222838] flex items-center justify-center text-lg">
+                                        🍿
+                                      </div>
+                                      <div>
+                                        <div className="text-xs font-bold text-white flex items-center gap-2">
+                                          <span>{food.name}</span>
+                                          <span className="text-[#E63845] font-extrabold">
+                                            x{food.qty}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          {food.flavor && (
+                                            <span className="px-2 py-0.5 rounded text-[10px] bg-[#2A2318] text-amber-300 border border-amber-800/40">
+                                              {food.flavor}
+                                            </span>
+                                          )}
+                                          {food.drinkSize && (
+                                            <span className="px-2 py-0.5 rounded text-[10px] bg-[#182332] text-sky-300 border border-sky-800/40">
+                                              {food.drinkSize}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="text-right">
+                                      <span className="text-xs font-mono font-bold text-white">
+                                        {(food.price * food.qty).toLocaleString('vi-VN')} đ
+                                      </span>
+                                      <span
+                                        className={`block text-[10px] font-semibold mt-0.5 ${
+                                          inspectedConcessionOrder.food_fulfilled || food.fulfilled
+                                            ? 'text-emerald-400'
+                                            : 'text-amber-400'
+                                        }`}
+                                      >
+                                        {inspectedConcessionOrder.food_fulfilled || food.fulfilled
+                                          ? 'Đã trả hàng'
+                                          : 'Chờ lấy'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Warning or Fulfillment Action */}
+                              {inspectedConcessionOrder.food_fulfilled ? (
+                                <div className="p-3.5 rounded-xl bg-[#2A1C14] border border-amber-600/40 text-amber-200 text-xs flex items-start gap-2.5">
+                                  <span className="text-base">⚠️</span>
+                                  <div>
+                                    <span className="font-bold block">
+                                      Đã nhận đủ bắp nước trước đó
+                                    </span>
+                                    <span>
+                                      Vé này đã hoàn tất nhận combo bắp nước tại quầy. Không giao lần thứ hai để tránh thất thoát kho.
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleFulfillFoodOrder(inspectedConcessionOrder.id)
+                                  }
+                                  className="w-full py-3 rounded-xl bg-[#E63845] hover:bg-[#D02B38] text-white font-extrabold text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                                >
+                                  <span>🍿</span> XÁC NHẬN GIAO BẮP NƯỚC CHO KHÁCH
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            /* CASE B: TICKET DOES NOT HAVE FOOD -> SHOW QUICK ADD-ON POS */
+                            <div className="space-y-4">
+                              <div className="p-3.5 rounded-xl bg-[#142232] border border-sky-600/40 text-sky-200 text-xs flex items-start gap-2.5">
+                                <span className="text-base">ℹ️</span>
+                                <div>
+                                  <span className="font-bold block">
+                                    Vé này chưa đặt kèm bắp nước online
+                                  </span>
+                                  <span>
+                                    Khách hàng chỉ có vé xem phim. Bạn có thể chọn nhanh các món bắp / nước dưới đây để bán thêm và gán thẳng vào vé này:
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <span className="text-xs font-bold text-slate-300">
+                                  Chọn món thêm vào vé:
+                                </span>
+                                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                                  {foods.map((food) => {
+                                    const qty = addonFoodQuantities[food.id] || 0;
+                                    const mod = addonFoodModifiers[food.id] || {};
+                                    return (
+                                      <div
+                                        key={food.id}
+                                        className="bg-[#161A26] border border-[#242B3D] rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                      >
+                                        <div>
+                                          <div className="text-xs font-bold text-white">
+                                            {food.name}
+                                          </div>
+                                          <div className="text-[11px] text-slate-400 font-mono">
+                                            {food.price.toLocaleString('vi-VN')} đ • Tồn: {food.stock ?? 150}
+                                          </div>
+
+                                          {/* Options if selected */}
+                                          {qty > 0 && (
+                                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                                              <select
+                                                value={mod.flavor || 'Vị Phô Mai'}
+                                                onChange={(e) =>
+                                                  setAddonFoodModifiers((prev) => ({
+                                                    ...prev,
+                                                    [food.id]: {
+                                                      ...prev[food.id],
+                                                      flavor: e.target.value,
+                                                    },
+                                                  }))
+                                                }
+                                                className="bg-[#11141D] border border-[#2C344A] rounded px-2 py-1 text-[11px] text-white"
+                                              >
+                                                {POPCORN_FLAVORS.map((fl) => (
+                                                  <option key={fl} value={fl}>
+                                                    {fl}
+                                                  </option>
+                                                ))}
+                                              </select>
+
+                                              <select
+                                                value={mod.drinkSize || 'Coca (M)'}
+                                                onChange={(e) =>
+                                                  setAddonFoodModifiers((prev) => ({
+                                                    ...prev,
+                                                    [food.id]: {
+                                                      ...prev[food.id],
+                                                      drinkSize: e.target.value,
+                                                    },
+                                                  }))
+                                                }
+                                                className="bg-[#11141D] border border-[#2C344A] rounded px-2 py-1 text-[11px] text-white"
+                                              >
+                                                {DRINK_OPTIONS.map((dr) => (
+                                                  <option key={dr} value={dr}>
+                                                    {dr}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2 self-end sm:self-center">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setAddonFoodQuantities((prev) => ({
+                                                ...prev,
+                                                [food.id]: Math.max(0, (prev[food.id] || 0) - 1),
+                                              }))
+                                            }
+                                            className="w-7 h-7 rounded bg-[#22283A] hover:bg-[#2C344C] text-white text-xs font-bold flex items-center justify-center transition"
+                                          >
+                                            -
+                                          </button>
+                                          <span className="w-6 text-center text-xs font-bold font-mono text-white">
+                                            {qty}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setAddonFoodQuantities((prev) => ({
+                                                ...prev,
+                                                [food.id]: (prev[food.id] || 0) + 1,
+                                              }))
+                                            }
+                                            className="w-7 h-7 rounded bg-[#E63845] hover:bg-[#D02B38] text-white text-xs font-bold flex items-center justify-center transition"
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Calculate Total Add-on and Submit */}
+                              {Object.values(addonFoodQuantities).some((q) => q > 0) && (
+                                <div className="bg-[#161A26] border border-[#262D40] rounded-xl p-3.5 space-y-3">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-slate-300">Tổng tiền bắp nước thêm:</span>
+                                    <span className="text-base font-extrabold text-[#F87171] font-mono">
+                                      {Object.entries(addonFoodQuantities)
+                                        .reduce((sum, [id, qty]) => {
+                                          const prod = foods.find((f) => f.id === Number(id));
+                                          return sum + (prod ? prod.price * qty : 0);
+                                        }, 0)
+                                        .toLocaleString('vi-VN')}{' '}
+                                      đ
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    disabled={concessionSubmitting}
+                                    onClick={handleAddFoodToTicket}
+                                    className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow flex items-center justify-center gap-2 cursor-pointer"
+                                  >
+                                    <span>➕</span> THANH TOÁN &amp; GÁN BẮP NƯỚC VÀO VÉ NÀY
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      ))}
+                      )}
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-5 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end text-xs">
-                    <div>
-                      <label className="block text-slate-400 mb-1">Sản phẩm:</label>
-                      <select
-                        value={inventoryProductId}
-                        onChange={(e) => setInventoryProductId(Number(e.target.value))}
-                        className="w-full bg-[#161A26] border border-[#262D40] rounded-lg px-3 py-2 text-white"
-                      >
-                        {foods.map((f) => (
-                          <option key={f.id} value={f.id}>
-                            {f.name} (Tồn: {f.stock ?? 150})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">Loại:</label>
-                      <select
-                        value={inventoryMoveType}
-                        onChange={(e) =>
-                          setInventoryMoveType(
-                            e.target.value as 'IMPORT' | 'LOSS' | 'ADJUSTMENT'
-                          )
-                        }
-                        className="w-full bg-[#161A26] border border-[#262D40] rounded-lg px-3 py-2 text-white"
-                      >
-                        <option value="IMPORT">Nhập kho (+)</option>
-                        <option value="LOSS">Hủy / Hao hụt (-)</option>
-                        <option value="ADJUSTMENT">Kiểm kê lại</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">Số lượng &amp; Lý do:</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          value={inventoryMoveQty}
-                          onChange={(e) => setInventoryMoveQty(Number(e.target.value))}
-                          className="w-20 bg-[#161A26] border border-[#262D40] rounded-lg px-2.5 py-2 text-white font-bold"
-                        />
-                        <input
-                          type="text"
-                          value={inventoryMoveReason}
-                          onChange={(e) => setInventoryMoveReason(e.target.value)}
-                          className="flex-1 bg-[#161A26] border border-[#262D40] rounded-lg px-2.5 py-2 text-white"
-                        />
+              )}
+
+              {/* ------------------------------------------------------------- */}
+              {/* SUBTAB 2: BÁN LẺ BẮP NƯỚC TẠI QUẦY (WALK-IN POS SALE)         */}
+              {/* ------------------------------------------------------------- */}
+              {concessionSubTab === 'pos' && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  {/* Left Column (8 cols): Food Products Menu */}
+                  <div className="lg:col-span-8 space-y-4">
+                    <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">
+                          Danh mục Bắp Nước &amp; Combo Cinemax
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          {foods.length} sản phẩm sẵn sàng
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {foods.map((food) => {
+                          const qty = directFoodQuantities[food.id] || 0;
+                          const mod = directFoodModifiers[food.id] || {};
+                          return (
+                            <div
+                              key={food.id}
+                              className={`bg-[#161A26] border rounded-xl p-4 space-y-3 transition ${
+                                qty > 0 ? 'border-[#E63845] bg-[#1A1F2E]' : 'border-[#22283A]'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <div className="text-xs font-bold text-white">{food.name}</div>
+                                  <div className="text-sm font-extrabold text-[#F87171] font-mono mt-0.5">
+                                    {food.price.toLocaleString('vi-VN')} đ
+                                  </div>
+                                </div>
+                                <span className="px-2 py-0.5 rounded text-[10px] bg-[#22283A] text-slate-400 font-mono">
+                                  Kho: {food.stock ?? 150}
+                                </span>
+                              </div>
+
+                              {/* Modifier selectors */}
+                              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                <select
+                                  value={mod.flavor || 'Vị Phô Mai'}
+                                  onChange={(e) =>
+                                    setDirectFoodModifiers((prev) => ({
+                                      ...prev,
+                                      [food.id]: { ...prev[food.id], flavor: e.target.value },
+                                    }))
+                                  }
+                                  className="w-full bg-[#11141D] border border-[#2C344A] rounded px-2 py-1 text-white"
+                                >
+                                  {POPCORN_FLAVORS.map((fl) => (
+                                    <option key={fl} value={fl}>
+                                      {fl}
+                                    </option>
+                                  ))}
+                                </select>
+                                <select
+                                  value={mod.drinkSize || 'Coca (M)'}
+                                  onChange={(e) =>
+                                    setDirectFoodModifiers((prev) => ({
+                                      ...prev,
+                                      [food.id]: { ...prev[food.id], drinkSize: e.target.value },
+                                    }))
+                                  }
+                                  className="w-full bg-[#11141D] border border-[#2C344A] rounded px-2 py-1 text-white"
+                                >
+                                  {DRINK_OPTIONS.map((dr) => (
+                                    <option key={dr} value={dr}>
+                                      {dr}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Stepper buttons */}
+                              <div className="flex items-center justify-between pt-1 border-t border-[#202738]">
+                                <span className="text-[11px] text-slate-400">Số lượng:</span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setDirectFoodQuantities((prev) => ({
+                                        ...prev,
+                                        [food.id]: Math.max(0, (prev[food.id] || 0) - 1),
+                                      }))
+                                    }
+                                    className="w-7 h-7 rounded bg-[#22283A] hover:bg-[#2C344C] text-white text-xs font-bold flex items-center justify-center transition"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="w-6 text-center text-xs font-bold font-mono text-white">
+                                    {qty}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setDirectFoodQuantities((prev) => ({
+                                        ...prev,
+                                        [food.id]: (prev[food.id] || 0) + 1,
+                                      }))
+                                    }
+                                    className="w-7 h-7 rounded bg-[#E63845] hover:bg-[#D02B38] text-white text-xs font-bold flex items-center justify-center transition"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleRecordInventoryMovement}
-                      className="py-2 px-4 rounded-lg bg-[#E63845] text-white font-bold"
-                    >
-                      Cập nhật kho
-                    </button>
+                  </div>
+
+                  {/* Right Column (4 cols): Direct POS Receipt & Checkout */}
+                  <div className="lg:col-span-4 space-y-4">
+                    <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-5 space-y-4">
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-white">
+                        Hóa đơn Bắp Nước tại quầy
+                      </h3>
+
+                      <div className="space-y-2 border-y border-[#1E2433] py-3 min-h-[160px]">
+                        {Object.entries(directFoodQuantities).filter(([, q]) => q > 0).length ===
+                        0 ? (
+                          <div className="text-center py-10 text-xs text-slate-500">
+                            Chưa chọn món nào từ danh mục
+                          </div>
+                        ) : (
+                          Object.entries(directFoodQuantities)
+                            .filter(([, q]) => q > 0)
+                            .map(([id, qty]) => {
+                              const item = foods.find((f) => f.id === Number(id));
+                              if (!item) return null;
+                              return (
+                                <div
+                                  key={id}
+                                  className="flex items-center justify-between text-xs py-1"
+                                >
+                                  <div>
+                                    <span className="font-semibold text-white">{item.name}</span>
+                                    <span className="text-[#F87171] font-bold ml-1.5">x{qty}</span>
+                                  </div>
+                                  <span className="font-mono text-slate-200">
+                                    {(item.price * qty).toLocaleString('vi-VN')} đ
+                                  </span>
+                                </div>
+                              );
+                            })
+                        )}
+                      </div>
+
+                      {/* Payment Method Selector */}
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] text-slate-400 font-medium">
+                          Phương thức thanh toán:
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setDirectPaymentMethod('CASH')}
+                            className={`py-2 rounded-lg text-xs font-bold border transition ${
+                              directPaymentMethod === 'CASH'
+                                ? 'bg-[#1C2638] border-sky-500 text-sky-300'
+                                : 'bg-[#161A26] border-[#262D40] text-slate-400'
+                            }`}
+                          >
+                            Tiền mặt
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDirectPaymentMethod('VNPAY')}
+                            className={`py-2 rounded-lg text-xs font-bold border transition ${
+                              directPaymentMethod === 'VNPAY'
+                                ? 'bg-[#1C2638] border-sky-500 text-sky-300'
+                                : 'bg-[#161A26] border-[#262D40] text-slate-400'
+                            }`}
+                          >
+                            VNPAY QR
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Total Amount */}
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-xs text-slate-400 font-semibold">Tổng thanh toán:</span>
+                        <span className="text-lg font-extrabold text-[#F87171] font-mono">
+                          {Object.entries(directFoodQuantities)
+                            .reduce((sum, [id, qty]) => {
+                              const item = foods.find((f) => f.id === Number(id));
+                              return sum + (item ? item.price * qty : 0);
+                            }, 0)
+                            .toLocaleString('vi-VN')}{' '}
+                          đ
+                        </span>
+                      </div>
+
+                      {/* Submit Button */}
+                      <button
+                        type="button"
+                        disabled={
+                          concessionSubmitting ||
+                          !Object.values(directFoodQuantities).some((q) => q > 0)
+                        }
+                        onClick={handleDirectConcessionSale}
+                        className="w-full py-3 rounded-xl bg-[#E63845] hover:bg-[#D02B38] disabled:bg-[#1E2433] disabled:text-slate-600 text-white font-extrabold text-xs transition shadow cursor-pointer"
+                      >
+                        {concessionSubmitting
+                          ? 'Đang xử lý...'
+                          : '🛒 THANH TOÁN &amp; XUẤT KHO'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ------------------------------------------------------------- */}
+              {/* SUBTAB 3: KIỂM KÊ KHO & TỒN HÀNG (INVENTORY MANAGEMENT)       */}
+              {/* ------------------------------------------------------------- */}
+              {concessionSubTab === 'inventory' && (
+                <div className="space-y-4">
+                  {/* Stock Adjustment Action Card */}
+                  <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-5 space-y-4">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-white">
+                      Điều chỉnh nhập / xuất kho nhanh
+                    </h3>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs items-end">
+                      <div>
+                        <label className="block text-slate-400 mb-1">Sản phẩm:</label>
+                        <select
+                          value={inventoryProductId}
+                          onChange={(e) => setInventoryProductId(Number(e.target.value))}
+                          className="w-full bg-[#161A26] border border-[#262D40] rounded-lg px-3 py-2 text-white"
+                        >
+                          {foods.map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.name} (Tồn: {f.stock ?? 150})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-400 mb-1">Loại thao tác:</label>
+                        <select
+                          value={inventoryMoveType}
+                          onChange={(e) =>
+                            setInventoryMoveType(
+                              e.target.value as 'IMPORT' | 'LOSS' | 'ADJUSTMENT'
+                            )
+                          }
+                          className="w-full bg-[#161A26] border border-[#262D40] rounded-lg px-3 py-2 text-white"
+                        >
+                          <option value="IMPORT">Nhập kho bổ sung (+)</option>
+                          <option value="LOSS">Hao hụt / Đổ vỡ (-)</option>
+                          <option value="ADJUSTMENT">Kiểm kê cập nhật tồn</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-400 mb-1">Số lượng &amp; Lý do:</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={inventoryMoveQty}
+                            onChange={(e) => setInventoryMoveQty(Number(e.target.value))}
+                            className="w-20 bg-[#161A26] border border-[#262D40] rounded-lg px-2.5 py-2 text-white font-bold font-mono"
+                          />
+                          <input
+                            type="text"
+                            value={inventoryMoveReason}
+                            onChange={(e) => setInventoryMoveReason(e.target.value)}
+                            placeholder="Lý do điều chỉnh..."
+                            className="flex-1 bg-[#161A26] border border-[#262D40] rounded-lg px-2.5 py-2 text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleRecordInventoryMovement}
+                        className="py-2.5 px-4 rounded-lg bg-[#E63845] hover:bg-[#D02B38] text-white font-bold transition shrink-0"
+                      >
+                        Cập nhật kho
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Stock Table */}
+                  <div className="bg-[#11141D] border border-[#1E2433] rounded-xl overflow-hidden">
+                    <div className="p-4 border-b border-[#1E2433] flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">
+                        Bảng tồn kho thời gian thực của quầy
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {foods.length} mã hàng
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-[#161A26] text-slate-400 font-semibold border-b border-[#202738]">
+                          <tr>
+                            <th className="py-2.5 px-4">Tên sản phẩm</th>
+                            <th className="py-2.5 px-4">Danh mục</th>
+                            <th className="py-2.5 px-4">Đơn giá</th>
+                            <th className="py-2.5 px-4">Tồn kho</th>
+                            <th className="py-2.5 px-4">Trạng thái</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#1C2230]">
+                          {foods.map((food) => {
+                            const stock = food.stock ?? 150;
+                            return (
+                              <tr key={food.id} className="hover:bg-[#161A26]/50">
+                                <td className="py-3 px-4 font-bold text-white">{food.name}</td>
+                                <td className="py-3 px-4 text-slate-400">{food.category || 'Combo'}</td>
+                                <td className="py-3 px-4 font-mono text-slate-300">
+                                  {food.price.toLocaleString('vi-VN')} đ
+                                </td>
+                                <td className="py-3 px-4 font-mono font-bold text-white">
+                                  {stock}
+                                </td>
+                                <td className="py-3 px-4">
+                                  {stock > 20 ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#14261C] text-emerald-400 border border-emerald-800/40">
+                                      Đầy đủ
+                                    </span>
+                                  ) : stock > 0 ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#2A2318] text-amber-400 border border-amber-800/40">
+                                      Sắp hết
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#2E1418] text-[#F87171] border border-[#E63845]/40">
+                                      Hết hàng
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}
