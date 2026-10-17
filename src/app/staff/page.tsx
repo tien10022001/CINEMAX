@@ -312,6 +312,132 @@ function detectOrphanSeats(
   return null;
 }
 
+function generateTicketSerial(orderId: string, seatCode: string) {
+  const cleanId = orderId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase();
+  const cleanSeat = seatCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  let hash = 0;
+  const str = `${orderId}:${seatCode}`;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const checkDigit = Math.abs((hash % 900) + 100);
+  return `2D${cleanId}${cleanSeat}${checkDigit}`;
+}
+
+function generateBarcodeNumber(orderId: string, seatCode: string) {
+  let hash = 0;
+  const str = `TKT-${orderId}-${seatCode}`;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const numPart = Math.abs(hash).toString().padStart(13, '5').slice(0, 13);
+  return `7804${numPart}`;
+}
+
+function isVipSeat(seatCode: string): boolean {
+  if (!seatCode) return false;
+  const row = seatCode.charAt(0).toUpperCase();
+  return ['D', 'E', 'F', 'G', 'H'].includes(row);
+}
+
+function formatTicketDateTime(isoOrDateStr?: string): string {
+  if (!isoOrDateStr) {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  }
+  try {
+    const d = new Date(isoOrDateStr);
+    if (isNaN(d.getTime())) return isoOrDateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  } catch {
+    return isoOrDateStr;
+  }
+}
+
+function getAudienceTypeLabel(type?: string): string {
+  switch (type) {
+    case 'STUDENT':
+      return 'HSSV (-20%)';
+    case 'CHILD':
+      return 'Trẻ em';
+    case 'SENIOR':
+      return 'Người cao tuổi';
+    case 'ADULT':
+    default:
+      return 'Người lớn (Adult)';
+  }
+}
+
+function getAgeRatingNotice(rating?: string): string {
+  const r = (rating || 'T16').toUpperCase();
+  if (r === 'C18' || r === 'T18') {
+    return '*** LƯU Ý: Phim cấm phổ biến đến khán giả dưới 18 tuổi (C18). Vui lòng mang CCCD khi vào rạp. ***';
+  }
+  if (r === 'T16' || r === 'C16') {
+    return '*** LƯU Ý: Phim được phổ biến đến người xem từ 16 tuổi trở lên (T16). Vui lòng mang CCCD khi vào rạp. ***';
+  }
+  if (r === 'T13' || r === 'C13') {
+    return '*** LƯU Ý: Phim được phổ biến đến người xem từ 13 tuổi trở lên (T13). ***';
+  }
+  return '*** Phim được phổ biến đến mọi đối tượng khán giả (P). Chúc bạn xem phim vui vẻ! ***';
+}
+
+function renderBarcodeSvg(code: string) {
+  const bars: { width: number; isBlack: boolean }[] = [];
+  bars.push({ width: 2, isBlack: true });
+  bars.push({ width: 1, isBlack: false });
+  bars.push({ width: 2, isBlack: true });
+  bars.push({ width: 1, isBlack: false });
+  for (let i = 0; i < code.length; i++) {
+    const charCode = code.charCodeAt(i);
+    const w1 = (charCode % 3) + 1;
+    const w2 = ((charCode >> 1) % 2) + 1;
+    const w3 = ((charCode >> 2) % 3) + 1;
+    bars.push({ width: w1, isBlack: true });
+    bars.push({ width: w2, isBlack: false });
+    bars.push({ width: w3, isBlack: true });
+    bars.push({ width: 1, isBlack: false });
+  }
+  bars.push({ width: 2, isBlack: true });
+  bars.push({ width: 1, isBlack: false });
+  bars.push({ width: 2, isBlack: true });
+
+  let currentX = 2;
+  const renderedBars = bars.map((bar, idx) => {
+    const x = currentX;
+    currentX += bar.width * 1.6;
+    if (!bar.isBlack) return null;
+    return (
+      <rect
+        key={idx}
+        x={x}
+        y={0}
+        width={bar.width * 1.4}
+        height={36}
+        fill="#000000"
+      />
+    );
+  });
+
+  return (
+    <svg className="w-44 h-9 mx-auto my-1" viewBox="0 0 160 36" preserveAspectRatio="none">
+      {renderedBars}
+    </svg>
+  );
+}
+
 export default function StaffWorkspacePage() {
   const {
     movies,
@@ -962,6 +1088,7 @@ export default function StaffWorkspacePage() {
   const [scanInputCode, setScanInputCode] = useState<string>('');
   const [inspectedOrder, setInspectedOrder] = useState<SharedTicketOrder | null>(null);
   const [printedQrDataUrl, setPrintedQrDataUrl] = useState<string>('');
+  const [printedSeatQrs, setPrintedSeatQrs] = useState<Record<string, string>>({});
   const [ageVerifiedChecked, setAgeVerifiedChecked] = useState<boolean>(false);
   const [selectedSeatsForPartialCheckin, setSelectedSeatsForPartialCheckin] = useState<string[]>([]);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -1004,12 +1131,22 @@ export default function StaffWorkspacePage() {
       }
     }
     let clean = trimmed.replace(/^CINEMAX:TKT:/i, '').replace(/^#/, '');
+    if (clean.includes(':')) {
+      clean = clean.split(':')[0];
+    }
     return clean;
   }, []);
 
   const handleInspectTicket = useCallback(
     (codeToSearch?: string) => {
       const rawQuery = (codeToSearch ?? scanInputCode).trim();
+      let targetedSeat: string | null = null;
+      if (/^CINEMAX:TKT:/i.test(rawQuery)) {
+        const parts = rawQuery.replace(/^CINEMAX:TKT:/i, '').split(':');
+        if (parts.length > 1) {
+          targetedSeat = parts[1];
+        }
+      }
       const query = extractBookingCodeFromQrPayload(rawQuery);
       if (!query) {
         setScanError('Vui lòng nhập mã đơn hàng hoặc quét mã QR để kiểm tra.');
@@ -1033,9 +1170,13 @@ export default function StaffWorkspacePage() {
       const remainingSeats = found.seats.filter(
         (s) => !(found.checked_in_seats || []).includes(s)
       );
-      setSelectedSeatsForPartialCheckin(
-        remainingSeats.length > 0 ? remainingSeats : [...found.seats]
-      );
+      if (targetedSeat && remainingSeats.includes(targetedSeat)) {
+        setSelectedSeatsForPartialCheckin([targetedSeat]);
+      } else {
+        setSelectedSeatsForPartialCheckin(
+          remainingSeats.length > 0 ? remainingSeats : [...found.seats]
+        );
+      }
       setAgeVerifiedChecked(found.age_rating === 'P' || Boolean(found.age_check_passed));
     },
     [scanInputCode, orders, extractBookingCodeFromQrPayload]
@@ -1093,12 +1234,14 @@ export default function StaffWorkspacePage() {
   }, [handleInspectConcessionTicket]);
 
 
-  // Generate real QR code for thermal print modal
+  // Generate real QR code for thermal print modal (both whole order and per-seat)
   useEffect(() => {
     if (!printingOrder) {
       setPrintedQrDataUrl('');
+      setPrintedSeatQrs({});
       return;
     }
+
     QRCode.toDataURL(printingOrder.id, {
       width: 220,
       margin: 1,
@@ -1106,6 +1249,29 @@ export default function StaffWorkspacePage() {
     })
       .then((url) => setPrintedQrDataUrl(url))
       .catch(() => setPrintedQrDataUrl(''));
+
+    const seats = printingOrder.seats && printingOrder.seats.length > 0 ? printingOrder.seats : ['A1'];
+    Promise.all(
+      seats.map(async (seat) => {
+        const payload = `CINEMAX:TKT:${printingOrder.id}:${seat}`;
+        try {
+          const url = await QRCode.toDataURL(payload, {
+            width: 200,
+            margin: 1,
+            color: { dark: '#000000', light: '#FFFFFF' },
+          });
+          return { seat, url };
+        } catch {
+          return { seat, url: '' };
+        }
+      })
+    ).then((results) => {
+      const map: Record<string, string> = {};
+      results.forEach((r) => {
+        map[r.seat] = r.url;
+      });
+      setPrintedSeatQrs(map);
+    });
   }, [printingOrder]);
 
   // Real Live Webcam QR Scanner Loop using jsQR
@@ -4556,83 +4722,332 @@ export default function StaffWorkspacePage() {
       {/* ==================================================================== */}
       {/* MODAL 5: IN VÉ NHIỆT                                                 */}
       {/* ==================================================================== */}
-      {printingOrder && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white text-black rounded-xl max-w-sm w-full p-6 shadow-2xl space-y-4 font-mono">
-            <div className="text-center border-b border-dashed border-slate-400 pb-3">
-              <div className="text-base font-black">CINEMAX THEATER</div>
-              <div className="text-[11px] text-slate-600">{printingOrder.cinema_name}</div>
-            </div>
+      {/* ==================================================================== */}
+      {/* MODAL 5: IN VÉ NHIỆT (MULTI-TICKET THERMAL PRINT)                   */}
+      {/* ==================================================================== */}
+      {printingOrder && (() => {
+        const seatsToPrint = printingOrder.seats && printingOrder.seats.length > 0 ? printingOrder.seats : ['A1'];
+        const foodCost = (printingOrder.foods || []).reduce((sum, f) => sum + (f.price || 0) * (f.qty || 1), 0);
+        const seatCount = seatsToPrint.length;
+        const ticketPortion = Math.max(0, (printingOrder.total_amount || 0) - foodCost);
+        const unitSeatPrice = ticketPortion > 0 ? Math.round(ticketPortion / seatCount) : Math.round(printingOrder.total_amount / seatCount);
+        const currentPrintTime = formatTicketDateTime();
 
-            {printedQrDataUrl && (
+        const renderTicketContent = (seat: string, idx: number) => {
+          const serial = generateTicketSerial(printingOrder.id, seat);
+          const barcodeNum = generateBarcodeNumber(printingOrder.id, seat);
+          const seatQr = printedSeatQrs[seat] || printedQrDataUrl;
+          const isVip = isVipSeat(seat);
+
+          return (
+            <div className="space-y-2 text-black leading-snug">
+              {/* Header Rap */}
+              <div className="text-center space-y-0.5">
+                <div className="text-xs font-black tracking-wider uppercase">
+                  {printingOrder.cinema_name ? printingOrder.cinema_name.toUpperCase() : 'CINEMAX QUẬN 1'}
+                </div>
+                <div className="text-[10px] text-gray-700">
+                  Tầng 3, TTTM Cinemax Plaza, TP. Hồ Chí Minh
+                </div>
+                <div className="text-[9.5px] text-gray-700 font-mono">
+                  MST: 0314892019
+                </div>
+                <div className="text-[9px] text-gray-600 font-mono">
+                  Mẫu số: 01GTKT0/001 - Ký hiệu: CX/26P
+                </div>
+              </div>
+
+              {/* Duong cat net dut */}
+              <div className="border-t border-dashed border-black/80 my-1.5" />
+
+              {/* Ten loai ve & Ma so */}
+              <div className="text-center space-y-0.5">
+                <div className="text-sm font-black tracking-widest uppercase">
+                  VÉ XEM PHIM
+                </div>
+                <div className="text-[10px] font-mono font-bold tracking-wider">
+                  Số: {serial}
+                </div>
+              </div>
+
+              {/* Duong cat net dut */}
+              <div className="border-t border-dashed border-black/80 my-1.5" />
+
+              {/* Chi tiet suat chieu & Phim */}
+              <div className="space-y-1 text-[11px]">
+                <div className="flex justify-between items-baseline font-bold">
+                  <span>Suất chiếu:</span>
+                  <span className="font-mono">{formatTicketDateTime(printingOrder.start_time)}</span>
+                </div>
+
+                <div className="pt-0.5">
+                  <div className="font-extrabold text-xs tracking-tight uppercase leading-snug">
+                    {printingOrder.movie_title}
+                  </div>
+                  <div className="text-[10px] text-gray-700 font-semibold">
+                    Định dạng: {printingOrder.screen_type || '2D DIGITAL'} (Phụ đề)
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center text-[10.5px] pt-0.5">
+                  <span>Loại vé / Đối tượng:</span>
+                  <span className="font-semibold">{getAudienceTypeLabel(printingOrder.audience_type)}</span>
+                </div>
+
+                <div className="flex justify-between items-center text-[10.5px]">
+                  <span>Đơn giá:</span>
+                  <span className="font-bold font-mono">
+                    {unitSeatPrice.toLocaleString('vi-VN')} đ <span className="text-[9px] font-normal text-gray-600">(Đã gồm 5% VAT)</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Duong cat net dut */}
+              <div className="border-t border-dashed border-black/80 my-1.5" />
+
+              {/* Phong chieu & Ghe ngoi - Noi bat nhat */}
+              <div className="py-1.5 px-2 text-center bg-gray-100/90 rounded border border-gray-300">
+                <div className="text-[11px] font-bold uppercase tracking-tight">
+                  Phòng / Cinema: {printingOrder.room_name || 'Phòng 01 (2D Laser)'}
+                </div>
+                <div className="text-2xl font-black tracking-widest text-black my-0.5">
+                  GHẾ: {seat}
+                </div>
+                <div className="text-[10px] text-gray-700 font-semibold">
+                  ({isVip ? 'Ghế VIP' : 'Ghế Standard'})
+                </div>
+              </div>
+
+              {/* Bap nuoc neu co trong don */}
+              {printingOrder.foods && printingOrder.foods.length > 0 && (
+                <>
+                  <div className="border-t border-dashed border-black/80 my-1.5" />
+                  <div className="text-[10px] space-y-0.5">
+                    <div className="font-bold uppercase tracking-tight text-gray-800">Bắp nước đi kèm vé:</div>
+                    {printingOrder.foods.map((food, fIdx) => (
+                      <div key={fIdx} className="flex justify-between pl-1 text-gray-700">
+                        <span>• {food.name}</span>
+                        <span className="font-bold font-mono">x{food.qty}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Canh bao do tuoi */}
+              <div className="border-t border-dashed border-black/80 my-1.5" />
+              <div className="text-[9.5px] leading-tight text-center font-bold italic py-0.5 text-gray-800">
+                {getAgeRatingNotice(printingOrder.age_rating)}
+              </div>
+
+              {/* Duong cat net dut */}
+              <div className="border-t border-dashed border-black/80 my-1.5" />
+
+              {/* Thong tin nhan vien & Giao dich */}
+              <div className="space-y-0.5 text-[9.5px] text-gray-700">
+                <div className="flex justify-between">
+                  <span>Thu ngân:</span>
+                  <span className="font-semibold">{staffName} ({posTerminal})</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Thời gian in:</span>
+                  <span className="font-mono">{currentPrintTime}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Thanh toán:</span>
+                  <span>{printingOrder.payment_method || 'Tiền mặt'} (Đã thanh toán)</span>
+                </div>
+                <div className="flex justify-between font-mono">
+                  <span>Mã đơn hàng:</span>
+                  <span className="font-bold">#{printingOrder.id}</span>
+                </div>
+              </div>
+
+              {/* Ma vach Barcode */}
+              <div className="text-center pt-1.5 pb-0.5">
+                {renderBarcodeSvg(barcodeNum)}
+                <div className="text-[9.5px] font-mono tracking-widest font-bold">
+                  {barcodeNum}
+                </div>
+              </div>
+
+              {/* Ma QR soat ve */}
               <div className="flex flex-col items-center py-1">
-                <img
-                  src={printedQrDataUrl}
-                  alt="QR Vé"
-                  className="w-36 h-36 border border-slate-300 rounded p-1"
-                />
-                <span className="text-[10px] text-slate-500 mt-1">
-                  Mã QR chuẩn quét tại cổng soát vé
-                </span>
+                {seatQr ? (
+                  <img
+                    src={seatQr}
+                    alt={`QR-Seat-${seat}`}
+                    className="w-28 h-28 object-contain p-0.5 bg-white border border-gray-300 rounded"
+                  />
+                ) : (
+                  <div className="w-28 h-28 border border-dashed border-gray-400 flex items-center justify-center text-[9px] text-gray-500">
+                    Đang tạo QR...
+                  </div>
+                )}
+                <div className="text-[9px] text-gray-600 tracking-tight mt-1 font-semibold">
+                  (Quét mã QR tại cửa soát vé)
+                </div>
               </div>
-            )}
 
-            <div className="space-y-1.5 text-xs border-b border-dashed border-slate-400 pb-3">
-              <div className="flex justify-between">
-                <span>Mã đơn:</span>
-                <span className="font-bold">#{printingOrder.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Phim:</span>
-                <span className="font-bold text-right">{printingOrder.movie_title}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Phòng / Ghế:</span>
-                <span className="font-bold">
-                  {printingOrder.room_name} - {printingOrder.seats.join(', ')}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Đồ ăn:</span>
-                <span className="font-bold text-right">
-                  {printingOrder.foods && printingOrder.foods.length > 0
-                    ? printingOrder.foods.map((f) => `${f.qty}x ${f.name}`).join(', ')
-                    : 'Không'}
-                </span>
+              {/* Duong cat net dut */}
+              <div className="border-t border-dashed border-black/80 my-1.5" />
+
+              {/* Loi cam on & Hotline */}
+              <div className="text-center text-[9px] space-y-0.5 text-gray-700 pt-0.5">
+                <div className="font-bold">Hotline: 1900 636 862 - www.cinemax.vn</div>
+                <div>Cảm ơn Quý khách & chúc bạn xem phim vui vẻ!</div>
+                <div className="text-[8.5px] italic text-gray-500">
+                  * Vé đã mua vui lòng không đổi trả *
+                </div>
               </div>
             </div>
+          );
+        };
 
-            <div className="flex justify-between items-center text-sm font-black">
-              <span>TỔNG CỘNG:</span>
-              <span>{printingOrder.total_amount.toLocaleString('vi-VN')} đ</span>
+        return (
+          <>
+            {/* Global Print CSS Isolation */}
+            <style jsx global>{`
+              @media print {
+                @page {
+                  size: 80mm auto;
+                  margin: 0mm !important;
+                }
+                html, body {
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: #ffffff !important;
+                  color: #000000 !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                body * {
+                  visibility: hidden !important;
+                }
+                #cinemax-print-root,
+                #cinemax-print-root * {
+                  visibility: visible !important;
+                }
+                #cinemax-print-root {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 78mm !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: #ffffff !important;
+                  display: block !important;
+                  z-index: 999999 !important;
+                }
+                .cinemax-ticket-stub {
+                  width: 76mm !important;
+                  max-width: 76mm !important;
+                  margin: 0 auto !important;
+                  padding: 4mm 3mm !important;
+                  box-sizing: border-box !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                  page-break-after: always !important;
+                  break-after: page !important;
+                  color: #000000 !important;
+                  background: #ffffff !important;
+                  font-family: 'Courier New', Courier, monospace, sans-serif !important;
+                }
+                .cinemax-ticket-stub:last-child {
+                  page-break-after: avoid !important;
+                  break-after: auto !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+            `}</style>
+
+            {/* Hidden container for print only */}
+            <div id="cinemax-print-root" className="hidden print:block">
+              {seatsToPrint.map((seat, idx) => (
+                <div key={`print-stub-${seat}-${idx}`} className="cinemax-ticket-stub">
+                  {renderTicketContent(seat, idx)}
+                </div>
+              ))}
             </div>
 
-            <div className="grid grid-cols-3 gap-2 pt-2 font-sans">
-              <button
-                type="button"
-                onClick={() => setPrintingOrder(null)}
-                className="py-2 rounded-lg bg-slate-200 text-slate-800 font-bold text-xs"
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDownloadQrImage(printedQrDataUrl, printingOrder.id)}
-                className="py-2 rounded-lg bg-slate-800 text-white font-bold text-xs"
-              >
-                Tải ảnh QR
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="py-2 rounded-lg bg-[#E63845] text-white font-bold text-xs"
-              >
-                In ngay
-              </button>
+            {/* On-screen Preview Dialog */}
+            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3 sm:p-4 no-print">
+              <div className="bg-[#121622] border border-[#262D40] text-white rounded-2xl max-w-md w-full flex flex-col max-h-[92vh] shadow-2xl overflow-hidden font-sans">
+                {/* Header */}
+                <div className="p-3.5 sm:p-4 border-b border-[#262D40] flex items-center justify-between bg-[#161A26]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-sm text-white">Xem trước vé in nhiệt</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E63845]/20 text-[#E63845] border border-[#E63845]/30">
+                        {seatsToPrint.length} vé ({seatsToPrint.length} trang)
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Khổ giấy nhiệt 80mm • Đơn #{printingOrder.id}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPrintingOrder(null)}
+                    className="w-8 h-8 rounded-lg bg-[#202738] hover:bg-[#2A344C] text-slate-300 flex items-center justify-center text-sm font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Ticket Stubs Scrollable List */}
+                <div className="p-4 overflow-y-auto space-y-4 bg-[#0A0D14] flex-1">
+                  {seatsToPrint.map((seat, idx) => (
+                    <div key={`preview-ticket-${seat}-${idx}`} className="space-y-1">
+                      <div className="flex justify-between items-center px-1 text-[11px] font-bold text-slate-400">
+                        <span>Vé {idx + 1} / {seatsToPrint.length} • Ghế {seat}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">Trang {idx + 1}</span>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-md border border-slate-300 p-4 font-mono">
+                        {renderTicketContent(seat, idx)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer buttons */}
+                <div className="p-3.5 sm:p-4 border-t border-[#262D40] bg-[#161A26] flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPrintingOrder(null)}
+                    className="px-4 py-2.5 rounded-xl bg-[#202738] hover:bg-[#2A344C] text-slate-300 font-bold text-xs"
+                  >
+                    Đóng
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const firstSeat = seatsToPrint[0];
+                        const qr = printedSeatQrs[firstSeat] || printedQrDataUrl;
+                        handleDownloadQrImage(qr, `${printingOrder.id}-${firstSeat}`);
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl bg-[#202738] hover:bg-[#2A344C] text-white font-bold text-xs"
+                    >
+                      Tải ảnh QR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="px-4 py-2.5 rounded-xl bg-[#E63845] hover:bg-[#D42B38] text-white font-extrabold text-xs shadow-lg shadow-[#E63845]/30 flex items-center gap-1.5"
+                    >
+                      <span>In {seatsToPrint.length} vé ngay</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        );
+      })()}
     </div>
   );
 }
