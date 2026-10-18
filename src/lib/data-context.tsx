@@ -276,8 +276,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           if (syncRes.ok) {
             const syncJson = await syncRes.json();
             if (syncJson.success && syncJson.data) {
-              const d = syncJson.data;
-              if (d.movies?.length) setMovies(d.movies);
+              if (d.movies?.length) {
+                const normMovies = d.movies.map((m: any, idx: number) => ({
+                  id: m.id || idx + 1,
+                  supabase_id: String(m.id),
+                  title: m.title,
+                  original_title: m.original_title || m.title,
+                  slug: m.slug,
+                  synopsis: m.synopsis || '',
+                  duration_min: Number(m.duration_minutes || m.duration_min || 120),
+                  release_date: m.release_date || '',
+                  end_date: m.end_date || '',
+                  age_rating: m.age_rating || 'T13',
+                  country: m.country || 'Việt Nam',
+                  director: m.director || '',
+                  cast_list: m.cast_list || '',
+                  poster_url: m.poster_url || '',
+                  banner_url: m.banner_url || m.poster_url || '',
+                  trailer_url: m.trailer_url || '',
+                  imdb_score: m.imdb_score || 8.0,
+                  status: (m.status?.toLowerCase() === 'coming_soon' ? 'COMING_SOON' : 'NOW_SHOWING'),
+                  is_deleted: false,
+                  genres: (m.genres && m.genres.length > 0) ? m.genres : [{ id: 1, name: 'Hành Động', slug: 'hanh-dong' }]
+                }));
+                setMovies(normMovies);
+              }
               if (d.foods?.length) setFoods(d.foods);
               if (d.promotions?.length) setPromotions(d.promotions);
             }

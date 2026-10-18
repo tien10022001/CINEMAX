@@ -530,7 +530,7 @@ export default function MoviesView({
     const matchSearch = m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.director && m.director.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (m.cast_list && m.cast_list.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchStatus = statusFilter === 'ALL' || m.status === statusFilter;
+    const matchStatus = statusFilter === 'ALL' || m.status?.toLowerCase() === statusFilter.toLowerCase();
     return matchSearch && matchStatus;
   });
 
@@ -564,10 +564,10 @@ export default function MoviesView({
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 custom-scrollbar">
           {[
             { id: 'ALL', label: 'Tất cả', count: movies.length },
-            { id: 'now_showing', label: 'Đang Chiếu', count: movies.filter((m) => m.status === 'now_showing').length },
-            { id: 'coming_soon', label: 'Sắp Chiếu', count: movies.filter((m) => m.status === 'coming_soon').length },
-            { id: 'ended', label: 'Kết Thúc', count: movies.filter((m) => m.status === 'ended').length },
-            { id: 'draft', label: 'Nháp', count: movies.filter((m) => m.status === 'draft').length }
+            { id: 'now_showing', label: 'Đang Chiếu', count: movies.filter((m) => m.status?.toLowerCase() === 'now_showing').length },
+            { id: 'coming_soon', label: 'Sắp Chiếu', count: movies.filter((m) => m.status?.toLowerCase() === 'coming_soon').length },
+            { id: 'ended', label: 'Kết Thúc', count: movies.filter((m) => m.status?.toLowerCase() === 'ended').length },
+            { id: 'draft', label: 'Nháp', count: movies.filter((m) => m.status?.toLowerCase() === 'draft').length }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -718,18 +718,18 @@ export default function MoviesView({
                 <div className="pt-2.5 border-t border-[#1F2739] flex items-center justify-between mt-2.5">
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      movie.status === 'now_showing'
+                      movie.status?.toLowerCase() === 'now_showing'
                         ? 'bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30'
-                        : movie.status === 'coming_soon'
+                        : movie.status?.toLowerCase() === 'coming_soon'
                         ? 'bg-[#FABF2E]/15 text-[#FABF2E] border border-[#FABF2E]/30'
                         : 'bg-[#6B7280]/15 text-[#9CA3AF] border border-[#6B7280]/30'
                     }`}
                   >
-                    {movie.status === 'now_showing'
+                    {movie.status?.toLowerCase() === 'now_showing'
                       ? 'Đang Chiếu'
-                      : movie.status === 'coming_soon'
+                      : movie.status?.toLowerCase() === 'coming_soon'
                       ? 'Sắp Chiếu'
-                      : movie.status === 'ended'
+                      : movie.status?.toLowerCase() === 'ended'
                       ? 'Đã Dừng'
                       : 'Bản Nháp'}
                   </span>

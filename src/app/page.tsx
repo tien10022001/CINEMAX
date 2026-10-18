@@ -163,11 +163,11 @@ function HomeContent() {
   );
 
   const rawNowShowing = useMemo(
-    () => movies.filter((m) => m.status?.toUpperCase() === 'NOW_SHOWING' || m.status === 'now_showing'),
+    () => movies.filter((m) => m.status?.toLowerCase() === 'now_showing'),
     [movies]
   );
   const rawUpcoming = useMemo(
-    () => movies.filter((m) => m.status?.toUpperCase() === 'COMING_SOON' || m.status === 'coming_soon'),
+    () => movies.filter((m) => m.status?.toLowerCase() === 'coming_soon'),
     [movies]
   );
 

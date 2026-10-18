@@ -199,12 +199,9 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
     };
   });
 
-  // Include remaining MOCK_MOVIES that aren't in DB yet so homepage stays rich
-  const dbMovieIds = new Set(dbMovies.map((m) => m.id));
-  const mergedMovies = [
-    ...dbMovies,
-    ...MOCK_MOVIES.filter((m) => !dbMovieIds.has(m.id)),
-  ];
+  // Database là Single Source of Truth: Khi DB đã có phim, chỉ hiển thị danh mục từ DB
+  // để đồng bộ chuẩn xác 100% giữa Admin và User/Guest
+  const mergedMovies = dbMovies.length > 0 ? dbMovies : MOCK_MOVIES;
 
   // 3. Map seats & auditoriums
   const seatIdToCode: Record<string, string> = {};

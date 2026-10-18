@@ -1,6 +1,79 @@
 {
-  "last_updated": "2026-10-18T06:34:36.827Z",
+  "last_updated": "2026-10-18T06:50:34.646Z",
   "movies": [
+    {
+      "id": "a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d",
+      "title": "Deadpool & Wolverine",
+      "slug": "deadpool-wolverine",
+      "synopsis": "Hai siêu anh hùng huyền thoại của Marvel kết hợp trong một chuyến phiêu lưu đa vũ trụ đầy bạo lực và hài hước.",
+      "director": "Shawn Levy",
+      "cast_list": null,
+      "language": "Tiếng Việt",
+      "duration_minutes": 127,
+      "age_rating": "T18",
+      "poster_url": "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800",
+      "banner_url": "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=1440",
+      "trailer_url": "https://www.youtube.com/watch?v=73_1biulkYk",
+      "release_date": "2026-07-26",
+      "end_date": null,
+      "status": "coming_soon",
+      "created_at": "2026-10-17T01:20:34.674775+00:00",
+      "updated_at": "2026-10-18T06:37:06.511609+00:00",
+      "country": "Mỹ",
+      "studio": null,
+      "meta_title": "Deadpool & Wolverine",
+      "meta_description": "Hai siêu anh hùng huyền thoại của Marvel kết hợp trong một chuyến phiêu lưu đa vũ trụ đầy bạo lực và hài hước.",
+      "imdb_score": 8.3,
+      "formats": [
+        "2D",
+        "3D",
+        "IMAX"
+      ],
+      "movie_genres": [],
+      "genres": [
+        {
+          "id": "b8b3fd64-a8f5-496a-9d24-19eb9f8438ea",
+          "name": "Gia Đình",
+          "slug": "gia-dinh",
+          "active": true,
+          "created_at": "2026-10-17T01:20:34.674775+00:00",
+          "updated_at": "2026-10-17T01:20:34.674775+00:00"
+        }
+      ],
+      "original_title": "Deadpool & Wolverine",
+      "tier": "STANDARD",
+      "is_blockbuster": false
+    },
+    {
+      "id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
+      "title": "Kẻ Trộm Mặt Trời (Furiosa)",
+      "slug": "furiosa-a-mad-max-saga",
+      "synopsis": "Nguồn gốc của nữ chiến binh Furiosa trước khi cô gặp Mad Max trong vùng đất hoang tàn bạo tàn.",
+      "director": "George Miller",
+      "cast_list": null,
+      "language": "Tiếng Việt",
+      "duration_minutes": 148,
+      "age_rating": "T18",
+      "poster_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800",
+      "banner_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1440",
+      "trailer_url": "https://www.youtube.com/watch?v=XJMuhwVlca4",
+      "release_date": "2026-05-24",
+      "end_date": null,
+      "status": "now_showing",
+      "created_at": "2026-10-17T01:20:34.674775+00:00",
+      "updated_at": "2026-10-17T08:14:07.914976+00:00",
+      "country": "Úc",
+      "studio": null,
+      "meta_title": null,
+      "meta_description": null,
+      "imdb_score": 8,
+      "formats": [
+        "2D",
+        "IMAX"
+      ],
+      "movie_genres": [],
+      "genres": []
+    },
     {
       "id": "e5f6a1b2-c3d4-4e5f-2a6b-7c8d9e0f1a2b",
       "title": "Transformers Một",
@@ -61,116 +134,6 @@
       ],
       "movie_genres": [],
       "genres": []
-    },
-    {
-      "id": "a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d",
-      "title": "Deadpool & Wolverine",
-      "slug": "deadpool-wolverine",
-      "synopsis": "Hai siêu anh hùng huyền thoại của Marvel kết hợp trong một chuyến phiêu lưu đa vũ trụ đầy bạo lực và hài hước.",
-      "director": "Shawn Levy",
-      "cast_list": null,
-      "language": "Tiếng Việt",
-      "duration_minutes": 127,
-      "age_rating": "T18",
-      "poster_url": "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800",
-      "banner_url": "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=1440",
-      "trailer_url": "https://www.youtube.com/watch?v=73_1biulkYk",
-      "release_date": "2026-07-26",
-      "end_date": null,
-      "status": "now_showing",
-      "created_at": "2026-10-17T01:20:34.674775+00:00",
-      "updated_at": "2026-10-17T08:14:07.914976+00:00",
-      "country": "Mỹ",
-      "studio": null,
-      "meta_title": null,
-      "meta_description": null,
-      "imdb_score": 8.3,
-      "formats": [
-        "2D",
-        "3D",
-        "IMAX"
-      ],
-      "movie_genres": [],
-      "genres": []
-    },
-    {
-      "id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
-      "title": "Kẻ Trộm Mặt Trời (Furiosa)",
-      "slug": "furiosa-a-mad-max-saga",
-      "synopsis": "Nguồn gốc của nữ chiến binh Furiosa trước khi cô gặp Mad Max trong vùng đất hoang tàn bạo tàn.",
-      "director": "George Miller",
-      "cast_list": null,
-      "language": "Tiếng Việt",
-      "duration_minutes": 148,
-      "age_rating": "T18",
-      "poster_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800",
-      "banner_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1440",
-      "trailer_url": "https://www.youtube.com/watch?v=XJMuhwVlca4",
-      "release_date": "2026-05-24",
-      "end_date": null,
-      "status": "now_showing",
-      "created_at": "2026-10-17T01:20:34.674775+00:00",
-      "updated_at": "2026-10-17T08:14:07.914976+00:00",
-      "country": "Úc",
-      "studio": null,
-      "meta_title": null,
-      "meta_description": null,
-      "imdb_score": 8,
-      "formats": [
-        "2D",
-        "IMAX"
-      ],
-      "movie_genres": [],
-      "genres": []
-    },
-    {
-      "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "title": "Mai",
-      "slug": "mai",
-      "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-      "director": "Trấn Thành",
-      "cast_list": null,
-      "language": "Tiếng Việt",
-      "duration_minutes": 131,
-      "age_rating": "T18",
-      "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-      "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-      "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-      "release_date": "2026-10-11",
-      "end_date": null,
-      "status": "now_showing",
-      "created_at": "2026-10-13T14:33:48.971286+00:00",
-      "updated_at": "2026-10-17T08:14:07.914976+00:00",
-      "country": "Việt Nam",
-      "studio": null,
-      "meta_title": null,
-      "meta_description": null,
-      "imdb_score": 8.2,
-      "formats": [
-        "2D"
-      ],
-      "movie_genres": [
-        {
-          "genre": {
-            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
-            "name": "Hoạt Hình",
-            "slug": "hoat-hinh",
-            "active": true,
-            "created_at": "2026-10-13T14:33:48.971286+00:00",
-            "updated_at": "2026-10-13T14:33:48.971286+00:00"
-          }
-        }
-      ],
-      "genres": [
-        {
-          "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
-          "name": "Hoạt Hình",
-          "slug": "hoat-hinh",
-          "active": true,
-          "created_at": "2026-10-13T14:33:48.971286+00:00",
-          "updated_at": "2026-10-13T14:33:48.971286+00:00"
-        }
-      ]
     },
     {
       "id": "c1da65d7-b688-4bcc-9fb8-75efb28e319f",
@@ -239,6 +202,136 @@
           "updated_at": "2026-10-13T14:33:48.971286+00:00"
         }
       ]
+    },
+    {
+      "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
+      "title": "Mai",
+      "slug": "mai",
+      "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
+      "director": "Trấn Thành",
+      "cast_list": null,
+      "language": "Tiếng Việt",
+      "duration_minutes": 131,
+      "age_rating": "T18",
+      "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
+      "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
+      "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
+      "release_date": "2026-10-11",
+      "end_date": null,
+      "status": "now_showing",
+      "created_at": "2026-10-13T14:33:48.971286+00:00",
+      "updated_at": "2026-10-17T08:14:07.914976+00:00",
+      "country": "Việt Nam",
+      "studio": null,
+      "meta_title": null,
+      "meta_description": null,
+      "imdb_score": 8.2,
+      "formats": [
+        "2D"
+      ],
+      "movie_genres": [
+        {
+          "genre": {
+            "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+            "name": "Hoạt Hình",
+            "slug": "hoat-hinh",
+            "active": true,
+            "created_at": "2026-10-13T14:33:48.971286+00:00",
+            "updated_at": "2026-10-13T14:33:48.971286+00:00"
+          }
+        }
+      ],
+      "genres": [
+        {
+          "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+          "name": "Hoạt Hình",
+          "slug": "hoat-hinh",
+          "active": true,
+          "created_at": "2026-10-13T14:33:48.971286+00:00",
+          "updated_at": "2026-10-13T14:33:48.971286+00:00"
+        }
+      ]
+    },
+    {
+      "id": "b2c3d4e5-f6a1-4b2c-8d3e-4f5a6b7c8d9e",
+      "title": "Inside Out 2: Cảm Xúc Mới",
+      "slug": "inside-out-2",
+      "synopsis": "Riley bước vào tuổi dậy thì, kéo theo sự xuất hiện của những cảm xúc mới tinh như Lo Âu, Ghen Tị, Xấu Hổ náo loạn trung tâm điều khiển não bộ.",
+      "director": "Kelsey Mann",
+      "cast_list": "Amy Poehler, Maya Hawke",
+      "language": "Tiếng Việt",
+      "duration_minutes": 110,
+      "age_rating": "T16",
+      "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80",
+      "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1440&q=80",
+      "trailer_url": "https://www.youtube.com/watch?v=L4DrolmDxmw",
+      "release_date": "2026-10-25",
+      "end_date": null,
+      "status": "coming_soon",
+      "created_at": "2026-10-18T06:50:34.645Z",
+      "updated_at": "2026-10-18T06:50:34.646Z",
+      "country": "Mỹ",
+      "studio": "Pixar Animation Studios",
+      "meta_title": "Inside Out 2: Cảm Xúc Mới",
+      "meta_description": "Những cảm xúc mới của tuổi dậy thì",
+      "imdb_score": 8,
+      "formats": [
+        "2D",
+        "3D"
+      ],
+      "movie_genres": [],
+      "genres": [
+        {
+          "id": "802bbbdc-9c6c-4a34-8d34-a5acf1664961",
+          "name": "Hoạt Hình",
+          "slug": "hoat-hinh"
+        },
+        {
+          "id": "b8b3fd64-a8f5-496a-9d24-19eb9f8438ea",
+          "name": "Gia Đình",
+          "slug": "gia-dinh"
+        }
+      ],
+      "tier": "STANDARD",
+      "is_blockbuster": false
+    },
+    {
+      "id": "d4e5f6a1-b2c3-4d4e-0f5a-6b7c8d9e0f1a",
+      "title": "Chúa Tể Godzilla x Kong",
+      "slug": "godzilla-x-kong",
+      "synopsis": "Hai quái thú khổng lồ huyền thoại sát cánh bên nhau chống lại mối đe dọa ẩn sâu trong lòng đất, đe dọa đến sự tồn vong của nhân loại.",
+      "director": "Adam Wingard",
+      "cast_list": "Rebecca Hall, Dan Stevens",
+      "language": "Tiếng Việt",
+      "duration_minutes": 102,
+      "age_rating": "K",
+      "poster_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=800&q=80",
+      "banner_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1440&q=80",
+      "trailer_url": "https://www.youtube.com/watch?v=lV1OOlGwExg",
+      "release_date": "2026-11-12",
+      "end_date": null,
+      "status": "coming_soon",
+      "created_at": "2026-10-18T06:50:34.646Z",
+      "updated_at": "2026-10-18T06:50:34.646Z",
+      "country": "Mỹ",
+      "studio": "Legendary Pictures",
+      "meta_title": "Chúa Tể Godzilla x Kong",
+      "meta_description": "Trận chiến quái thú đỉnh cao",
+      "imdb_score": 7.8,
+      "formats": [
+        "2D",
+        "IMAX"
+      ],
+      "movie_genres": [],
+      "genres": [
+        {
+          "id": "8bde4678-6b28-4fd6-a421-621a55a6fe3b",
+          "name": "Hành Động",
+          "slug": "hanh-dong"
+        }
+      ],
+      "tier": "STANDARD",
+      "is_blockbuster": true
     }
   ],
   "genres": [
@@ -12857,6 +12950,42 @@
     }
   ],
   "orders": [
+    {
+      "id": "CNM261018-2R27V",
+      "order_code": "CNM261018-2R27V",
+      "channel": "online",
+      "status": "paid",
+      "contact_name": "Quản trị viên Cinemax",
+      "contact_phone": "0988888888",
+      "contact_email": "admin@cinemax.vn",
+      "total_amount": 249000,
+      "subtotal": 249000,
+      "created_at": "2026-10-18T06:41:11.276Z",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 124500,
+          "item_snapshot": {
+            "movieTitle": "Mai",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 2 (2D Digital)",
+            "showTime": "14:01 • 2026-10-18",
+            "seatCode": "E7"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 124500,
+          "item_snapshot": {
+            "movieTitle": "Mai",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 2 (2D Digital)",
+            "showTime": "14:01 • 2026-10-18",
+            "seatCode": "E6"
+          }
+        }
+      ]
+    },
     {
       "id": "CNM261018-8OA5T",
       "order_code": "CNM261018-8OA5T",

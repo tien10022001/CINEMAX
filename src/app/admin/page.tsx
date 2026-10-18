@@ -570,9 +570,11 @@ export default function AdminPage() {
         meta_description: m.meta_description || m.synopsis || '',
         formats: m.formats || ['2D'],
         status:
-          m.status?.toUpperCase() === 'NOW_SHOWING' || m.status === 'now_showing'
-            ? 'NOW_SHOWING'
-            : 'COMING_SOON',
+          m.status?.toLowerCase() === 'coming_soon'
+            ? 'COMING_SOON'
+            : m.status?.toLowerCase() === 'ended'
+            ? 'ENDED'
+            : 'NOW_SHOWING',
         is_deleted: false,
         genres: (m.genres && m.genres.length > 0)
           ? m.genres.map((g: any, idx: number) => ({ id: g.id || idx + 1, name: g.name, slug: g.slug }))
