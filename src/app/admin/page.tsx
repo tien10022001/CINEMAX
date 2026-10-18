@@ -451,6 +451,15 @@ export default function AdminPage() {
     };
   }, [loadDatabaseBundle]);
 
+  // Ensure window scroll is always at top when navigating tabs so no UI is cut off
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [activeTab]);
+
   // Two-way synchronization: Push current modifications to DB & pull newest records
   const handleSyncAll = async () => {
     setIsSyncing(true);
@@ -1855,7 +1864,7 @@ export default function AdminPage() {
   // VIEW 2: AUTHENTICATED MASTER CINEMA ADMIN
   // =========================================================================
   return (
-    <div className="h-screen overflow-hidden bg-[#0A0D14] flex text-white font-sans antialiased">
+    <div className="fixed inset-0 overflow-hidden bg-[#0A0D14] flex text-white font-sans antialiased">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-[#161C2A] border border-[#22C55E] text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
@@ -1888,7 +1897,7 @@ export default function AdminPage() {
       {/* Main Content Area */}
       <main className="flex-1 min-w-0 flex flex-col h-full overflow-y-auto">
         {/* Top Header Bar */}
-        <header className="h-16 px-6 border-b border-[#171D29] bg-[#0A0D14]/90 backdrop-blur-md flex items-center justify-between sticky top-0 z-20">
+        <header className="h-16 px-6 border-b border-[#171D29] bg-[#0A0D14]/90 backdrop-blur-md flex items-center justify-between sticky top-0 z-20 shrink-0">
           <div className="flex items-center gap-3">
             <Menu className="w-5 h-5 text-[#8E9AAF]" />
             <h2 className="text-sm font-bold text-white tracking-wide">
@@ -2123,7 +2132,7 @@ export default function AdminPage() {
         </header>
 
         {/* Tab View Container (Compact for single screen) */}
-        <div className="p-3 sm:p-4 max-w-7xl w-full mx-auto flex-1 flex flex-col">
+        <div className="p-4 sm:p-5 max-w-7xl w-full mx-auto flex-1 flex flex-col">
           <>
               {activeTab === 'DASHBOARD' && (
                 <DashboardView

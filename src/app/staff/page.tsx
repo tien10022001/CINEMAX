@@ -2192,7 +2192,7 @@ export default function StaffWorkspacePage() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-[#090B10] text-slate-100 flex font-sans select-none">
+    <div className="fixed inset-0 overflow-hidden bg-[#090B10] text-slate-100 flex font-sans select-none">
       {/* ==================================================================== */}
       {/* MINIMAL LEFT SIDEBAR (EXACT MATCH TO VIDEO, NO CLUTTER)              */}
       {/* ==================================================================== */}

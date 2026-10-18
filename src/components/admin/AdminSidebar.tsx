@@ -130,9 +130,9 @@ export default function AdminSidebar({
   });
 
   return (
-    <aside className="w-64 bg-[#0A0D14] border-r border-[#171D29] flex flex-col h-screen sticky top-0 select-none z-30 shrink-0">
+    <aside className="w-64 bg-[#0A0D14] border-r border-[#171D29] flex flex-col h-full select-none z-30 shrink-0">
       {/* Brand Header */}
-      <div className="h-16 px-6 border-b border-[#171D29] flex items-center justify-between">
+      <div className="h-16 px-6 border-b border-[#171D29] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-[#E50914] flex items-center justify-center text-white font-black text-sm shadow-lg shadow-[#E50914]/40">
             <Film className="w-4 h-4 text-white" />
