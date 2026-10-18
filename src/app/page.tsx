@@ -316,44 +316,6 @@ function HomeContent() {
               totalFilteredCount={allFilteredMovies.length}
               onResetFilters={resetAllFilters}
             />
-
-            {/* Banner thông báo mã ưu đãi đang áp dụng (nếu khách bấm Dùng mã ngay từ tab Khuyến mãi) */}
-            {activePromoCode && (
-              <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 -mb-4">
-                <div className="bg-gradient-to-r from-[#FABF2E]/15 via-[#1A1C26] to-[#E63845]/15 border border-[#FABF2E]/40 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs text-white shadow-lg animate-in fade-in">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-[#FABF2E]/20 text-[#FABF2E] flex items-center justify-center shrink-0">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-white text-sm flex items-center gap-2 flex-wrap">
-                        <span>Đã kích hoạt mã ưu đãi:</span>
-                        <span className="font-mono text-[#FABF2E] uppercase px-2 py-0.5 rounded bg-[#FABF2E]/20 border border-[#FABF2E]/40">
-                          {activePromoCode}
-                        </span>
-                      </p>
-                      <p className="text-[11px] text-[#9EA6B8] mt-0.5">
-                        Vui lòng chọn phim bạn muốn xem bên dưới để tiếp tục đặt vé và áp dụng ưu đãi!
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (typeof window !== 'undefined') sessionStorage.removeItem('cinemax_applied_promo');
-                      const url = new URL(window.location.href);
-                      url.searchParams.delete('promo');
-                      window.history.replaceState({}, '', url.toString());
-                      setActivePromoCode('');
-                    }}
-                    className="text-[#9EA6B8] hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
-                    title="Bỏ chọn mã"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Filter pills: Tất cả, Đang chiếu, Suất chiếu đặc biệt, Sắp chiếu */}
             <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20">
               <div className="flex items-center justify-between border-b border-[#303645] pb-4 gap-4 flex-wrap">
