@@ -30,6 +30,7 @@ export default function MovieCard({ movie, isUpcoming = false }: MovieCardProps)
           alt={movie.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
+          suppressHydrationWarning
         />
       </Link>
 

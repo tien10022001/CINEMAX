@@ -146,37 +146,8 @@ export function sanitizeCinemas(raw: any[]): Cinema[] {
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [movies, setMovies] = useState<Movie[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('cinemax_movies_v2');
-        if (stored) {
-          const p = JSON.parse(stored);
-          if (Array.isArray(p) && p.length > 0) return p;
-        }
-      } catch {}
-    }
-    return MOCK_MOVIES;
-  });
-
-  const [cinemas, setCinemas] = useState<Cinema[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('cinemax_cinemas_v2') || localStorage.getItem('cinemax_cinemas_list');
-        if (stored) {
-          const p = JSON.parse(stored);
-          const sanitized = sanitizeCinemas(p);
-          // If any stale mock cinemas existed, purge them from storage immediately
-          if (sanitized.length !== p.length || (sanitized[0] && sanitized[0].name !== p[0]?.name)) {
-            localStorage.setItem('cinemax_cinemas_v2', JSON.stringify(sanitized));
-          }
-          return sanitized;
-        }
-      } catch {}
-    }
-    return MOCK_CINEMAS;
-  });
-
+  const [movies, setMovies] = useState<Movie[]>(MOCK_MOVIES);
+  const [cinemas, setCinemas] = useState<Cinema[]>(MOCK_CINEMAS);
   const [showtimes, setShowtimes] = useState<Showtime[]>(MOCK_SHOWTIMES);
   const [promotions, setPromotions] = useState<Promotion[]>(MOCK_PROMOTIONS);
   const [foods, setFoods] = useState<FoodItem[]>(MOCK_FOODS);
@@ -188,18 +159,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [soldSeatsByShowtime, setSoldSeatsByShowtime] = useState<Record<number, string[]>>({});
   const [seatUuidLookup, setSeatUuidLookup] = useState<Record<string, string>>({});
   const [tableCounts, setTableCounts] = useState<Record<string, number>>({});
-  const [auditoriums, setAuditoriums] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('cinemax_auditoriums_v2');
-        if (stored) {
-          const p = JSON.parse(stored);
-          if (Array.isArray(p) && p.length > 0) return p;
-        }
-      } catch {}
-    }
-    return [];
-  });
+  const [auditoriums, setAuditoriums] = useState<any[]>([]);
 
   const refreshFromSupabase = useCallback(async () => {
     try {
