@@ -298,66 +298,68 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     // Listen to live database update events from Admin for ALL entities
     const handleDbUpdated = (e: any) => {
-      let handled = false;
-      if (e?.detail?.movies && Array.isArray(e.detail.movies)) {
-        setMovies(e.detail.movies);
-        localStorage.setItem('cinemax_movies_v2', JSON.stringify(e.detail.movies));
-        handled = true;
-      }
-      if (e?.detail?.promotions && Array.isArray(e.detail.promotions)) {
-        setPromotions(e.detail.promotions);
-        localStorage.setItem('cinemax_promotions_v2', JSON.stringify(e.detail.promotions));
-        handled = true;
-      }
-      if (e?.detail?.foods && Array.isArray(e.detail.foods)) {
-        setFoods(e.detail.foods);
-        localStorage.setItem('cinemax_foods_v2', JSON.stringify(e.detail.foods));
-        handled = true;
-      }
-      if (e?.detail?.showtimes && Array.isArray(e.detail.showtimes)) {
-        setShowtimes(e.detail.showtimes);
-        localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(e.detail.showtimes));
-        handled = true;
-      }
-      if (e?.detail?.cinemas && Array.isArray(e.detail.cinemas)) {
-        setCinemas(e.detail.cinemas);
-        localStorage.setItem('cinemax_cinemas_v2', JSON.stringify(e.detail.cinemas));
-        handled = true;
-      }
-      if (e?.detail?.siteSettings) {
-        setSiteSettings(e.detail.siteSettings);
-        localStorage.setItem('cinemax_site_settings_v2', JSON.stringify(e.detail.siteSettings));
-        handled = true;
-      }
-      if (e?.detail?.auditoriums && Array.isArray(e.detail.auditoriums)) {
-        setAuditoriums(e.detail.auditoriums);
-        localStorage.setItem('cinemax_auditoriums_v2', JSON.stringify(e.detail.auditoriums));
-        handled = true;
-      }
-
-      if (!handled) {
-        // Fallback to local storage reads
-        const localM = localStorage.getItem('cinemax_movies_v2');
-        if (localM) try { setMovies(JSON.parse(localM)); } catch {}
-        const localA = localStorage.getItem('cinemax_auditoriums_v2');
-        if (localA) try { setAuditoriums(JSON.parse(localA)); } catch {}
-        const localP = localStorage.getItem('cinemax_promotions_v2');
-        if (localP) try { setPromotions(JSON.parse(localP)); } catch {}
-        const localF = localStorage.getItem('cinemax_foods_v2');
-        if (localF) try { setFoods(JSON.parse(localF)); } catch {}
-        const localS = localStorage.getItem('cinemax_showtimes_v2');
-        if (localS) try { setShowtimes(JSON.parse(localS)); } catch {}
-        const localC = localStorage.getItem('cinemax_cinemas_v2') || localStorage.getItem('cinemax_cinemas_list');
-        if (localC) {
-          try {
-            const parsed = JSON.parse(localC);
-            const sanitized = sanitizeCinemas(parsed);
-            setCinemas(sanitized);
-          } catch {}
+      queueMicrotask(() => {
+        let handled = false;
+        if (e?.detail?.movies && Array.isArray(e.detail.movies)) {
+          setMovies(e.detail.movies);
+          localStorage.setItem('cinemax_movies_v2', JSON.stringify(e.detail.movies));
+          handled = true;
         }
-        const localSet = localStorage.getItem('cinemax_site_settings_v2');
-        if (localSet) try { setSiteSettings(JSON.parse(localSet)); } catch {}
-      }
+        if (e?.detail?.promotions && Array.isArray(e.detail.promotions)) {
+          setPromotions(e.detail.promotions);
+          localStorage.setItem('cinemax_promotions_v2', JSON.stringify(e.detail.promotions));
+          handled = true;
+        }
+        if (e?.detail?.foods && Array.isArray(e.detail.foods)) {
+          setFoods(e.detail.foods);
+          localStorage.setItem('cinemax_foods_v2', JSON.stringify(e.detail.foods));
+          handled = true;
+        }
+        if (e?.detail?.showtimes && Array.isArray(e.detail.showtimes)) {
+          setShowtimes(e.detail.showtimes);
+          localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(e.detail.showtimes));
+          handled = true;
+        }
+        if (e?.detail?.cinemas && Array.isArray(e.detail.cinemas)) {
+          setCinemas(e.detail.cinemas);
+          localStorage.setItem('cinemax_cinemas_v2', JSON.stringify(e.detail.cinemas));
+          handled = true;
+        }
+        if (e?.detail?.siteSettings) {
+          setSiteSettings(e.detail.siteSettings);
+          localStorage.setItem('cinemax_site_settings_v2', JSON.stringify(e.detail.siteSettings));
+          handled = true;
+        }
+        if (e?.detail?.auditoriums && Array.isArray(e.detail.auditoriums)) {
+          setAuditoriums(e.detail.auditoriums);
+          localStorage.setItem('cinemax_auditoriums_v2', JSON.stringify(e.detail.auditoriums));
+          handled = true;
+        }
+
+        if (!handled) {
+          // Fallback to local storage reads
+          const localM = localStorage.getItem('cinemax_movies_v2');
+          if (localM) try { setMovies(JSON.parse(localM)); } catch {}
+          const localA = localStorage.getItem('cinemax_auditoriums_v2');
+          if (localA) try { setAuditoriums(JSON.parse(localA)); } catch {}
+          const localP = localStorage.getItem('cinemax_promotions_v2');
+          if (localP) try { setPromotions(JSON.parse(localP)); } catch {}
+          const localF = localStorage.getItem('cinemax_foods_v2');
+          if (localF) try { setFoods(JSON.parse(localF)); } catch {}
+          const localS = localStorage.getItem('cinemax_showtimes_v2');
+          if (localS) try { setShowtimes(JSON.parse(localS)); } catch {}
+          const localC = localStorage.getItem('cinemax_cinemas_v2') || localStorage.getItem('cinemax_cinemas_list');
+          if (localC) {
+            try {
+              const parsed = JSON.parse(localC);
+              const sanitized = sanitizeCinemas(parsed);
+              setCinemas(sanitized);
+            } catch {}
+          }
+          const localSet = localStorage.getItem('cinemax_site_settings_v2');
+          if (localSet) try { setSiteSettings(JSON.parse(localSet)); } catch {}
+        }
+      });
     };
 
     window.addEventListener('cinemax_db_updated', handleDbUpdated);

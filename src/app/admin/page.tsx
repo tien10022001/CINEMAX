@@ -770,9 +770,9 @@ export default function AdminPage() {
         } else {
           nextList = [saved, ...prev];
         }
-        syncToCustomerView(nextList);
         return nextList;
       });
+      await syncToCustomerView(nextList);
       await AdminDataService.saveAllMovies(nextList);
       addNotification(
         movieData.id ? 'Cập nhật phim' : 'Thêm phim mới',
@@ -799,9 +799,9 @@ export default function AdminPage() {
           } as Movie;
           nextList = [created, ...prev];
         }
-        syncToCustomerView(nextList);
         return nextList;
       });
+      await syncToCustomerView(nextList);
       await AdminDataService.saveAllMovies(nextList);
       addNotification(
         movieData.id ? 'Cập nhật phim' : 'Thêm phim mới',
@@ -814,22 +814,27 @@ export default function AdminPage() {
   };
 
   const handleDeleteMovie = async (id: string) => {
-    let nextList: Movie[] = [];
+    let nextMovies: Movie[] = [];
+    let nextShowtimes: Showtime[] = [];
+
     setMovies((prev) => {
-      nextList = prev.filter((m) => m.id !== id);
-      return nextList;
+      nextMovies = prev.filter((m) => m.id !== id);
+      return nextMovies;
     });
     setShowtimes((prev) => {
-      const nextShowtimes = prev.filter((s) => s.movie_id !== id);
-      syncShowtimesToCustomer(nextShowtimes);
+      nextShowtimes = prev.filter((s) => s.movie_id !== id);
       return nextShowtimes;
     });
+
     try {
       await AdminDataService.deleteMovie(id);
-      await syncToCustomerView(nextList);
     } catch {
       // Local sync fallback
     }
+
+    await syncToCustomerView(nextMovies);
+    await syncShowtimesToCustomer(nextShowtimes);
+
     addNotification('Xóa phim khỏi danh mục', 'Đã xóa phim và gỡ toàn bộ suất chiếu liên quan.', 'DANGER', 'MOVIES', 'MOVIES');
     showToast('Đã xóa phim khỏi danh mục!');
   };
@@ -849,9 +854,9 @@ export default function AdminPage() {
         } else {
           nextList = [saved, ...prev];
         }
-        syncShowtimesToCustomer(nextList);
         return nextList;
       });
+      await syncShowtimesToCustomer(nextList);
       addNotification('Xếp lịch suất chiếu', `Đã lên lịch suất chiếu định dạng ${showtimeData.format || '2D'} thành công.`, 'SUCCESS', 'MOVIES', 'SHOWTIMES');
     } catch {
       const movie = movies.find((m) => m.id === showtimeData.movie_id);
@@ -876,9 +881,9 @@ export default function AdminPage() {
           };
           nextList = [created, ...prev];
         }
-        syncShowtimesToCustomer(nextList);
         return nextList;
       });
+      await syncShowtimesToCustomer(nextList);
       addNotification('Xếp lịch suất chiếu', `Đã lên lịch suất chiếu định dạng ${showtimeData.format || '2D'} thành công.`, 'SUCCESS', 'MOVIES', 'SHOWTIMES');
     }
   };
