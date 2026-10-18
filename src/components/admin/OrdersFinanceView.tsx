@@ -26,7 +26,10 @@ import {
   ScanLine,
   ShieldCheck,
   Eye,
-  AlertCircle
+  AlertCircle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import {
   Order,
@@ -102,6 +105,35 @@ export default function OrdersFinanceView({
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ISSUED' | 'USED' | 'CANCELLED'>('ALL');
   const [filterOrderStatus, setFilterOrderStatus] = useState<'ALL' | 'PAID' | 'PENDING' | 'REFUNDED' | 'CANCELLED'>('ALL');
   const [activeOrderDetail, setActiveOrderDetail] = useState<Order | null>(null);
+
+  // Column sorting state
+  type TicketSortField = 'createdAt' | 'status' | 'orderCode' | 'customer' | 'price' | 'qrToken' | 'movie';
+  type OrderSortField = 'created_at' | 'status' | 'order_code' | 'customer' | 'total_amount';
+  type SortDirection = 'asc' | 'desc';
+
+  const [ticketSortField, setTicketSortField] = useState<TicketSortField>('createdAt');
+  const [ticketSortDir, setTicketSortDir] = useState<SortDirection>('desc');
+
+  const [orderSortField, setOrderSortField] = useState<OrderSortField>('created_at');
+  const [orderSortDir, setOrderSortDir] = useState<SortDirection>('desc');
+
+  const handleTicketSort = (field: TicketSortField) => {
+    if (ticketSortField === field) {
+      setTicketSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setTicketSortField(field);
+      setTicketSortDir(field === 'createdAt' || field === 'price' ? 'desc' : 'asc');
+    }
+  };
+
+  const handleOrderSort = (field: OrderSortField) => {
+    if (orderSortField === field) {
+      setOrderSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setOrderSortField(field);
+      setOrderSortDir(field === 'created_at' || field === 'total_amount' ? 'desc' : 'asc');
+    }
+  };
 
   // Quick ticket check-in state
   const [quickScanCode, setQuickScanCode] = useState('');
@@ -268,6 +300,118 @@ export default function OrdersFinanceView({
       return true;
     });
   }, [orders, term, filterChannel, filterOrderStatus]);
+
+  // Sorted list for Ticket Management
+  const sortedMergedList = useMemo(() => {
+    const list = [...filteredMergedList];
+    if (!ticketSortField) return list;
+
+    return list.sort((a, b) => {
+      let comparison = 0;
+      switch (ticketSortField) {
+        case 'createdAt': {
+          const tA = new Date(a.createdAt || 0).getTime();
+          const tB = new Date(b.createdAt || 0).getTime();
+          comparison = tA - tB;
+          break;
+        }
+        case 'status': {
+          const statusOrder: Record<string, number> = { issued: 1, used: 2, cancelled: 3 };
+          const sA = statusOrder[a.status] ?? 99;
+          const sB = statusOrder[b.status] ?? 99;
+          comparison = sA - sB;
+          if (comparison === 0) {
+            comparison = (a.status || '').localeCompare(b.status || '');
+          }
+          break;
+        }
+        case 'orderCode': {
+          comparison = (a.orderCode || '').localeCompare(b.orderCode || '', undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          });
+          break;
+        }
+        case 'customer': {
+          const nameA = (a.customerName || '').trim();
+          const nameB = (b.customerName || '').trim();
+          comparison = nameA.localeCompare(nameB, 'vi', { sensitivity: 'base' });
+          if (comparison === 0 && (a.customerPhone || b.customerPhone)) {
+            comparison = (a.customerPhone || '').localeCompare(b.customerPhone || '');
+          }
+          break;
+        }
+        case 'price': {
+          comparison = (Number(a.price) || 0) - (Number(b.price) || 0);
+          break;
+        }
+        case 'qrToken': {
+          comparison = (a.qrToken || '').localeCompare(b.qrToken || '', undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          });
+          break;
+        }
+        case 'movie': {
+          comparison = (a.movieTitle || '').localeCompare(b.movieTitle || '', 'vi', {
+            sensitivity: 'base'
+          });
+          break;
+        }
+        default:
+          comparison = 0;
+      }
+      return ticketSortDir === 'asc' ? comparison : -comparison;
+    });
+  }, [filteredMergedList, ticketSortField, ticketSortDir]);
+
+  // Sorted list for Orders Management
+  const sortedOrders = useMemo(() => {
+    const list = [...filteredOrders];
+    if (!orderSortField) return list;
+
+    return list.sort((a, b) => {
+      let comparison = 0;
+      switch (orderSortField) {
+        case 'created_at': {
+          const tA = new Date(a.created_at || 0).getTime();
+          const tB = new Date(b.created_at || 0).getTime();
+          comparison = tA - tB;
+          break;
+        }
+        case 'status': {
+          const statusOrder: Record<string, number> = { paid: 1, pending: 2, refunded: 3, cancelled: 4, expired: 5 };
+          const sA = statusOrder[a.status] ?? 99;
+          const sB = statusOrder[b.status] ?? 99;
+          comparison = sA - sB;
+          break;
+        }
+        case 'order_code': {
+          comparison = (a.order_code || '').localeCompare(b.order_code || '', undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          });
+          break;
+        }
+        case 'customer': {
+          const nameA = (a.contact_name || '').trim();
+          const nameB = (b.contact_name || '').trim();
+          comparison = nameA.localeCompare(nameB, 'vi', { sensitivity: 'base' });
+          if (comparison === 0 && (a.contact_phone || b.contact_phone)) {
+            comparison = (a.contact_phone || '').localeCompare(b.contact_phone || '');
+          }
+          break;
+        }
+        case 'total_amount': {
+          comparison = (Number(a.total_amount) || 0) - (Number(b.total_amount) || 0);
+          break;
+        }
+        default:
+          comparison = 0;
+      }
+      return orderSortDir === 'asc' ? comparison : -comparison;
+    });
+  }, [filteredOrders, orderSortField, orderSortDir]);
 
   const filteredRefunds = (refunds || []).filter((r) => {
     if (!term) return true;
@@ -620,18 +764,137 @@ export default function OrdersFinanceView({
             <table className="w-full text-xs text-left border-collapse">
               <thead>
                 <tr className="border-b border-[#222B3D] text-[#8E9AAF]">
-                  <th className="py-2.5 px-3 font-bold">Mã Vé & QR Token</th>
-                  <th className="py-2.5 px-3 font-bold">Mã Đơn / Kênh</th>
-                  <th className="py-2.5 px-3 font-bold">Khách Hàng</th>
-                  <th className="py-2.5 px-3 font-bold">Phim & Suất Chiếu & Ghế</th>
-                  <th className="py-2.5 px-3 font-bold text-right">Giá Vé / Tiền</th>
-                  <th className="py-2.5 px-3 font-bold text-center">Trạng Thái</th>
-                  <th className="py-2.5 px-3 font-bold">Thời Gian</th>
+                  <th
+                    onClick={() => handleTicketSort('qrToken')}
+                    className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Mã Vé & QR Token"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Mã Vé & QR Token</span>
+                      {ticketSortField === 'qrToken' ? (
+                        ticketSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleTicketSort('orderCode')}
+                    className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Mã Đơn"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Mã Đơn / Kênh</span>
+                      {ticketSortField === 'orderCode' ? (
+                        ticketSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleTicketSort('customer')}
+                    className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Khách Hàng"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Khách Hàng</span>
+                      {ticketSortField === 'customer' ? (
+                        ticketSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleTicketSort('movie')}
+                    className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Phim & Suất Chiếu"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Phim & Suất Chiếu & Ghế</span>
+                      {ticketSortField === 'movie' ? (
+                        ticketSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleTicketSort('price')}
+                    className="py-2.5 px-3 font-bold text-right cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Giá Vé"
+                  >
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span>Giá Vé / Tiền</span>
+                      {ticketSortField === 'price' ? (
+                        ticketSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleTicketSort('status')}
+                    className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Trạng Thái"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Trạng Thái</span>
+                      {ticketSortField === 'status' ? (
+                        ticketSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleTicketSort('createdAt')}
+                    className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Thời Gian"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Thời Gian</span>
+                      {ticketSortField === 'createdAt' ? (
+                        ticketSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
                   <th className="py-2.5 px-3 font-bold text-center">Thao Tác Soát Vé</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1D2536]">
-                {filteredMergedList.length === 0 ? (
+                {sortedMergedList.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-10 text-center text-[#8E9AAF]">
                       {searchTerm
@@ -640,7 +903,7 @@ export default function OrdersFinanceView({
                     </td>
                   </tr>
                 ) : (
-                  filteredMergedList.map((item, idx) => {
+                  sortedMergedList.map((item, idx) => {
                     const isUsed = item.status === 'used';
                     const isIssued = item.status === 'issued';
 
@@ -900,25 +1163,110 @@ export default function OrdersFinanceView({
             <table className="w-full text-xs text-left border-collapse">
               <thead>
                 <tr className="border-b border-[#222B3D] text-[#8E9AAF]">
-                  <th className="py-2.5 px-3 font-bold">Mã Đơn & Kênh</th>
-                  <th className="py-2.5 px-3 font-bold">Khách Hàng</th>
+                  <th
+                    onClick={() => handleOrderSort('order_code')}
+                    className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Mã Đơn"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Mã Đơn & Kênh</span>
+                      {orderSortField === 'order_code' ? (
+                        orderSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleOrderSort('customer')}
+                    className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Khách Hàng"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Khách Hàng</span>
+                      {orderSortField === 'customer' ? (
+                        orderSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
                   <th className="py-2.5 px-3 font-bold">Chi Tiết Đơn Hàng</th>
-                  <th className="py-2.5 px-3 font-bold text-right">Tổng Tiền Đơn</th>
+                  <th
+                    onClick={() => handleOrderSort('total_amount')}
+                    className="py-2.5 px-3 font-bold text-right cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Tổng Tiền"
+                  >
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span>Tổng Tiền Đơn</span>
+                      {orderSortField === 'total_amount' ? (
+                        orderSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
                   <th className="py-2.5 px-3 font-bold text-center">Phương Thức</th>
-                  <th className="py-2.5 px-3 font-bold text-center">Trạng Thái Thanh Toán</th>
-                  <th className="py-2.5 px-3 font-bold">Thời Gian Tạo</th>
+                  <th
+                    onClick={() => handleOrderSort('status')}
+                    className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Trạng Thái Thanh Toán"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Trạng Thái Thanh Toán</span>
+                      {orderSortField === 'status' ? (
+                        orderSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleOrderSort('created_at')}
+                    className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                    title="Bấm để sắp xếp theo Thời Gian Tạo"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Thời Gian Tạo</span>
+                      {orderSortField === 'created_at' ? (
+                        orderSortDir === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-[#5C677D] opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                  </th>
                   <th className="py-2.5 px-3 font-bold text-center">Thao Tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1D2536]">
-                {filteredOrders.length === 0 ? (
+                {sortedOrders.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-10 text-center text-[#8E9AAF]">
                       {searchTerm ? 'Không tìm thấy đơn hàng nào phù hợp với từ khóa.' : 'Chưa có đơn hàng nào.'}
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map((order, orderIdx) => {
+                  sortedOrders.map((order, orderIdx) => {
                     const ticketCount = (order.items || []).filter((i) => i.item_type === 'ticket').length;
                     const productCount = (order.items || []).filter((i) => i.item_type === 'product').length;
                     const firstMovie = (order.items || []).find((i) => i.item_type === 'ticket')?.item_snapshot?.movieTitle;
