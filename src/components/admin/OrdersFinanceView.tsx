@@ -719,45 +719,6 @@ export default function OrdersFinanceView({
             </div>
           </div>
 
-          {/* Quick Ticket Soát Vé / Scan Bar */}
-          <div className="bg-[#171D2B] border border-[#253045] rounded-2xl p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-inner">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#22C55E]/15 border border-[#22C55E]/30 flex items-center justify-center shrink-0">
-                <ScanLine className="w-5 h-5 text-[#22C55E] animate-pulse" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-white text-xs">Cổng Soát Vé Nhanh (Scanner / Barcode / QR)</span>
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-[#22C55E]/20 text-[#22C55E]">
-                    TRỰC TIẾP TẠI BÀN
-                  </span>
-                </div>
-                <p className="text-[10px] text-[#8E9AAF]">
-                  Quét máy quét cầm tay hoặc dán mã QR / Mã đơn để xác thực & đổi trạng thái vé ngay tức thì
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleQuickScanSubmit} className="flex items-center gap-2 flex-1 max-w-md">
-              <div className="relative flex-1">
-                <QrCode className="w-4 h-4 absolute left-3 top-2.5 text-[#FABF2E]" />
-                <input
-                  type="text"
-                  placeholder="Quét mã QR, mã vé hoặc mã đơn..."
-                  value={quickScanCode}
-                  onChange={(e) => setQuickScanCode(e.target.value)}
-                  className="w-full bg-[#121622] border border-[#2B374E] focus:border-[#22C55E] rounded-xl pl-9 pr-3 py-2 text-xs font-mono text-white placeholder-[#5C677D] focus:outline-none transition-colors"
-                />
-              </div>
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] text-black font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#22C55E]/20 transition-all shrink-0 active:scale-95"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Soát Vé</span>
-              </button>
-            </form>
-          </div>
 
           {/* Unified Table */}
           <div className="overflow-x-auto custom-scrollbar">
