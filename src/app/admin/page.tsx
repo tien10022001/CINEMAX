@@ -1855,7 +1855,7 @@ export default function AdminPage() {
   // VIEW 2: AUTHENTICATED MASTER CINEMA ADMIN
   // =========================================================================
   return (
-    <div className="min-h-screen bg-[#0A0D14] flex text-white font-sans antialiased">
+    <div className="h-screen overflow-hidden bg-[#0A0D14] flex text-white font-sans antialiased">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-[#161C2A] border border-[#22C55E] text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
@@ -1886,7 +1886,7 @@ export default function AdminPage() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto">
+      <main className="flex-1 min-w-0 flex flex-col h-full overflow-y-auto">
         {/* Top Header Bar */}
         <header className="h-16 px-6 border-b border-[#171D29] bg-[#0A0D14]/90 backdrop-blur-md flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-3">

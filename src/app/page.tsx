@@ -298,7 +298,7 @@ function HomeContent() {
         {/* Chỉ hiện: Đang chiếu, Sắp chiếu, Suất chiếu đặc biệt */}
         {/* ======================================================== */}
         {activeTab === 'movies' && (
-          <div className="space-y-10 pt-6">
+          <div className="space-y-6 pt-3 sm:pt-4">
             {/* 1 thanh Quick Booking Bar ở trên cùng giữ nguyên như ảnh */}
             <QuickBookingBar
               movies={movies}
@@ -434,8 +434,8 @@ function HomeContent() {
         {/* Chỉ hiện thông tin hệ thống rạp chiếu */}
         {/* ======================================================== */}
         {activeTab === 'cinemas' && (
-          <section className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 pt-8 space-y-8">
-            <div className="border-b border-[#303645] pb-6">
+          <section className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 pt-5 sm:pt-6 space-y-6">
+            <div className="border-b border-[#303645] pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#E63845]/10 border border-[#E63845]/30 flex items-center justify-center text-[#E63845]">
                   <MapPin className="w-5 h-5" />
@@ -515,8 +515,8 @@ function HomeContent() {
         {/* Chỉ hiện các mã khuyến mãi & ưu đãi */}
         {/* ======================================================== */}
         {activeTab === 'promotions' && (
-          <section className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 pt-8 space-y-8">
-            <div className="border-b border-[#303645] pb-6">
+          <section className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 pt-5 sm:pt-6 space-y-6">
+            <div className="border-b border-[#303645] pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#FABF2E]/10 border border-[#FABF2E]/30 flex items-center justify-center text-[#FABF2E]">
                   <Ticket className="w-5 h-5" />
@@ -588,8 +588,8 @@ function HomeContent() {
         {/* Chỉ hiện các bài viết tin tức điện ảnh */}
         {/* ======================================================== */}
         {activeTab === 'news' && (
-          <section className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 pt-8 space-y-8">
-            <div className="border-b border-[#303645] pb-6">
+          <section className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 pt-5 sm:pt-6 space-y-6">
+            <div className="border-b border-[#303645] pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#E63845]/10 border border-[#E63845]/30 flex items-center justify-center text-[#E63845]">
                   <Newspaper className="w-5 h-5" />

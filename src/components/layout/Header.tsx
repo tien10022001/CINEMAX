@@ -176,7 +176,7 @@ export default function Header({ activeTab: controlledActiveTab, onTabChange }: 
   return (
     <>
       <header className="sticky top-0 z-50 bg-[#0F1217] border-b border-[#303645]/80">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 h-20 flex items-center justify-between">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-20 h-16 sm:h-18 flex items-center justify-between">
           {/* Logo CINEMAX */}
           <Link
             href="/"

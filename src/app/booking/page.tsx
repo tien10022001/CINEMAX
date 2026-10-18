@@ -1548,11 +1548,11 @@ function BookingContent() {
     <div className="min-h-screen bg-[#0F1217] flex flex-col">
       <Header />
 
-      <main className="flex-1 max-w-[1440px] mx-auto w-full px-4 sm:px-8 lg:px-20 py-8 space-y-8">
+      <main className="flex-1 max-w-[1440px] mx-auto w-full px-3 sm:px-6 lg:px-10 py-3 sm:py-4 space-y-3 sm:space-y-4">
         {/* STEPPER & COUNTDOWN (Figma Screen 3 & 4) */}
         {currentStep < 3 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[#303645] pb-6">
-            <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-[#303645] pb-2.5 sm:pb-3">
+            <div className="flex items-center gap-3 flex-wrap">
               {/* Nút Quay Lại Bước Trước Nổi Bật */}
               {currentStep === 2 ? (
                 <button
@@ -1577,7 +1577,7 @@ function BookingContent() {
               )}
 
               {/* Stepper: Cho phép click vào các bước trước đó */}
-              <div className="flex items-center gap-2.5 text-xs sm:text-sm font-bold">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-bold">
                 <button
                   type="button"
                   onClick={() => {
@@ -1605,8 +1605,8 @@ function BookingContent() {
             </div>
 
             {/* Countdown Timer (Figma Screen 3: "⏱ Giữ ghế còn 09:42") */}
-            <div className="flex items-center gap-2 text-[#FABF2E] font-bold text-xs sm:text-sm bg-[#1A1C26] px-4 py-2 rounded-full border border-[#FABF2E]/30 shrink-0">
-              <Clock className="w-4 h-4 animate-pulse text-[#FABF2E]" />
+            <div className="flex items-center gap-2 text-[#FABF2E] font-bold text-xs sm:text-sm bg-[#1A1C26] px-3.5 py-1.5 rounded-full border border-[#FABF2E]/30 shrink-0">
+              <Clock className="w-3.5 h-3.5 animate-pulse text-[#FABF2E]" />
               <span>Giữ ghế còn:</span>
               <span className="font-mono text-sm sm:text-base font-black">{formatTime(timeLeft)}</span>
               {currentStep === 2 && isPaymentGraceApplied && (
@@ -1623,24 +1623,24 @@ function BookingContent() {
         {/* FIGMA SCREEN 3: CHỌN GHẾ */}
         {/* ======================================================== */}
         {currentStep === 1 && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-stretch">
             {/* Seat Map (Left 2 cols) */}
-            <div className="lg:col-span-2 bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 flex flex-col items-center">
+            <div className="lg:col-span-2 bg-[#1A1C26] border border-[#303645] rounded-2xl p-3 sm:p-5 flex flex-col justify-between items-center">
               {/* Thống kê đếm đúng số ghế và số ghế trống thời gian thực */}
-              <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-[#0F1217] p-3 rounded-2xl border border-[#303645] mb-8 text-xs select-none shadow-inner">
-                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#1A1C26] px-3 py-2 rounded-xl border border-[#303645]/70">
+              <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#0F1217] p-2 rounded-xl border border-[#303645] mb-2.5 sm:mb-3 text-[11px] sm:text-xs select-none shadow-inner">
+                <div className="flex items-center justify-between sm:justify-start gap-1.5 bg-[#1A1C26] px-2.5 py-1.5 rounded-lg border border-[#303645]/70">
                   <span className="text-[#9EA6B8]">Tổng số ghế:</span>
                   <span className="font-bold text-white font-mono">{totalSeatsCount} ghế</span>
                 </div>
-                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#33C773]/10 px-3 py-2 rounded-xl border border-[#33C773]/30">
+                <div className="flex items-center justify-between sm:justify-start gap-1.5 bg-[#33C773]/10 px-2.5 py-1.5 rounded-lg border border-[#33C773]/30">
                   <span className="text-[#9EA6B8]">Ghế trống:</span>
                   <span className="font-bold text-[#33C773] font-mono">{availableSeatsCount} ghế</span>
                 </div>
-                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#383D4D]/40 px-3 py-2 rounded-xl border border-[#383D4D]">
+                <div className="flex items-center justify-between sm:justify-start gap-1.5 bg-[#383D4D]/40 px-2.5 py-1.5 rounded-lg border border-[#383D4D]">
                   <span className="text-[#9EA6B8]">Đã bán:</span>
                   <span className="font-bold text-gray-300 font-mono">{soldSeatsCount} ghế</span>
                 </div>
-                <div className="flex items-center justify-between sm:justify-start gap-2 bg-[#E63845]/10 px-3 py-2 rounded-xl border border-[#E63845]/30">
+                <div className="flex items-center justify-between sm:justify-start gap-1.5 bg-[#E63845]/10 px-2.5 py-1.5 rounded-lg border border-[#E63845]/30">
                   <span className="text-[#9EA6B8]">Đang chọn:</span>
                   <span className="font-bold text-[#E63845] font-mono">{selectedSeatsCount} ghế</span>
                 </div>
@@ -1648,14 +1648,14 @@ function BookingContent() {
 
               {/* Banner cảnh báo ghế trống đơn lẻ (Orphan Seat Warning - Phương án A) */}
               {orphanWarning && orphanWarning.hasOrphanSeats && (
-                <div className="w-full bg-[#FABF2E]/10 border border-[#FABF2E]/40 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 shadow-lg">
+                <div className="w-full bg-[#FABF2E]/10 border border-[#FABF2E]/40 rounded-2xl p-3 mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs animate-in fade-in slide-in-from-top-2 shadow-lg">
                   <div className="flex items-start gap-2.5 text-[#FABF2E]">
-                    <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <div>
-                      <div className="font-bold text-white text-sm">
+                      <div className="font-bold text-white text-xs sm:text-sm">
                         Cảnh báo: Phát hiện ghế trống đơn lẻ bị kẹp
                       </div>
-                      <p className="text-gray-300 mt-1 leading-relaxed">
+                      <p className="text-gray-300 mt-0.5 text-xs leading-relaxed">
                         {orphanWarning.suggestionMessage}
                       </p>
                     </div>
@@ -1664,7 +1664,7 @@ function BookingContent() {
                     <button
                       type="button"
                       onClick={() => handleAddOrphanSeats(orphanWarning.orphanSeats)}
-                      className="px-3.5 py-1.5 rounded-lg bg-[#FABF2E] hover:bg-yellow-400 text-black font-bold text-xs cursor-pointer transition-colors shadow-md"
+                      className="px-3 py-1.5 rounded-lg bg-[#FABF2E] hover:bg-yellow-400 text-black font-bold text-xs cursor-pointer transition-colors shadow-md"
                     >
                       + Chọn luôn ghế {orphanWarning.orphanSeats.join(', ')}
                     </button>
@@ -1674,33 +1674,34 @@ function BookingContent() {
                         setAcknowledgedOrphan(true);
                         setOrphanWarning(null);
                       }}
-                      className="px-3 py-1.5 rounded-lg bg-[#303645] hover:bg-[#383D4D] text-gray-300 hover:text-white font-medium text-xs cursor-pointer transition-colors"
+                      className="px-2.5 py-1.5 rounded-lg bg-[#303645] hover:bg-[#383D4D] text-gray-300 hover:text-white font-medium text-xs cursor-pointer transition-colors"
                     >
-                      Bỏ qua & Tiếp tục
+                      Bỏ qua
                     </button>
                   </div>
                 </div>
               )}
+
               {/* Red Screen Curve (Figma Screen 3) */}
-              <div className="w-full max-w-xl mx-auto flex flex-col items-center mb-10">
-                <div className="w-full h-3 rounded-t-[100%] border-t-2 border-[#E63845] shadow-[0_-10px_20px_rgba(230,56,69,0.35)] mb-3" />
-                <span className="text-xs tracking-[0.3em] text-[#9EA6B8] font-bold uppercase">
+              <div className="w-full max-w-md mx-auto flex flex-col items-center mb-2 sm:mb-3">
+                <div className="w-full h-2 rounded-t-[100%] border-t-2 border-[#E63845] shadow-[0_-6px_14px_rgba(230,56,69,0.35)] mb-1" />
+                <span className="text-[10px] sm:text-[11px] tracking-[0.25em] text-[#9EA6B8] font-bold uppercase">
                   MÀN HÌNH
                 </span>
               </div>
 
               {/* Seat Matrix: 10 columns continuous grid matching Staff POS */}
-              <div className="w-full overflow-x-auto pb-6 flex justify-center">
-                <div className="space-y-2 select-none min-w-[320px]">
+              <div className="w-full overflow-x-auto pb-1 flex justify-center">
+                <div className="space-y-1 sm:space-y-1.5 select-none min-w-[300px]">
                   {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((row) => {
                     const isVipRow = row === 'F' || row === 'G';
                     const isCoupleRow = row === 'H';
                     return (
-                      <div key={row} className="flex items-center justify-center gap-1.5 sm:gap-2">
-                        <span className="w-4 sm:w-5 text-xs font-bold text-slate-400 text-center">
+                      <div key={row} className="flex items-center justify-center gap-1 sm:gap-1.5">
+                        <span className="w-4 sm:w-5 text-[11px] font-bold text-slate-400 text-center">
                           {row}
                         </span>
-                        <div className="grid grid-cols-10 gap-1.5 sm:gap-2">
+                        <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
                           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((col) => {
                             const code = `${row}${col}`;
                             const seat =
@@ -1758,7 +1759,7 @@ function BookingContent() {
                                 type="button"
                                 disabled={isSold || isHeld || isBlocked}
                                 onClick={() => handleSeatClick(seat as Seat)}
-                                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg text-[10px] sm:text-xs font-semibold border transition-all flex items-center justify-center cursor-pointer ${seatClass}`}
+                                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-semibold border transition-all flex items-center justify-center cursor-pointer ${seatClass}`}
                                 title={`${code} - ${
                                   isCoupleRow
                                     ? 'Ghế đôi (210.000đ)'
@@ -1772,7 +1773,7 @@ function BookingContent() {
                             );
                           })}
                         </div>
-                        <span className="w-4 sm:w-5 text-xs font-bold text-slate-400 text-center">
+                        <span className="w-4 sm:w-5 text-[11px] font-bold text-slate-400 text-center">
                           {row}
                         </span>
                       </div>
@@ -1782,71 +1783,71 @@ function BookingContent() {
               </div>
 
               {/* Seat Legend (Khớp 100% Staff POS) */}
-              <div className="w-full border-t border-[#303645] pt-6 mt-6 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs text-[#9EA6B8]">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#283044] border border-[#36415C]" />
-                  <span>Ghế thường (90.000đ)</span>
+              <div className="w-full border-t border-[#303645] pt-2.5 mt-2.5 flex flex-wrap items-center justify-center gap-2.5 sm:gap-4 text-[11px] text-[#9EA6B8]">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3.5 h-3.5 rounded bg-[#283044] border border-[#36415C]" />
+                  <span>Ghế thường (90k)</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#3B2610] border border-[#92400E] text-[#FBBF24]" />
-                  <span>Ghế VIP (110.000đ)</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3.5 h-3.5 rounded bg-[#3B2610] border border-[#92400E] text-[#FBBF24]" />
+                  <span>Ghế VIP (110k)</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#3B1530] border border-[#9D174D] text-[#F472B6]" />
-                  <span>Ghế đôi (210.000đ)</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3.5 h-3.5 rounded bg-[#3B1530] border border-[#9D174D] text-[#F472B6]" />
+                  <span>Ghế đôi (210k)</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#E63845] border border-[#E63845]" />
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3.5 h-3.5 rounded bg-[#E63845] border border-[#E63845]" />
                   <span className="text-white font-semibold">Đang chọn</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#181C26] border border-[#1E2433]" />
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3.5 h-3.5 rounded bg-[#181C26] border border-[#1E2433]" />
                   <span>Đã bán</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#2D2A1C] border border-[#854D0E]" />
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3.5 h-3.5 rounded bg-[#2D2A1C] border border-[#854D0E]" />
                   <span>Đang giữ chỗ</span>
                 </div>
               </div>
             </div>
 
             {/* Right: Thông Tin Vé Card (Figma Screen 3) */}
-            <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 flex flex-col justify-between space-y-6">
-              <div className="space-y-5">
-                <h3 className="font-bold text-white text-lg border-b border-[#303645] pb-3">
+            <div className="bg-[#1A1C26] border border-[#303645] rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-3">
+              <div className="space-y-3">
+                <h3 className="font-bold text-white text-base border-b border-[#303645] pb-2">
                   Thông tin vé
                 </h3>
 
-                <div className="space-y-3 text-xs sm:text-sm">
+                <div className="space-y-2 text-xs">
                   <div>
-                    <span className="text-[#9EA6B8] block text-xs">Phim:</span>
-                    <span className="font-bold text-white text-base">{selectedMovie.title}</span>
+                    <span className="text-[#9EA6B8] block text-[11px]">Phim:</span>
+                    <span className="font-bold text-white text-sm sm:text-base line-clamp-1">{selectedMovie.title}</span>
                   </div>
                   <div>
-                    <span className="text-[#9EA6B8] block text-xs">Rạp chiếu:</span>
+                    <span className="text-[#9EA6B8] block text-[11px]">Rạp chiếu:</span>
                     <span className="font-semibold text-white">{selectedCinema.name}</span>
                   </div>
                   <div>
-                    <span className="text-[#9EA6B8] block text-xs">Phòng chiếu:</span>
+                    <span className="text-[#9EA6B8] block text-[11px]">Phòng chiếu:</span>
                     <span className="font-semibold text-white">
                       {selectedShowtime.room?.name || 'Phòng 01 (IMAX)'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#9EA6B8] block text-xs">Suất chiếu:</span>
+                    <span className="text-[#9EA6B8] block text-[11px]">Suất chiếu:</span>
                     <span className="font-bold text-[#FABF2E]">{queryTime} • {queryDate}</span>
                   </div>
 
                   <div className="pt-2 border-t border-[#303645]">
-                    <span className="text-[#9EA6B8] block text-xs mb-1.5">Ghế đã chọn:</span>
+                    <span className="text-[#9EA6B8] block text-[11px] mb-1">Ghế đã chọn:</span>
                     {selectedSeats.length === 0 ? (
                       <span className="text-xs text-[#9EA6B8] italic">Chưa chọn ghế nào</span>
                     ) : (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
                         {selectedSeats.map((s) => (
                           <span
                             key={s.id}
-                            className="bg-[#E63845] text-white text-xs px-2.5 py-1 rounded-md font-bold"
+                            className="bg-[#E63845] text-white text-[11px] px-2 py-0.5 rounded font-bold"
                           >
                             {s.row_label}{s.seat_number}
                           </span>
@@ -1858,10 +1859,10 @@ function BookingContent() {
               </div>
 
               {/* Total & Red Tiếp Tục Button (Figma Screen 3) */}
-              <div className="pt-4 border-t border-[#303645] space-y-4">
+              <div className="pt-3 border-t border-[#303645] space-y-2.5">
                 <div className="flex justify-between items-end">
                   <span className="text-xs text-[#9EA6B8]">Tổng tiền:</span>
-                  <span className="text-2xl font-black text-[#E63845]">
+                  <span className="text-xl sm:text-2xl font-black text-[#E63845]">
                     {ticketSubtotal.toLocaleString('vi-VN')} đ
                   </span>
                 </div>
@@ -1870,7 +1871,7 @@ function BookingContent() {
                   <button
                     disabled={selectedSeats.length === 0}
                     onClick={handleProceedToStep2}
-                    className="w-full bg-[#E63845] hover:bg-[#CC2B37] disabled:opacity-40 disabled:cursor-not-allowed text-white py-3.5 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
+                    className="w-full bg-[#E63845] hover:bg-[#CC2B37] disabled:opacity-40 disabled:cursor-not-allowed text-white py-2.5 sm:py-3 rounded-full font-bold text-xs sm:text-sm shadow-md shadow-[#E63845]/30 transition-all cursor-pointer"
                   >
                     Tiếp tục chọn bắp nước & thanh toán
                   </button>
@@ -1878,7 +1879,7 @@ function BookingContent() {
                   <button
                     type="button"
                     onClick={() => router.back()}
-                    className="w-full border border-[#303645] hover:border-white/40 bg-[#0F1217] hover:bg-[#1A1C26] text-[#9EA6B8] hover:text-white py-2.5 rounded-full font-semibold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full border border-[#303645] hover:border-white/40 bg-[#0F1217] hover:bg-[#1A1C26] text-[#9EA6B8] hover:text-white py-2 rounded-full font-semibold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Quay lại trang trước</span>
@@ -2231,20 +2232,20 @@ function BookingContent() {
             </div>
 
             {/* Right: Tóm tắt đơn hàng (Figma Screen 4) */}
-            <div className="bg-[#1A1C26] border border-[#303645] rounded-3xl p-6 sm:p-8 flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <h3 className="font-bold text-white text-lg border-b border-[#303645] pb-3">
+            <div className="bg-[#1A1C26] border border-[#303645] rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-4 lg:sticky lg:top-20 self-start">
+              <div className="space-y-3">
+                <h3 className="font-bold text-white text-base border-b border-[#303645] pb-2">
                   Tóm tắt đơn hàng
                 </h3>
 
-                <div className="space-y-3 text-xs sm:text-sm">
+                <div className="space-y-2.5 text-xs sm:text-sm">
                   <div className="flex justify-between text-[#9EA6B8]">
                     <span>Phim:</span>
-                    <span className="font-bold text-white">{selectedMovie.title}</span>
+                    <span className="font-bold text-white line-clamp-1 text-right max-w-[200px]">{selectedMovie.title}</span>
                   </div>
                   <div className="flex justify-between text-[#9EA6B8]">
                     <span>Rạp:</span>
-                    <span className="text-white">{selectedCinema.name}</span>
+                    <span className="text-white text-right">{selectedCinema.name}</span>
                   </div>
                   <div className="flex justify-between text-[#9EA6B8]">
                     <span>Suất chiếu:</span>
@@ -2278,7 +2279,7 @@ function BookingContent() {
                       <span className="font-bold">+{Math.floor(finalTotal * 0.05).toLocaleString('vi-VN')} điểm</span>
                     </div>
                   ) : (
-                    <div className="mt-2 p-2.5 rounded-xl bg-[#FABF2E]/10 border border-[#FABF2E]/30 text-[11px] text-[#FABF2E] flex items-center justify-between">
+                    <div className="mt-1 p-2 rounded-xl bg-[#FABF2E]/10 border border-[#FABF2E]/30 text-[11px] text-[#FABF2E] flex items-center justify-between">
                       <span>Đăng nhập để tích +{Math.floor(finalTotal * 0.05).toLocaleString('vi-VN')} điểm</span>
                       <button
                         type="button"
@@ -2293,10 +2294,10 @@ function BookingContent() {
               </div>
 
               {/* Total & Red Nút Thanh Toán (Figma Screen 4) */}
-              <div className="pt-4 border-t border-[#303645] space-y-4">
+              <div className="pt-3 border-t border-[#303645] space-y-3">
                 <div className="flex justify-between items-end">
                   <span className="text-xs text-[#9EA6B8]">Tổng cộng:</span>
-                  <span className="text-2xl font-black text-[#E63845]">
+                  <span className="text-xl sm:text-2xl font-black text-[#E63845]">
                     {finalTotal.toLocaleString('vi-VN')} đ
                   </span>
                 </div>
@@ -2305,7 +2306,7 @@ function BookingContent() {
                   <button
                     disabled={isProcessingPayment}
                     onClick={handleCheckout}
-                    className="w-full bg-[#E63845] hover:bg-[#CC2B37] text-white py-3.5 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full bg-[#E63845] hover:bg-[#CC2B37] text-white py-3 rounded-full font-bold text-xs sm:text-sm shadow-md shadow-[#E63845]/30 transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     {isProcessingPayment ? 'Đang xử lý...' : `Thanh toán ${finalTotal.toLocaleString('vi-VN')}đ`}
                   </button>
@@ -2313,7 +2314,7 @@ function BookingContent() {
                   <button
                     type="button"
                     onClick={() => setCurrentStep(1)}
-                    className="w-full border border-[#303645] hover:border-[#FABF2E]/50 bg-[#0F1217] hover:bg-[#1A1C26] text-[#9EA6B8] hover:text-white py-2.5 rounded-full font-semibold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full border border-[#303645] hover:border-[#FABF2E]/50 bg-[#0F1217] hover:bg-[#1A1C26] text-[#9EA6B8] hover:text-white py-2 rounded-full font-semibold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     <ArrowLeft className="w-3.5 h-3.5 text-[#FABF2E]" />
                     <span>Quay lại bước chọn ghế ({selectedSeats.length} ghế)</span>

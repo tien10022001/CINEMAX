@@ -2192,7 +2192,7 @@ export default function StaffWorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#090B10] text-slate-100 flex font-sans select-none">
+    <div className="h-screen overflow-hidden bg-[#090B10] text-slate-100 flex font-sans select-none">
       {/* ==================================================================== */}
       {/* MINIMAL LEFT SIDEBAR (EXACT MATCH TO VIDEO, NO CLUTTER)              */}
       {/* ==================================================================== */}
@@ -2282,7 +2282,7 @@ export default function StaffWorkspacePage() {
         )}
 
         {/* Workspace Body */}
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
           {/* ================================================================ */}
           {/* TAB 1: SOÁT VÉ (CHECK-IN) — CLEAN 2-COLUMN VIDEO LAYOUT          */}
           {/* ================================================================ */}
