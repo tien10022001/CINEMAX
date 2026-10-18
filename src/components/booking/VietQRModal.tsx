@@ -8,14 +8,12 @@ import {
   Check,
   Clock,
   AlertTriangle,
-  ShieldCheck,
   X,
   Loader2,
   CheckCircle2,
   RefreshCw,
   Zap,
   Building2,
-  Search,
   Sparkles,
 } from 'lucide-react';
 
@@ -59,10 +57,7 @@ export default function VietQRModal({
   );
   const [confirmedTransaction, setConfirmedTransaction] = useState<BankTransaction | null>(null);
 
-  // Tra cứu mã bút toán thủ công
-  const [showManualLookup, setShowManualLookup] = useState<boolean>(false);
-  const [manualRefInput, setManualRefInput] = useState<string>('');
-  const [manualLookupError, setManualLookupError] = useState<string>('');
+
 
   const [bank, setBank] = useState<BankAccountInfo>(() => VietQRService.getBankInfo());
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -92,9 +87,6 @@ export default function VietQRModal({
       setVerificationStatus('WAITING');
       setStatusMessage('Đang tự động lắng nghe biến động số dư ngân hàng...');
       setConfirmedTransaction(null);
-      setShowManualLookup(false);
-      setManualRefInput('');
-      setManualLookupError('');
     }
   }, [isOpen, amount, orderCode, timeLeftSeconds]);
 
@@ -214,55 +206,7 @@ export default function VietQRModal({
     }
   };
 
-  // Nút khách bấm "Kiểm tra ngay"
-  const handleManualCheck = async () => {
-    setIsVerifying(true);
-    setStatusMessage('Đang kết nối đối soát với hệ thống ngân hàng...');
 
-    try {
-      const checkResult = BankTransferService.checkTransactionByOrderCode(orderCode, amount);
-      if (checkResult.verified && checkResult.transaction) {
-        await handlePaymentSuccess(checkResult.transaction);
-        return;
-      }
-
-      // Giả lập đối soát nhanh qua API route
-      try {
-        const res = await fetch(`/api/payment/verify?orderCode=${encodeURIComponent(orderCode)}&amount=${amount}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.status === 'PAID') {
-            await handlePaymentSuccess({
-              id: 'API-' + Date.now(),
-              transactionId: data.transactionId || 'FT-API-' + Math.random().toString(36).substring(2, 7),
-              orderCode,
-              amount,
-              senderBank: 'Ngân hàng',
-              receiverBank: 'TPBank',
-              accountNumber: bank.accountNumber,
-              accountName: bank.accountName,
-              description: `Thanh toan don ${orderCode}`,
-              transactionTime: new Date().toISOString(),
-              status: 'SUCCESS',
-            });
-            return;
-          }
-        }
-      } catch (apiErr) {
-        // Fallback kiểm tra thông thường
-      }
-
-      // Tự động xác nhận thành công
-      const tx = BankTransferService.simulateCustomerTransfer(
-        orderCode,
-        amount,
-        'VietQR Napas 247 (Đối soát trực tiếp)'
-      );
-      await handlePaymentSuccess(tx);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
 
   // Giả lập chuyển khoản thành công từ ngân hàng (Demo Test)
   const handleSimulateTransfer = () => {
@@ -275,33 +219,7 @@ export default function VietQRModal({
     }, 800);
   };
 
-  // Tra cứu theo mã bút toán FT
-  const handleLookupByRef = () => {
-    if (!manualRefInput.trim()) {
-      setManualLookupError('Vui lòng nhập mã giao dịch ngân hàng');
-      return;
-    }
-    const found = BankTransferService.lookupTransactionByRef(manualRefInput.trim());
-    if (found && found.amount >= amount) {
-      handlePaymentSuccess(found);
-    } else if (found && found.amount < amount) {
-      setManualLookupError(`Giao dịch tìm thấy (${found.amount.toLocaleString()} đ) không đủ số tiền vé.`);
-    } else {
-      // Cho phép xác nhận nếu là mã giao dịch ngân hàng hợp lệ
-      const simulatedTx = BankTransferService.recordIncomingTransaction({
-        transactionId: manualRefInput.trim().toUpperCase(),
-        orderCode: orderCode.toUpperCase(),
-        amount: amount,
-        senderBank: 'Ngân hàng liên kết',
-        receiverBank: 'TPBank',
-        accountNumber: bank.accountNumber,
-        accountName: bank.accountName,
-        description: `Doi soat ma FT ${manualRefInput.trim()}`,
-        status: 'SUCCESS',
-      });
-      handlePaymentSuccess(simulatedTx);
-    }
-  };
+
 
   // Kích hoạt chế độ gia hạn đối soát 3 phút khi mạng yếu
   const handleRequestGracePeriod = async () => {
@@ -341,48 +259,19 @@ export default function VietQRModal({
 
         {/* Header Modal */}
         <div className="text-center space-y-1 pt-1">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#E63845]/15 border border-[#E63845]/40 text-[#E63845]">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>CỔNG THANH TOÁN VIETQR AN TOÀN • ĐỐI SOÁT TỰ ĐỘNG</span>
-          </div>
           <h2 className="text-xl sm:text-2xl font-black text-white">Quét Mã Chuyển Khoản</h2>
           <p className="text-xs text-[#9EA6B8]">
             Mở ứng dụng ngân hàng bất kỳ để quét mã thanh toán vé xem phim
           </p>
         </div>
 
-        {/* Thanh trạng thái Realtime & Đồng hồ giữ ghế */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-          <div className="flex items-center justify-center gap-2 bg-[#0F1217] border border-[#303645] py-2 px-3 rounded-xl font-semibold">
-            <Clock className="w-4 h-4 text-[#FABF2E]" />
-            <span className="text-[#9EA6B8]">Thời gian giữ vé:</span>
-            <span className="text-[#FABF2E] font-mono font-bold text-sm">
-              {formatTimer(secondsRemaining)}
-            </span>
-          </div>
-
-          <div
-            className={`flex items-center justify-center gap-2 border py-2 px-3 rounded-xl font-semibold transition-all ${
-              verificationStatus === 'SUCCESS'
-                ? 'bg-[#33C773]/15 border-[#33C773] text-[#33C773]'
-                : 'bg-[#0F1217] border-[#303645] text-[#9EA6B8]'
-            }`}
-          >
-            {verificationStatus === 'SUCCESS' ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-[#33C773]" />
-                <span className="text-xs font-bold text-[#33C773]">Đã Nhận Tiền</span>
-              </>
-            ) : (
-              <>
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FABF2E] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#FABF2E]"></span>
-                </span>
-                <span className="text-xs text-white">Lắng nghe ngân hàng...</span>
-              </>
-            )}
-          </div>
+        {/* Đồng hồ giữ ghế */}
+        <div className="flex items-center justify-center gap-2 bg-[#0F1217] border border-[#303645] py-2 px-4 rounded-xl font-semibold text-xs mx-auto max-w-xs">
+          <Clock className="w-4 h-4 text-[#FABF2E]" />
+          <span className="text-[#9EA6B8]">Thời gian giữ vé:</span>
+          <span className="text-[#FABF2E] font-mono font-bold text-sm">
+            {formatTimer(secondsRemaining)}
+          </span>
         </div>
 
         {/* Khối Mã QR & Trạng thái thành công */}
@@ -532,23 +421,7 @@ export default function VietQRModal({
           </div>
         )}
 
-        {/* Thông báo trạng thái đối soát */}
-        {verificationStatus !== 'SUCCESS' && (
-          <div className="p-2.5 rounded-xl bg-[#0F1217] border border-[#303645] flex items-center justify-between text-[11px]">
-            <div className="flex items-center gap-2 text-[#9EA6B8]">
-              <RefreshCw className={`w-3.5 h-3.5 text-[#FABF2E] ${isVerifying ? 'animate-spin' : ''}`} />
-              <span className="truncate max-w-[260px] sm:max-w-xs">{statusMessage}</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleManualCheck}
-              disabled={isVerifying}
-              className="text-[#FABF2E] hover:underline font-bold shrink-0 cursor-pointer ml-2"
-            >
-              Kiểm tra ngay
-            </button>
-          </div>
-        )}
+
 
         {/* Cảnh báo và xử lý mạng yếu / Chuyển tiền chậm */}
         {verificationStatus !== 'SUCCESS' && (
@@ -607,13 +480,13 @@ export default function VietQRModal({
             <button
               type="button"
               disabled={isVerifying || (secondsRemaining <= 0 && !isGracePeriodActivated)}
-              onClick={handleManualCheck}
-              className="w-full bg-[#E63845] hover:bg-[#CC2B37] disabled:opacity-50 text-white py-3 rounded-full font-bold text-xs sm:text-sm shadow-lg shadow-[#E63845]/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              onClick={handleConfirmTransfer}
+              className="w-full bg-[#E63845] hover:bg-[#CC2B37] disabled:opacity-50 text-white py-3.5 rounded-full font-bold text-xs sm:text-sm shadow-lg shadow-[#E63845]/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               {isVerifying ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Đang đối soát giao dịch ngân hàng...</span>
+                  <span>Đang xử lý xác nhận...</span>
                 </>
               ) : (
                 <>
@@ -622,49 +495,6 @@ export default function VietQRModal({
                 </>
               )}
             </button>
-
-            {/* Dãy công cụ hỗ trợ đối soát */}
-            <div className="flex items-center justify-end pt-1 text-[11px] text-[#9EA6B8]">
-              <button
-                type="button"
-                onClick={() => setShowManualLookup(!showManualLookup)}
-                className="text-[#9EA6B8] hover:text-[#FABF2E] transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <Search className="w-3.5 h-3.5" />
-                <span>Tra cứu mã bút toán / FT ngân hàng</span>
-              </button>
-            </div>
-
-            {/* Form tra cứu mã FT dự phòng */}
-            {showManualLookup && (
-              <div className="p-3 bg-[#0F1217] border border-[#303645] rounded-xl space-y-2 text-xs">
-                <span className="text-[#9EA6B8] block text-[11px]">
-                  Nếu bạn chuyển khác ngân hàng bị chậm, nhập mã giao dịch (FT ID) trên app ngân hàng để đối soát:
-                </span>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={manualRefInput}
-                    onChange={(e) => {
-                      setManualRefInput(e.target.value);
-                      setManualLookupError('');
-                    }}
-                    placeholder="VD: FT26101689234"
-                    className="flex-1 bg-[#1A1C26] border border-[#303645] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#FABF2E] font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleLookupByRef}
-                    className="bg-[#303645] hover:bg-[#FABF2E] hover:text-black text-white px-3 py-1.5 rounded-lg font-bold text-xs transition-colors cursor-pointer"
-                  >
-                    Xác nhận
-                  </button>
-                </div>
-                {manualLookupError && (
-                  <p className="text-[11px] text-[#E63845]">{manualLookupError}</p>
-                )}
-              </div>
-            )}
 
             <button
               type="button"

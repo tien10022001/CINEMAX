@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-10-18T05:52:45.686Z",
+  "last_updated": "2026-10-18T06:04:11.587Z",
   "movies": [
     {
       "id": "a7b8c9d0-e1f2-4a3b-4c5d-6e7f8a9b0c1d",
@@ -21731,6 +21731,42 @@
     }
   ],
   "orders": [
+    {
+      "id": "CNM261018-8OA5T",
+      "order_code": "CNM261018-8OA5T",
+      "channel": "online",
+      "status": "paid",
+      "contact_name": "Quản trị viên Cinemax",
+      "contact_phone": "0988888888",
+      "contact_email": "admin@cinemax.vn",
+      "total_amount": 249000,
+      "subtotal": 249000,
+      "created_at": "2026-10-18T06:04:11.587Z",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 124500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "08:15 • 2026-10-20",
+            "seatCode": "D1"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 124500,
+          "item_snapshot": {
+            "movieTitle": "Dune: Hành Tinh Cát - Phần 2",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "08:15 • 2026-10-20",
+            "seatCode": "D2"
+          }
+        }
+      ]
+    },
     {
       "id": "CNM261018-6S5EV",
       "order_code": "CNM261018-6S5EV",
