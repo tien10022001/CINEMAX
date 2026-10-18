@@ -264,10 +264,17 @@ export default function MovieDetailPage() {
                               disabled={isPast}
                               onClick={() => {
                                 if (isPast) return;
+                                const savedPromo =
+                                  typeof window !== 'undefined'
+                                    ? new URLSearchParams(window.location.search).get('promo') ||
+                                      sessionStorage.getItem('cinemax_applied_promo') ||
+                                      ''
+                                    : '';
+                                const promoParam = savedPromo ? `&promo=${encodeURIComponent(savedPromo)}` : '';
                                 router.push(
                                   `/booking?movie=${movie.id}&cinema=${cinema.id}&date=${encodeURIComponent(
                                     selectedDate
-                                  )}&showtime=${st.id}&time=${encodeURIComponent(st.time)}`
+                                  )}&showtime=${st.id}&time=${encodeURIComponent(st.time)}${promoParam}`
                                 );
                               }}
                               className={`rounded-xl px-4 py-2.5 text-center transition-all min-w-[110px] ${

@@ -95,9 +95,16 @@ export default function ShowtimeModal({
       // P0.2: Gọi callback chuyên biệt cho trang Booking để làm sạch ghế cũ và tính lại giá
       onSelectShowtime(slot, selectedCinemaId, selectedDate);
     } else {
-      // Mặc định chuyển hướng sang màn hình chọn ghế
+      // Mặc định chuyển hướng sang màn hình chọn ghế kèm mã ưu đãi nếu có
+      const savedPromo =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('promo') ||
+            sessionStorage.getItem('cinemax_applied_promo') ||
+            ''
+          : '';
+      const promoParam = savedPromo ? `&promo=${encodeURIComponent(savedPromo)}` : '';
       router.push(
-        `/booking?movie=${movie.id}&cinema=${selectedCinemaId}&date=${selectedDate}&showtime=${slot.id}&time=${slot.time}`
+        `/booking?movie=${movie.id}&cinema=${selectedCinemaId}&date=${selectedDate}&showtime=${slot.id}&time=${slot.time}${promoParam}`
       );
     }
   };

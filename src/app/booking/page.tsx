@@ -75,6 +75,14 @@ function BookingContent() {
     : (rawQueryDate || new Date().toISOString().slice(0, 10));
   const [isShowtimeChangeOpen, setIsShowtimeChangeOpen] = useState<boolean>(false);
 
+  // If no movie is selected in the URL, redirect user to the movie selection page (/ ?tab=movies)
+  useEffect(() => {
+    if (!searchParams.get('movie')) {
+      const promo = searchParams.get('promo') || (typeof window !== 'undefined' ? sessionStorage.getItem('cinemax_applied_promo') || '' : '');
+      router.replace(`/?tab=movies${promo ? `&promo=${encodeURIComponent(promo)}` : ''}`);
+    }
+  }, [searchParams, router]);
+
   // Steps: 1 = Chọn ghế (Screen 3), 2 = Bắp nước & Thanh toán (Screen 4), 3 = Vé điện tử (Screen 5)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
@@ -194,7 +202,13 @@ function BookingContent() {
   });
 
   // Promo Code State
-  const [promoInput, setPromoInput] = useState<string>(queryPromoCode);
+  const [promoInput, setPromoInput] = useState<string>(() => {
+    if (queryPromoCode) return queryPromoCode;
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('cinemax_applied_promo') || '';
+    }
+    return '';
+  });
   const [appliedPromo, setAppliedPromo] = useState<Promotion | null>(null);
   const [promoError, setPromoError] = useState<string>('');
 
