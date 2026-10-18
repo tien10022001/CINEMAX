@@ -2330,134 +2330,114 @@ function BookingContent() {
         {/* FIGMA SCREEN 5: VÉ ĐIỆN TỬ */}
         {/* ======================================================== */}
         {currentStep === 3 && completedBooking && (
-          <div className="max-w-2xl mx-auto space-y-6 pt-4">
+          <div className="max-w-3xl mx-auto space-y-2.5 pt-1 sm:pt-2">
             {/* Header: ✓ THANH TOÁN THÀNH CÔNG hoặc ⚠️ CHỜ XẾP GHẾ DO QUÁ HẠN GIỮ CHỖ */}
             {completedBooking.isOverduePaid ? (
-              <div className="bg-[#FABF2E]/15 border border-[#FABF2E]/40 rounded-2xl p-4 text-center space-y-2 animate-in fade-in">
-                <div className="flex items-center justify-center gap-2 text-[#FABF2E] font-black text-lg">
-                  <AlertTriangle className="w-6 h-6 text-[#FABF2E]" />
+              <div className="bg-[#FABF2E]/15 border border-[#FABF2E]/40 rounded-xl p-3 text-center space-y-1 animate-in fade-in">
+                <div className="flex items-center justify-center gap-2 text-[#FABF2E] font-black text-sm sm:text-base">
+                  <AlertTriangle className="w-5 h-5 text-[#FABF2E]" />
                   <span>TIỀN ĐÃ NHẬN THÀNH CÔNG • CẦN CHỌN LẠI GHẾ TẠI QUẦY</span>
                 </div>
                 <p className="text-xs text-[#D1D5DB] leading-relaxed max-w-xl mx-auto">
                   {completedBooking.overdueWarningMessage}
                 </p>
-                <div className="inline-block bg-[#1A1C26] px-3 py-1 rounded-full text-[11px] font-bold text-[#FABF2E] border border-[#FABF2E]/30">
-                  Hotline Hỗ Trợ 24/7: 1900 6868 • Quầy vé CinemaX sẵn sàng phục vụ
+                <div className="inline-block bg-[#1A1C26] px-3 py-0.5 rounded-full text-[10px] font-bold text-[#FABF2E] border border-[#FABF2E]/30">
+                  Hotline Hỗ Trợ 24/7: 1900 6868
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-center gap-2 text-[#33C773] text-center font-black text-xl">
-                <CheckCircle className="w-7 h-7" />
+              <div className="flex items-center justify-center gap-2 text-[#33C773] text-center font-black text-base sm:text-lg">
+                <CheckCircle className="w-5 h-5" />
                 <span>THANH TOÁN THÀNH CÔNG</span>
               </div>
             )}
 
             {/* Perforated Cinema Ticket Card (Synchronized with Staff Gate Check-in View) */}
-            <div className="relative bg-[#1A1C26] border border-[#303645] rounded-3xl overflow-hidden shadow-2xl space-y-0">
+            <div className="relative bg-[#1A1C26] border border-[#303645] rounded-2xl overflow-hidden shadow-2xl space-y-0">
               {/* Top Header Bar Matching Staff Verification Screen */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-[#2B3448] bg-[#141924]/80">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-[#22C55E] text-black shadow-lg shadow-[#22C55E]/20 flex items-center justify-center font-black text-lg">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-[#2B3448] bg-[#141924]/80">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-[#22C55E] text-black shadow-md flex items-center justify-center font-black text-xs">
                     ✓
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black tracking-widest text-[#E63845] uppercase">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-black tracking-widest text-[#E63845] uppercase">
                         CINEMAX THEATER
                       </span>
-                      <span className="text-[10px] text-[#5C677D]">•</span>
-                      <span className="text-[11px] font-mono text-[#8E9AAF]">{completedBooking.bookingCode}</span>
+                      <span className="text-[9px] text-[#5C677D]">•</span>
+                      <span className="text-[10px] font-mono text-[#8E9AAF]">{completedBooking.bookingCode}</span>
                     </div>
-                    <h2 className="text-base sm:text-lg font-black text-white">
+                    <h2 className="text-xs sm:text-sm font-black text-white">
                       VÉ HỢP LỆ — SẴN SÀNG VÀO RẠP
                     </h2>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider bg-[#22C55E]/20 text-[#22C55E] border border-[#22C55E]/40">
+                  <span className="px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-[#22C55E]/20 text-[#22C55E] border border-[#22C55E]/40">
                     HỢP LỆ (ACTIVE)
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-col md:flex-row">
-                {/* Left Ticket Details (Formatted according to Staff POS Ticket Receipt) */}
-                <div className="flex-1 p-6 sm:p-8 space-y-3.5">
-                  <div className="flex items-center justify-between gap-2 border-b border-[#2B3448] pb-3">
+                {/* Left Ticket Details */}
+                <div className="flex-1 p-3.5 sm:p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#2B3448] pb-2">
                     <div className="space-y-0.5">
-                      <div className="text-[10px] font-black text-[#E63845] tracking-widest uppercase">
+                      <div className="text-[9px] font-black text-[#E63845] tracking-widest uppercase">
                         CINEMAX THEATER
                       </div>
-                      <h3 className="text-base font-black text-white">HÓA ĐƠN XUẤT VÉ & BẮP NƯỚC</h3>
-                      <p className="text-[11px] font-mono text-[#8E9AAF]">Mã: {completedBooking.bookingCode}</p>
+                      <h3 className="text-xs sm:text-sm font-black text-white">HÓA ĐƠN XUẤT VÉ & BẮP NƯỚC</h3>
+                      <p className="text-[10px] font-mono text-[#8E9AAF]">Mã: {completedBooking.bookingCode}</p>
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      <span className="px-2.5 py-0.5 rounded text-[11px] font-black bg-[#E63845] text-white">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-[#E63845] text-white">
                         {selectedMovie.age_rating}
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-[#06B6D4]/15 border border-[#06B6D4]/30 text-[#06B6D4] font-bold text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded bg-[#06B6D4]/15 border border-[#06B6D4]/30 text-[#06B6D4] font-bold text-[9px]">
                         {selectedShowtime?.format || '2D Digital'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="space-y-2.5 text-xs">
+                  <div className="space-y-1.5 text-xs">
                     <div>
-                      <span className="text-[#8E9AAF] block text-[11px]">Phim:</span>
-                      <span className="text-lg font-black text-white block">{selectedMovie.title}</span>
+                      <span className="text-[#8E9AAF] block text-[10px]">Phim:</span>
+                      <span className="text-sm sm:text-base font-black text-white block line-clamp-1">{selectedMovie.title}</span>
                     </div>
 
-                    <div className="flex justify-between text-[#8E9AAF]">
-                      <span>Rạp: <strong className="text-white">{selectedCinema.name}</strong></span>
-                      <span>Trạng thái: <strong className="text-[#22C55E] uppercase">ĐÃ THANH TOÁN</strong></span>
+                    <div className="grid grid-cols-2 gap-1 text-[11px] text-[#8E9AAF]">
+                      <div>Rạp: <strong className="text-white">{selectedCinema.name}</strong></div>
+                      <div>Phòng: <strong className="text-white">{selectedShowtime.room?.name || 'Phòng 01'}</strong></div>
+                      <div>Suất: <strong className="text-[#FABF2E]">{queryTime} • {queryDate}</strong></div>
+                      <div>Trạng thái: <strong className="text-[#22C55E] uppercase">ĐÃ THANH TOÁN</strong></div>
                     </div>
 
-                    <div className="flex justify-between text-[#8E9AAF]">
-                      <span>Phòng: <strong className="text-white">{selectedShowtime.room?.name || 'Phòng 01 (IMAX)'}</strong></span>
-                      <span>Định dạng: <strong className="text-[#06B6D4]">{selectedShowtime?.format || '2D Digital'}</strong></span>
-                    </div>
-                    <div className="flex justify-between text-[#8E9AAF]">
-                      <span>Giờ chiếu:</span>
-                      <span className="font-mono text-white font-bold">{queryTime} • {queryDate}</span>
-                    </div>
-
-                    {/* Seats breakdown box */}
-                    <div className="p-2.5 rounded-xl bg-[#171E2D] border border-[#253045] space-y-1">
-                      <span className="text-[11px] font-bold text-[#FABF2E] block">Ghế ngồi:</span>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-white font-mono font-bold text-sm text-[#06B6D4]">{completedBooking.seatsStr}</span>
-                        <span className="text-[10px] text-[#8E9AAF] bg-[#141924] px-2 py-0.5 rounded border border-[#253045]">
-                          Đã giữ chỗ
-                        </span>
+                    {/* Seats & Foods compact row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-0.5">
+                      <div className="p-1.5 px-2.5 rounded-lg bg-[#171E2D] border border-[#253045] flex items-center justify-between text-xs">
+                        <span className="text-[10px] font-bold text-[#FABF2E]">Ghế:</span>
+                        <span className="text-white font-mono font-bold text-xs text-[#06B6D4]">{completedBooking.seatsStr}</span>
                       </div>
-                    </div>
-
-                    {/* Foods breakdown box */}
-                    {completedBooking.foodsStr && (
-                      <div className="p-2.5 rounded-xl bg-[#171E2D] border border-[#253045] space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[11px] font-bold text-[#FABF2E] block">Bắp nước:</span>
-                          <span className="text-[9px] bg-[#FABF2E]/20 text-[#FABF2E] px-2 py-0.5 rounded-full border border-[#FABF2E]/40 font-semibold uppercase">
-                            Nhận tại quầy
-                          </span>
+                      {completedBooking.foodsStr ? (
+                        <div className="p-1.5 px-2.5 rounded-lg bg-[#171E2D] border border-[#253045] flex items-center justify-between text-xs">
+                          <span className="text-[10px] font-bold text-[#FABF2E]">Bắp nước:</span>
+                          <span className="text-white font-semibold text-[11px] truncate max-w-[140px]">{completedBooking.foodsStr}</span>
                         </div>
-                        <div className="text-white font-semibold text-xs">{completedBooking.foodsStr}</div>
-                      </div>
-                    )}
+                      ) : null}
+                    </div>
 
                     {/* Financial breakdown */}
-                    <div className="pt-2 border-t border-[#242E40] space-y-1">
-                      <div className="flex justify-between text-[#8E9AAF] text-xs">
-                        <span>Người nhận vé:</span>
-                        <span className="text-white font-semibold">
-                          {completedBooking.customerName} ({completedBooking.customerPhone || completedBooking.customerEmail})
-                        </span>
-                      </div>
-                      <div className="flex justify-between font-bold text-sm text-white">
-                        <span>Tổng tiền:</span>
-                        <span className="font-mono text-[#22C55E] text-base">
+                    <div className="pt-1.5 border-t border-[#242E40] flex justify-between items-center text-xs">
+                      <span className="text-[#8E9AAF] text-[11px]">
+                        Người nhận: <strong className="text-white">{completedBooking.customerName}</strong>
+                      </span>
+                      <div className="flex items-center gap-1 font-bold">
+                        <span className="text-xs text-[#8E9AAF]">Tổng:</span>
+                        <span className="font-mono text-[#22C55E] text-sm sm:text-base font-black">
                           {completedBooking.totalAmount.toLocaleString('vi-VN')} đ
                         </span>
                       </div>
@@ -2466,141 +2446,86 @@ function BookingContent() {
                 </div>
 
                 {/* Perforated Cutout Separator */}
-                <div className="relative hidden md:flex flex-col items-center justify-between py-4">
-                  <div className="w-6 h-6 rounded-full bg-[#0F1217] -mt-7 border-b border-[#303645]" />
+                <div className="relative hidden md:flex flex-col items-center justify-between py-3">
+                  <div className="w-5 h-5 rounded-full bg-[#0F1217] -mt-5 border-b border-[#303645]" />
                   <div className="w-0.5 h-full border-r-2 border-dashed border-[#303645]" />
-                  <div className="w-6 h-6 rounded-full bg-[#0F1217] -mb-7 border-t border-[#303645]" />
+                  <div className="w-5 h-5 rounded-full bg-[#0F1217] -mb-5 border-t border-[#303645]" />
                 </div>
 
-                {/* Right QR Section (Dành cho máy quét Kiosk in vé & nhân viên soát vé) */}
-                <div className="w-full md:w-56 bg-[#14161F] p-6 sm:p-7 flex flex-col items-center justify-center text-center space-y-2.5 border-t md:border-t-0 md:border-l border-[#303645]/50">
-                  <div className="bg-white p-2.5 rounded-2xl shadow-xl flex flex-col items-center justify-center">
+                {/* Right QR Section */}
+                <div className="w-full md:w-52 bg-[#14161F] p-3 sm:p-4 flex flex-col items-center justify-center text-center space-y-1.5 border-t md:border-t-0 md:border-l border-[#303645]/50">
+                  <div className="bg-white p-1.5 rounded-xl shadow-md flex flex-col items-center justify-center">
                     <img
-                      src={TicketScannerService.generateTicketQrUrl(completedBooking.bookingCode, 240)}
+                      src={TicketScannerService.generateTicketQrUrl(completedBooking.bookingCode, 200)}
                       alt={`Mã QR vé ${completedBooking.bookingCode}`}
-                      className="w-32 h-32 object-contain"
+                      className="w-24 h-24 object-contain"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <div className="text-[10px] text-[#FABF2E] font-bold uppercase tracking-wider">
+                  <div className="space-y-0.5">
+                    <div className="text-[9px] text-[#FABF2E] font-bold uppercase tracking-wider">
                       MÃ QUÉT SOÁT VÉ / IN KIOSK
                     </div>
                     <div className="font-mono text-xs font-black text-white tracking-widest bg-[#0F1217] py-0.5 px-2 rounded border border-[#303645]">
                       {completedBooking.bookingCode}
                     </div>
-                    <div className="text-[9px] text-[#9EA6B8]">
-                      Đưa mã vào đầu đọc Kiosk hoặc cửa soát vé
-                    </div>
-                    {/* Cảnh báo bảo mật mini trong khung QR */}
-                    <div className="mt-2 text-[8.5px] font-semibold text-[#FFA4A4] bg-[#E63845]/15 border border-[#E63845]/40 rounded-lg p-2 text-left space-y-0.5">
-                      <div className="flex items-center gap-1 text-[#E63845] font-black uppercase text-[8.5px]">
-                        <ShieldAlert className="w-3 h-3 shrink-0" />
-                        <span>Bảo mật mã vé:</span>
-                      </div>
-                      <p className="leading-tight text-[8px] text-[#D1D5DB]">
-                        Không chia sẻ mã QR và mã vé để tránh bị người khác quét vào rạp trước bạn.
-                      </p>
-                    </div>
+                  </div>
+                  {/* Cảnh báo bảo mật mini trong khung QR */}
+                  <div className="text-[8px] font-semibold text-[#FFA4A4] bg-[#E63845]/15 border border-[#E63845]/40 rounded-lg p-1.5 text-left leading-tight w-full">
+                    <span className="text-[#E63845] font-black uppercase text-[8px] mr-1">Bảo mật:</span>
+                    Không chia sẻ mã QR để tránh quét trước.
                   </div>
                 </div>
               </div>
 
-              {/* CRITICAL AGE RATING ALERT BOX (Synchronized with Staff Gate Rules) */}
+              {/* CRITICAL AGE RATING ALERT BOX */}
               {(selectedMovie.age_rating === 'T16' || selectedMovie.age_rating === 'T18' || selectedMovie.age_rating === 'T13') && (
-                <div className="m-5 p-4 rounded-2xl bg-gradient-to-r from-[#2B1518] to-[#1C1215] border border-[#EF4444]/50 flex items-start gap-3">
-                  <span className="w-8 h-8 rounded-xl bg-[#EF4444] text-white font-black text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-md">
+                <div className="mx-3.5 mb-3 p-2 rounded-xl bg-gradient-to-r from-[#2B1518] to-[#1C1215] border border-[#EF4444]/40 flex items-center gap-2.5 text-xs">
+                  <span className="px-2 py-0.5 rounded bg-[#EF4444] text-white font-black text-[10px] shrink-0">
                     {selectedMovie.age_rating}
                   </span>
-                  <div className="space-y-1 text-xs">
-                    <h4 className="font-black text-[#EF4444] uppercase tracking-wide">
-                      LƯU Ý QUY ĐỊNH ĐỘ TUỔI ({selectedMovie.age_rating})
-                    </h4>
-                    <p className="text-[#D1D5DB] leading-relaxed text-[11px]">
-                      Phim không dành cho khán giả dưới {selectedMovie.age_rating === 'T18' ? '18' : selectedMovie.age_rating === 'T16' ? '16' : '13'} tuổi. Nhân viên soát vé tại cửa rạp bắt buộc sẽ đối chiếu <strong className="text-[#FABF2E]">CCCD hoặc VNeID</strong> trước khi cho vào phòng chiếu.
-                    </p>
-                  </div>
+                  <p className="text-[#D1D5DB] text-[10px] sm:text-[11px] leading-tight">
+                    <strong>Lưu ý độ tuổi ({selectedMovie.age_rating}):</strong> Khán giả cần đủ {selectedMovie.age_rating === 'T18' ? '18' : selectedMovie.age_rating === 'T16' ? '16' : '13'} tuổi. Vui lòng mang CCCD/VNeID để đối chiếu tại cửa soát vé.
+                  </p>
                 </div>
               )}
             </div>
 
-            {/* Gợi ý chuyển đổi Guest sang Member nhận 50 điểm thưởng (Nút chuyển tiếp tinh tế) */}
-            {!currentUser && !dismissMemberBanner && (
-              <div className="bg-gradient-to-r from-[#1A1C26] via-[#241B2E] to-[#1A1C26] border border-[#FABF2E]/30 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
-                <div className="flex items-start gap-3.5">
-                  <div className="w-10 h-10 rounded-2xl bg-[#FABF2E]/20 text-[#FABF2E] flex items-center justify-center shrink-0 mt-0.5">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm sm:text-base font-bold text-white">
-                        Tặng 50 Điểm Thưởng Hội Viên (~25.000đ)
-                      </h4>
-                      <span className="text-[10px] bg-[#FABF2E] text-black font-black px-2 py-0.5 rounded-full">
-                        QUÀ TẶNG
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#9EA6B8]">
-                      Lưu vé này vào tài khoản để quản lý trọn đời và tích điểm đổi bắp nước miễn phí.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                  <button
-                    type="button"
-                    onClick={() => setDismissMemberBanner(true)}
-                    className="px-3 py-2 text-xs text-[#9EA6B8] hover:text-white cursor-pointer"
-                  >
-                    Để sau
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleForwardToRegister}
-                    className="bg-[#FABF2E] hover:bg-[#E5AC26] text-black px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span>Đăng Ký Hội Viên Nhận Quà</span>
-                    <span className="text-sm font-black">→</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons: Tải vé PDF (Red), Xem modal vé chuẩn, Xem vé của tôi (Outline) & Về trang chủ */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            {/* Action Buttons: 4 nút dàn thành 1 hàng ngang gọn gàng */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setShowUnifiedModal(true)}
-                className="flex-1 bg-[#FABF2E] hover:bg-[#E5AC24] text-black py-3.5 rounded-full font-black text-sm shadow-lg shadow-[#FABF2E]/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="bg-[#FABF2E] hover:bg-[#E5AC24] text-black py-2.5 px-2 rounded-full font-bold text-xs shadow-md shadow-[#FABF2E]/20 flex items-center justify-center gap-1.5 cursor-pointer transition-all truncate"
               >
-                <QrCode className="w-4 h-4" />
-                Mở Thẻ Vé Kiosk & Soát Vé
+                <QrCode className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Thẻ Vé Kiosk</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="flex-1 bg-[#E63845] hover:bg-[#CC2B37] text-white py-3.5 rounded-full font-bold text-sm shadow-lg shadow-[#E63845]/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="bg-[#E63845] hover:bg-[#CC2B37] text-white py-2.5 px-2 rounded-full font-bold text-xs shadow-md shadow-[#E63845]/30 flex items-center justify-center gap-1.5 cursor-pointer transition-all truncate"
               >
-                <Download className="w-4 h-4" />
-                In / Tải PDF
+                <Download className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">In / Tải PDF</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => router.push('/my-tickets')}
-                className="flex-1 border border-[#303645] bg-[#1A1C26] hover:bg-[#242836] text-white py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="border border-[#303645] bg-[#1A1C26] hover:bg-[#242836] text-white py-2.5 px-2 rounded-full font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all truncate"
               >
-                <TicketIcon className="w-4 h-4 text-[#FABF2E]" />
-                Vé của tôi
+                <TicketIcon className="w-3.5 h-3.5 text-[#FABF2E] shrink-0" />
+                <span className="truncate">Vé của tôi</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => router.push('/')}
-                className="flex-1 border border-[#303645] bg-[#0F1217] hover:bg-[#1A1C26] text-[#9EA6B8] hover:text-white py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="border border-[#303645] bg-[#0F1217] hover:bg-[#1A1C26] text-[#9EA6B8] hover:text-white py-2.5 px-2 rounded-full font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all truncate"
               >
-                <ArrowLeft className="w-4 h-4 text-[#FABF2E]" />
-                Trang chủ
+                <ArrowLeft className="w-3.5 h-3.5 text-[#FABF2E] shrink-0" />
+                <span className="truncate">Về trang chủ</span>
               </button>
             </div>
 
