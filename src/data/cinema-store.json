@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-10-19T00:24:08.952Z",
+  "last_updated": "2026-10-19T00:38:58.355Z",
   "movies": [
     {
       "id": "a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d",
@@ -16,7 +16,7 @@
       "trailer_url": "https://www.youtube.com/watch?v=73_1biulkYk",
       "release_date": "2026-07-26",
       "end_date": null,
-      "status": "coming_soon",
+      "status": "now_showing",
       "created_at": "2026-10-17T01:20:34.674775+00:00",
       "updated_at": "2026-10-18T06:37:06.511609+00:00",
       "country": "Mỹ",
@@ -6217,59 +6217,6 @@
       }
     },
     {
-      "id": "209a53bf-6137-4e3e-9559-8bbbc5ffe249",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-      "format": "IMAX",
-      "language_version": "Phụ đề Tiếng Việt",
-      "starts_at": "2026-10-13T18:33:48.971286+00:00",
-      "ends_at": "2026-10-13T20:43:48.971286+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-13T14:33:48.971286+00:00",
-      "updated_at": "2026-10-13T14:33:48.971286+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-        "name": "Phòng 2 (2D Digital)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
       "id": "807e78a9-68c2-4383-a269-847391aea64d",
       "movie_id": "c1da65d7-b688-4bcc-9fb8-75efb28e319f",
       "auditorium_id": "33333333-3333-3333-3333-333333333333",
@@ -6432,59 +6379,6 @@
       }
     },
     {
-      "id": "8b5b43cd-6a96-4b5e-94b0-b73c2bb5bb0c",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Việt",
-      "starts_at": "2026-10-17T05:30:00+00:00",
-      "ends_at": "2026-10-17T07:51:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-17T09:41:00.804238+00:00",
-      "updated_at": "2026-10-17T09:41:00.804238+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
       "id": "211b81ce-1ae5-40c8-9a86-d11e88147b94",
       "movie_id": "c1da65d7-b688-4bcc-9fb8-75efb28e319f",
       "auditorium_id": "55555555-5555-5555-5555-555555555555",
@@ -6539,59 +6433,6 @@
       }
     },
     {
-      "id": "a9bd9ebf-d3a0-4820-b1ea-6306a245bf4c",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-      "format": "2D",
-      "language_version": "Tiếng Việt",
-      "starts_at": "2026-10-17T07:01:00+00:00",
-      "ends_at": "2026-10-17T09:22:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-17T09:41:00.804238+00:00",
-      "updated_at": "2026-10-17T09:41:00.804238+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-        "name": "Phòng 2 (2D Digital)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
       "id": "4fac8f9c-f955-4c8e-8ae5-35766c934148",
       "movie_id": "c1da65d7-b688-4bcc-9fb8-75efb28e319f",
       "auditorium_id": "33333333-3333-3333-3333-333333333333",
@@ -6639,59 +6480,6 @@
         "sound_system": "Dolby Atmos 64-Channel",
         "total_seats": 120,
         "cleaning_buffer_minutes": 20,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-17T01:20:34.674775+00:00",
-        "updated_at": "2026-10-17T01:20:34.674775+00:00"
-      }
-    },
-    {
-      "id": "90c05ee1-5013-4644-a520-224c3286b829",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "44444444-4444-4444-4444-444444444444",
-      "format": "2D",
-      "language_version": "Tiếng Việt",
-      "starts_at": "2026-10-17T09:15:00+00:00",
-      "ends_at": "2026-10-17T11:36:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-17T09:41:00.804238+00:00",
-      "updated_at": "2026-10-17T09:41:00.804238+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "44444444-4444-4444-4444-444444444444",
-        "name": "Phòng 4 (2D Digital)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
         "status": "active",
         "seat_map_version": 1,
         "created_at": "2026-10-17T01:20:34.674775+00:00",
@@ -6750,59 +6538,6 @@
         "seat_map_version": 1,
         "created_at": "2026-10-17T01:20:34.674775+00:00",
         "updated_at": "2026-10-17T01:20:34.674775+00:00"
-      }
-    },
-    {
-      "id": "2ed8bc82-99b2-42f7-ad51-9a75681dafd4",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Việt",
-      "starts_at": "2026-10-17T10:07:00+00:00",
-      "ends_at": "2026-10-17T12:28:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-17T09:41:00.804238+00:00",
-      "updated_at": "2026-10-17T09:41:00.804238+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
       }
     },
     {
@@ -7347,59 +7082,6 @@
       }
     },
     {
-      "id": "2d37a930-99cb-4467-94eb-696ff549b4db",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Việt",
-      "starts_at": "2026-10-18T05:30:00+00:00",
-      "ends_at": "2026-10-18T07:51:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-17T02:47:59.465048+00:00",
-      "updated_at": "2026-10-17T02:47:59.465048+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
       "id": "0044aaab-5bd9-40cb-9e4b-eb18712aef40",
       "movie_id": "c1da65d7-b688-4bcc-9fb8-75efb28e319f",
       "auditorium_id": "55555555-5555-5555-5555-555555555555",
@@ -7454,59 +7136,6 @@
       }
     },
     {
-      "id": "c6cc9309-081d-489f-8482-6dce677def44",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-      "format": "2D",
-      "language_version": "Tiếng Việt",
-      "starts_at": "2026-10-18T07:01:00+00:00",
-      "ends_at": "2026-10-18T09:22:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-17T02:47:59.752441+00:00",
-      "updated_at": "2026-10-17T02:47:59.752441+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-        "name": "Phòng 2 (2D Digital)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
       "id": "a74789cd-7537-447e-978b-726fbc0a74b7",
       "movie_id": "c1da65d7-b688-4bcc-9fb8-75efb28e319f",
       "auditorium_id": "33333333-3333-3333-3333-333333333333",
@@ -7558,59 +7187,6 @@
         "seat_map_version": 1,
         "created_at": "2026-10-17T01:20:34.674775+00:00",
         "updated_at": "2026-10-17T01:20:34.674775+00:00"
-      }
-    },
-    {
-      "id": "43a7f2f3-7b78-493e-845a-28fb23befd03",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-      "format": "2D",
-      "language_version": "Tiếng Việt",
-      "starts_at": "2026-10-18T09:37:00+00:00",
-      "ends_at": "2026-10-18T11:58:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-17T02:47:59.752441+00:00",
-      "updated_at": "2026-10-17T02:47:59.752441+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-        "name": "Phòng 2 (2D Digital)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
       }
     },
     {
@@ -13791,59 +13367,6 @@
       }
     },
     {
-      "id": "a1a261eb-4b37-4c96-98ed-27494513b26e",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-      "format": "2D",
-      "language_version": "Tiếng Việt",
-      "starts_at": "2026-10-23T05:30:00+00:00",
-      "ends_at": "2026-10-23T07:51:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-17T02:48:00.612793+00:00",
-      "updated_at": "2026-10-17T02:48:00.612793+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
-        "name": "Phòng 1 (2D Tiêu Chuẩn)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
       "id": "c3e4ecc1-ee53-44d7-ab6b-831fe9b911d8",
       "movie_id": "c1da65d7-b688-4bcc-9fb8-75efb28e319f",
       "auditorium_id": "55555555-5555-5555-5555-555555555555",
@@ -13895,59 +13418,6 @@
         "seat_map_version": 1,
         "created_at": "2026-10-17T01:20:34.674775+00:00",
         "updated_at": "2026-10-17T01:20:34.674775+00:00"
-      }
-    },
-    {
-      "id": "055547d7-40db-415d-9964-a64e00dce0b3",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-      "format": "2D",
-      "language_version": "Tiếng Việt",
-      "starts_at": "2026-10-23T07:01:00+00:00",
-      "ends_at": "2026-10-23T09:22:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-17T02:48:00.612793+00:00",
-      "updated_at": "2026-10-17T02:48:00.612793+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-        "name": "Phòng 2 (2D Digital)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
       }
     },
     {
@@ -14110,59 +13580,6 @@
         "seat_map_version": 1,
         "created_at": "2026-10-17T01:20:34.674775+00:00",
         "updated_at": "2026-10-17T01:20:34.674775+00:00"
-      }
-    },
-    {
-      "id": "72c5f2c1-ba0e-490c-82dd-cc3a22d3d7ad",
-      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-      "format": "2D",
-      "language_version": "Tiếng Việt",
-      "starts_at": "2026-10-23T09:37:00+00:00",
-      "ends_at": "2026-10-23T11:58:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-17T02:48:00.612793+00:00",
-      "updated_at": "2026-10-17T02:48:00.612793+00:00",
-      "movie": {
-        "id": "63572ecf-6383-49b1-8d64-d52432be6dac",
-        "title": "Mai",
-        "slug": "mai",
-        "synopsis": "Quá khứ nhiều vết thương khiến Mai dè dặt khi đón nhận tình yêu của Dương - một chàng trai kém tuổi nhiệt thành và lãng mạn.",
-        "director": "Trấn Thành",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 131,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=cZp91NnQ_0g",
-        "release_date": "2026-10-11",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Việt Nam",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8.2,
-        "formats": [
-          "2D"
-        ]
-      },
-      "auditorium": {
-        "id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-        "name": "Phòng 2 (2D Digital)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
       }
     },
     {
@@ -14924,60 +14341,6 @@
       }
     },
     {
-      "id": "9631e4d4-3403-4c7c-8f87-bb1f3a8be2e6",
-      "movie_id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
-      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-      "format": "2D",
-      "language_version": "Phụ đề Tiếng Việt",
-      "starts_at": "2026-10-24T05:00:00+00:00",
-      "ends_at": "2026-10-24T07:30:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-19T00:24:34.059508+00:00",
-      "updated_at": "2026-10-19T00:24:34.059508+00:00",
-      "movie": {
-        "id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
-        "title": "Kẻ Trộm Mặt Trời (Furiosa)",
-        "slug": "furiosa-a-mad-max-saga",
-        "synopsis": "Nguồn gốc của nữ chiến binh Furiosa trước khi cô gặp Mad Max trong vùng đất hoang tàn bạo tàn.",
-        "director": "George Miller",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 148,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=XJMuhwVlca4",
-        "release_date": "2026-05-24",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-17T01:20:34.674775+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Úc",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8,
-        "formats": [
-          "2D",
-          "IMAX"
-        ]
-      },
-      "auditorium": {
-        "id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-        "name": "Phòng 2 (2D Digital)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
       "id": "8af846d4-11b1-4db0-b514-4820bbd3529f",
       "movie_id": "f6a1b2c3-d4e5-4f6a-3b7c-8d9e0f1a2b3c",
       "auditorium_id": "44444444-4444-4444-4444-444444444444",
@@ -15573,60 +14936,6 @@
       }
     },
     {
-      "id": "62ed48c9-e639-476e-9b59-5eb7280617c5",
-      "movie_id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
-      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-      "format": "2D",
-      "language_version": "Phụ đề Tiếng Việt",
-      "starts_at": "2026-10-25T05:00:00+00:00",
-      "ends_at": "2026-10-25T07:30:00+00:00",
-      "booking_opens_at": null,
-      "booking_closes_at": null,
-      "status": "open",
-      "created_at": "2026-10-19T00:24:36.052081+00:00",
-      "updated_at": "2026-10-19T00:24:36.052081+00:00",
-      "movie": {
-        "id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
-        "title": "Kẻ Trộm Mặt Trời (Furiosa)",
-        "slug": "furiosa-a-mad-max-saga",
-        "synopsis": "Nguồn gốc của nữ chiến binh Furiosa trước khi cô gặp Mad Max trong vùng đất hoang tàn bạo tàn.",
-        "director": "George Miller",
-        "cast_list": null,
-        "language": "Tiếng Việt",
-        "duration_minutes": 148,
-        "age_rating": "T18",
-        "poster_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800",
-        "banner_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1440",
-        "trailer_url": "https://www.youtube.com/watch?v=XJMuhwVlca4",
-        "release_date": "2026-05-24",
-        "end_date": null,
-        "status": "now_showing",
-        "created_at": "2026-10-17T01:20:34.674775+00:00",
-        "updated_at": "2026-10-17T08:14:07.914976+00:00",
-        "country": "Úc",
-        "studio": null,
-        "meta_title": null,
-        "meta_description": null,
-        "imdb_score": 8,
-        "formats": [
-          "2D",
-          "IMAX"
-        ]
-      },
-      "auditorium": {
-        "id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
-        "name": "Phòng 2 (2D Digital)",
-        "screen_type": "2D",
-        "sound_system": "Dolby 7.1",
-        "total_seats": 80,
-        "cleaning_buffer_minutes": 15,
-        "status": "active",
-        "seat_map_version": 1,
-        "created_at": "2026-10-13T14:33:48.971286+00:00",
-        "updated_at": "2026-10-13T14:33:48.971286+00:00"
-      }
-    },
-    {
       "id": "3139c931-cc51-449f-949e-884d94f4a9da",
       "movie_id": "f6a1b2c3-d4e5-4f6a-3b7c-8d9e0f1a2b3c",
       "auditorium_id": "66666666-6666-6666-6666-666666666666",
@@ -16058,6 +15367,126 @@
         "created_at": "2026-10-17T01:20:34.674775+00:00",
         "updated_at": "2026-10-17T01:20:34.674775+00:00"
       }
+    },
+    {
+      "id": "8b8d9440-0381-447f-b65d-09e6457da68d",
+      "movie_id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
+      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
+      "starts_at": "2026-10-19T04:00:00.000Z",
+      "ends_at": "2026-10-19T06:28:00.000Z",
+      "format": "IMAX",
+      "language_version": "Phụ đề",
+      "status": "open"
+    },
+    {
+      "id": "9c6d3944-0312-4d98-863d-1b6e9357ad2e",
+      "movie_id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
+      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
+      "starts_at": "2026-10-20T04:00:00.000Z",
+      "ends_at": "2026-10-20T06:28:00.000Z",
+      "format": "IMAX",
+      "language_version": "Phụ đề",
+      "status": "open"
+    },
+    {
+      "id": "56d1ffd4-95eb-4059-aede-cf45023616f1",
+      "movie_id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
+      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
+      "starts_at": "2026-10-21T04:00:00.000Z",
+      "ends_at": "2026-10-21T06:28:00.000Z",
+      "format": "IMAX",
+      "language_version": "Phụ đề",
+      "status": "open"
+    },
+    {
+      "id": "8a55fc61-29cf-4065-b000-f7adf8d46e44",
+      "movie_id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
+      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
+      "starts_at": "2026-10-22T04:00:00.000Z",
+      "ends_at": "2026-10-22T06:28:00.000Z",
+      "format": "IMAX",
+      "language_version": "Phụ đề",
+      "status": "open"
+    },
+    {
+      "id": "ef1535cb-1d80-4800-9bbb-d19d75d3b2f0",
+      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
+      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+      "starts_at": "2026-10-19T04:00:00+00:00",
+      "ends_at": "2026-10-19T06:15:00+00:00",
+      "format": "2D",
+      "language_version": "Tiếng Việt",
+      "status": "open"
+    },
+    {
+      "id": "2dcf159e-0bbc-404c-896f-d43fafdf4205",
+      "movie_id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
+      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
+      "starts_at": "2026-10-19T07:30:00+00:00",
+      "ends_at": "2026-10-19T10:00:00+00:00",
+      "format": "2D",
+      "language_version": "Phụ đề",
+      "status": "open"
+    },
+    {
+      "id": "88bc34bd-a29c-4200-b3b0-466de8783e29",
+      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
+      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+      "starts_at": "2026-10-20T04:00:00+00:00",
+      "ends_at": "2026-10-20T06:15:00+00:00",
+      "format": "2D",
+      "language_version": "Tiếng Việt",
+      "status": "open"
+    },
+    {
+      "id": "415c83f9-bbb7-48bb-8069-c9a35613abd6",
+      "movie_id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
+      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
+      "starts_at": "2026-10-20T07:30:00+00:00",
+      "ends_at": "2026-10-20T10:00:00+00:00",
+      "format": "2D",
+      "language_version": "Phụ đề",
+      "status": "open"
+    },
+    {
+      "id": "f50027d1-44f2-4885-81f9-f8affc622321",
+      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
+      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+      "starts_at": "2026-10-21T04:00:00+00:00",
+      "ends_at": "2026-10-21T06:15:00+00:00",
+      "format": "2D",
+      "language_version": "Tiếng Việt",
+      "status": "open"
+    },
+    {
+      "id": "e328facc-16e4-4fcb-be9a-b93b0140c5ac",
+      "movie_id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
+      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
+      "starts_at": "2026-10-21T07:30:00+00:00",
+      "ends_at": "2026-10-21T10:00:00+00:00",
+      "format": "2D",
+      "language_version": "Phụ đề",
+      "status": "open"
+    },
+    {
+      "id": "b3a203df-ca0a-43f6-92cd-63ebce04971a",
+      "movie_id": "63572ecf-6383-49b1-8d64-d52432be6dac",
+      "auditorium_id": "d8eae7e2-cf8d-40c6-96d2-bc690626e180",
+      "starts_at": "2026-10-22T04:00:00+00:00",
+      "ends_at": "2026-10-22T06:15:00+00:00",
+      "format": "2D",
+      "language_version": "Tiếng Việt",
+      "status": "open"
+    },
+    {
+      "id": "07c909d8-73ba-4f59-8a44-a0ed1ac4c68b",
+      "movie_id": "c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f",
+      "auditorium_id": "28368dd8-750b-40a0-b6bd-3d763bd0c0f5",
+      "starts_at": "2026-10-22T07:30:00+00:00",
+      "ends_at": "2026-10-22T10:00:00+00:00",
+      "format": "2D",
+      "language_version": "Phụ đề",
+      "status": "open"
     }
   ],
   "showtime_prices": [
@@ -16124,6 +15553,1182 @@
       "audience_type": "STUDENT_U22",
       "price": 170000,
       "currency": "VND"
+    },
+    {
+      "id": "d39d9809-4902-48b8-ab2f-f8634ed2313c",
+      "showtime_id": "9f1b026b-1a72-47bd-83d2-287e5bb490a4",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "211423d6-f535-4b69-8a92-14d3013370b9",
+      "showtime_id": "9f1b026b-1a72-47bd-83d2-287e5bb490a4",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "ef3f4bbe-0d81-4adb-a97f-110e29baea80",
+      "showtime_id": "9f1b026b-1a72-47bd-83d2-287e5bb490a4",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "dc7a3b06-4925-4a07-a57a-e7e6054912ec",
+      "showtime_id": "9d89b1f1-1369-4080-8d14-c57245ded175",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "0cf3fc60-ff75-4ade-b074-ea6d05da572d",
+      "showtime_id": "9d89b1f1-1369-4080-8d14-c57245ded175",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "78ec79ee-b22d-44fd-8ec2-7f05822722c9",
+      "showtime_id": "9d89b1f1-1369-4080-8d14-c57245ded175",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "390f5cc0-580e-41d0-b2c6-31d85fc40f1b",
+      "showtime_id": "68193520-a6c0-4a3a-8f53-f13b11546dda",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "560e3b18-3a27-416d-9e91-db5613a5dd9e",
+      "showtime_id": "68193520-a6c0-4a3a-8f53-f13b11546dda",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "28e3a18a-8a60-4a63-b8d4-6bf2911e148a",
+      "showtime_id": "68193520-a6c0-4a3a-8f53-f13b11546dda",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "6f0709fd-accc-4ec7-909e-91fc869dd5d0",
+      "showtime_id": "0a430cd8-5f5f-4aa7-8b6a-65b5bcde1a0f",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "5d7297f9-01d3-4176-bfb8-aafc17d46521",
+      "showtime_id": "0a430cd8-5f5f-4aa7-8b6a-65b5bcde1a0f",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "96e826d1-a5dc-42ae-9024-16d9609a9021",
+      "showtime_id": "0a430cd8-5f5f-4aa7-8b6a-65b5bcde1a0f",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "d70de86f-aa2c-445d-af43-bbbf066b5b93",
+      "showtime_id": "a3ef060f-4129-4454-aaea-6d1617b6cbc8",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "e3a469b1-1220-4ecd-98a2-13a39c0842f8",
+      "showtime_id": "a3ef060f-4129-4454-aaea-6d1617b6cbc8",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "87a1f84b-63f5-4162-9ab5-bfcf4b999784",
+      "showtime_id": "a3ef060f-4129-4454-aaea-6d1617b6cbc8",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "70796800-d8b9-4597-93b1-ac1857d0e2a8",
+      "showtime_id": "d9790676-7a71-47b9-9053-540a68d6d40f",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "35752e18-5fab-48e0-bea7-1af24ba842c1",
+      "showtime_id": "d9790676-7a71-47b9-9053-540a68d6d40f",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "6c1adf8a-149a-4283-86be-ef2930d14b61",
+      "showtime_id": "d9790676-7a71-47b9-9053-540a68d6d40f",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "8cac1883-5cc2-4bf6-bec4-7d3f7abe71a8",
+      "showtime_id": "1e7e7bcd-f093-47eb-816e-eba85c37ccf0",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "e39c3010-cfb1-4dad-95ed-e51212fa4619",
+      "showtime_id": "1e7e7bcd-f093-47eb-816e-eba85c37ccf0",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "117a0b63-6a1b-492f-aa9f-020e196496a9",
+      "showtime_id": "1e7e7bcd-f093-47eb-816e-eba85c37ccf0",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "b4e80b01-984a-4217-b8c9-f73f01b38805",
+      "showtime_id": "fa7054f4-001e-485d-96b6-3a56d8f7c5a1",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "4045ec87-8e8e-4e37-bd7d-4c6fd45bb3e9",
+      "showtime_id": "fa7054f4-001e-485d-96b6-3a56d8f7c5a1",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "1704fa78-c04c-4104-842f-d2d7c799fb4a",
+      "showtime_id": "fa7054f4-001e-485d-96b6-3a56d8f7c5a1",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "afce269f-6570-4322-8f84-06704b227380",
+      "showtime_id": "b20a9a7b-8e62-4ca3-b014-3dd2fb89e7b1",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "0cb5f369-269a-482a-b0b5-b819d7fdb530",
+      "showtime_id": "b20a9a7b-8e62-4ca3-b014-3dd2fb89e7b1",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "b6504876-5083-4ae3-99cc-684c17f13125",
+      "showtime_id": "b20a9a7b-8e62-4ca3-b014-3dd2fb89e7b1",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "53f86620-01a3-401b-9a30-9086ec01254b",
+      "showtime_id": "4c54622e-4e90-4226-ac30-a973ecd85d56",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "bb97f764-4c7b-43ff-84c7-446a230a0cd9",
+      "showtime_id": "4c54622e-4e90-4226-ac30-a973ecd85d56",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "2171d4ae-8409-4b7f-a726-ade022a21bf1",
+      "showtime_id": "4c54622e-4e90-4226-ac30-a973ecd85d56",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "d0d39ac6-92c7-4a58-9dc7-d57d13bcd1d6",
+      "showtime_id": "c5999e32-e5a0-44ec-984e-bf729beb2916",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "723e2759-c8e6-428d-851d-7b7343487eb7",
+      "showtime_id": "c5999e32-e5a0-44ec-984e-bf729beb2916",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "c0a154bb-e658-4db9-9065-88b35e497715",
+      "showtime_id": "c5999e32-e5a0-44ec-984e-bf729beb2916",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "591ca89e-783b-43df-87df-4fa148411616",
+      "showtime_id": "4fa31c7b-c66e-4d47-896f-620ac267b7cf",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "d4893ab9-83fc-49e9-ab6b-a6b3f349b388",
+      "showtime_id": "4fa31c7b-c66e-4d47-896f-620ac267b7cf",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "6c9404eb-427a-46f1-bf9c-98bfecd42746",
+      "showtime_id": "4fa31c7b-c66e-4d47-896f-620ac267b7cf",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "d13b9b90-0a02-48ab-b37e-b7b04ab4a37b",
+      "showtime_id": "02adffac-7f20-48d5-af33-6c4309861b00",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "fe44a0a3-e7dd-4db5-b62d-ee57a906257f",
+      "showtime_id": "02adffac-7f20-48d5-af33-6c4309861b00",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "5fc1c7d8-a16b-41a2-9709-f8e0f8e1f175",
+      "showtime_id": "02adffac-7f20-48d5-af33-6c4309861b00",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "2e4b7536-0595-4cac-813a-7f97e37dc5ba",
+      "showtime_id": "25d7a767-fce5-4ba5-8d21-c07a89184872",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "cb46e15f-3585-4f72-ad7e-8eb22d788980",
+      "showtime_id": "25d7a767-fce5-4ba5-8d21-c07a89184872",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "26ea3aea-3792-40f5-b431-02ff5593eb07",
+      "showtime_id": "25d7a767-fce5-4ba5-8d21-c07a89184872",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "aa4bcbf1-bf7c-4026-8098-0db21b0cbc41",
+      "showtime_id": "8b4659b9-45dd-4ef3-ba8f-902f505f03a3",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "84d219e8-6716-43f7-b5b3-a755365f1648",
+      "showtime_id": "8b4659b9-45dd-4ef3-ba8f-902f505f03a3",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "bca8537d-ac53-4637-a4a6-d48bbdc39655",
+      "showtime_id": "8b4659b9-45dd-4ef3-ba8f-902f505f03a3",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "e3d94914-0f02-4817-99ae-4085add6f9bb",
+      "showtime_id": "c188d409-b652-4fd4-8a42-a67ef641cd2d",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "e0dc1773-db40-47e5-b303-9571eddab61e",
+      "showtime_id": "c188d409-b652-4fd4-8a42-a67ef641cd2d",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "e42f5a8a-2f0d-4560-9a02-051fccf7c912",
+      "showtime_id": "c188d409-b652-4fd4-8a42-a67ef641cd2d",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "e882b425-3c51-4b06-890a-7422c5d16af7",
+      "showtime_id": "eb4412f3-6ec6-4de2-ad49-1a20465b4d67",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "c8a155e7-65b7-4748-8322-02a97b7c8fef",
+      "showtime_id": "eb4412f3-6ec6-4de2-ad49-1a20465b4d67",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "0652173b-fad3-4b68-9ff4-529590cf1fda",
+      "showtime_id": "eb4412f3-6ec6-4de2-ad49-1a20465b4d67",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "210b0385-a71c-4bb3-be9b-5f161ac9ed33",
+      "showtime_id": "197b24ca-9fb1-48ee-8414-7b862c843bae",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "5a82d06f-7b78-445b-807e-9f6fdf3c5e4b",
+      "showtime_id": "197b24ca-9fb1-48ee-8414-7b862c843bae",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "2a5ef0d0-1559-4761-88e2-ddc78c415908",
+      "showtime_id": "197b24ca-9fb1-48ee-8414-7b862c843bae",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "0e94f7de-a94c-4530-8b19-a3ba917b8f24",
+      "showtime_id": "5a0a3395-03e8-422d-898f-65d48924ab79",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "bbfb844f-76c6-424e-9dbd-63285cfba4a4",
+      "showtime_id": "5a0a3395-03e8-422d-898f-65d48924ab79",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "1a9e9b27-d9a1-4e06-9dd4-2cbec8306b7d",
+      "showtime_id": "5a0a3395-03e8-422d-898f-65d48924ab79",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "541f31f6-aa4e-45f4-821e-cbd98530f71b",
+      "showtime_id": "07315543-afff-454d-86d8-dff0a969abe9",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "1a25d908-dcb9-41ee-9259-029ba7ea640b",
+      "showtime_id": "07315543-afff-454d-86d8-dff0a969abe9",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "55fb2df0-ab92-4915-9d1e-b559814ec456",
+      "showtime_id": "07315543-afff-454d-86d8-dff0a969abe9",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "4ddfd220-d340-42e2-b232-5257c4b3f0ad",
+      "showtime_id": "c522be4c-7425-4f76-ac5a-b849eb423af3",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "adec3772-4697-465a-aeec-91f2d699fefc",
+      "showtime_id": "c522be4c-7425-4f76-ac5a-b849eb423af3",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "04c547b7-72e5-4d82-993c-0310ee2ea1e4",
+      "showtime_id": "c522be4c-7425-4f76-ac5a-b849eb423af3",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "f8c6be95-1f6a-4fc9-b9ff-c4d8682fd469",
+      "showtime_id": "ba56cca2-72d3-4fbf-b192-1a59ca2fb9ce",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "99ff4ccf-7bf8-4a91-89ce-e213bd77e9a3",
+      "showtime_id": "ba56cca2-72d3-4fbf-b192-1a59ca2fb9ce",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "893d31c3-6839-419a-8a2c-619d11fdc0fb",
+      "showtime_id": "ba56cca2-72d3-4fbf-b192-1a59ca2fb9ce",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "171146ad-5633-4dd1-a986-5dd4d324d1e9",
+      "showtime_id": "a0487cc2-0db1-448a-ab13-92ea01a83a2f",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "d5d74eef-3acd-445e-b335-d25eb2b91e69",
+      "showtime_id": "a0487cc2-0db1-448a-ab13-92ea01a83a2f",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "e03cfe0d-4118-4425-b732-e7cb99d1afd5",
+      "showtime_id": "a0487cc2-0db1-448a-ab13-92ea01a83a2f",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "ff070863-5d7e-4664-b042-625e446147ff",
+      "showtime_id": "e3284b28-d2f1-4c45-8dba-91ce5e21754f",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "347e187a-5c5d-4e22-95d3-ea7403740b9b",
+      "showtime_id": "e3284b28-d2f1-4c45-8dba-91ce5e21754f",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "70e2eaf0-6b82-44b1-8966-bc9f13cf24e0",
+      "showtime_id": "e3284b28-d2f1-4c45-8dba-91ce5e21754f",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "3c7b01d1-edcf-447a-aed2-65d4b325f7ac",
+      "showtime_id": "5cd9837a-5e5f-42b7-a239-d777f8ad8e4e",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "f4e80eb5-741a-4f91-b959-1c83840686f2",
+      "showtime_id": "5cd9837a-5e5f-42b7-a239-d777f8ad8e4e",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "0dcac470-a6db-4de4-aa48-a277668f5b2c",
+      "showtime_id": "5cd9837a-5e5f-42b7-a239-d777f8ad8e4e",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "397aeb24-9dd0-4951-b0ee-9e966d9237eb",
+      "showtime_id": "c6114916-03ba-473a-8d85-3bb197ee9b21",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "2328b267-1664-4769-8cd8-98fbf1ff7770",
+      "showtime_id": "c6114916-03ba-473a-8d85-3bb197ee9b21",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "34509833-b2bc-43c6-9327-c223ffa44db2",
+      "showtime_id": "c6114916-03ba-473a-8d85-3bb197ee9b21",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "09735400-70cc-436b-9815-6fd73a5cbebc",
+      "showtime_id": "a52bae6b-607c-47b2-bd73-a55ff3d0c5cf",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "77e966ec-5572-4b0c-b263-be2802b5faa8",
+      "showtime_id": "a52bae6b-607c-47b2-bd73-a55ff3d0c5cf",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "2bcac73c-5118-4ece-8186-4f9a8111f5a9",
+      "showtime_id": "a52bae6b-607c-47b2-bd73-a55ff3d0c5cf",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "1f1e5031-2eb8-4ab4-a448-26a5c377809b",
+      "showtime_id": "731cb7b9-f06a-4a21-874a-3840d1c492a0",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "db3017d0-df43-45a0-88af-9943ceaa70d6",
+      "showtime_id": "731cb7b9-f06a-4a21-874a-3840d1c492a0",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "784576ad-c191-404d-ac60-5bf31d0cb345",
+      "showtime_id": "731cb7b9-f06a-4a21-874a-3840d1c492a0",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "4d7621b4-888a-4a6e-b9dd-a6ced692e361",
+      "showtime_id": "a1fbb8ef-071b-4a34-b939-02ed96ca2512",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "012d02f2-113a-4ff1-9c61-29a37cf8dffc",
+      "showtime_id": "a1fbb8ef-071b-4a34-b939-02ed96ca2512",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "663ec282-d373-4488-b5da-65217b76b862",
+      "showtime_id": "a1fbb8ef-071b-4a34-b939-02ed96ca2512",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "3b2e8d55-8b62-4157-91c2-c767ad03ed4e",
+      "showtime_id": "bb35d35b-6244-4972-9431-431ec21064fc",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "762d864e-8e32-47e0-a2a6-f61eaad9b166",
+      "showtime_id": "bb35d35b-6244-4972-9431-431ec21064fc",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "b8e88d08-c41c-47d7-ba89-3afffdb1057e",
+      "showtime_id": "bb35d35b-6244-4972-9431-431ec21064fc",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "9c933446-030b-4ed8-87e1-44a2d80c00fe",
+      "showtime_id": "fc83e264-66a5-475f-ab5a-8805711a433e",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "a2953f44-9f2b-4aaf-ad6b-1df1f5032dd6",
+      "showtime_id": "fc83e264-66a5-475f-ab5a-8805711a433e",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "ce735aa5-0f5e-4f6a-8a3c-b84e16a00334",
+      "showtime_id": "fc83e264-66a5-475f-ab5a-8805711a433e",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "094a91b3-4579-4cdd-a7af-4836e917d81f",
+      "showtime_id": "bc2498d1-1465-4214-bbb1-678872990bc0",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "219618c7-fce0-4cf9-9571-9492d01032dd",
+      "showtime_id": "bc2498d1-1465-4214-bbb1-678872990bc0",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "6214dc9f-5de2-4204-9cb5-c85738f87c03",
+      "showtime_id": "bc2498d1-1465-4214-bbb1-678872990bc0",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "fbad15a7-ac4c-4c39-bfd1-2cd004766755",
+      "showtime_id": "40e16ef3-3f50-4206-99b0-2c95ba657f44",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "bf3df333-aa69-46dc-ab13-cd0963fc0b85",
+      "showtime_id": "40e16ef3-3f50-4206-99b0-2c95ba657f44",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "713fa5a8-71e5-4204-99bc-4c2488523680",
+      "showtime_id": "40e16ef3-3f50-4206-99b0-2c95ba657f44",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "fb3ea97b-f851-41d8-a321-2b04127cbec0",
+      "showtime_id": "35f12c45-f749-42df-91bb-79bcb666b75b",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "85b79598-9b72-4663-9d7a-41faec18a1a4",
+      "showtime_id": "35f12c45-f749-42df-91bb-79bcb666b75b",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "0e2c60d6-43ed-4e41-adbf-7c0a1255ac4e",
+      "showtime_id": "35f12c45-f749-42df-91bb-79bcb666b75b",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "a3f3ac41-ecc5-495e-bc39-72caa6f7d75f",
+      "showtime_id": "0cf81f6e-f1d1-4f63-a037-df8e314701c1",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "4956c60e-21d1-4b3e-a538-ac578809b28a",
+      "showtime_id": "0cf81f6e-f1d1-4f63-a037-df8e314701c1",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "8cbbe485-c709-4d9c-b6d9-7a0fa2889fc3",
+      "showtime_id": "0cf81f6e-f1d1-4f63-a037-df8e314701c1",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "2092038b-1b54-4441-acb6-8daf332771da",
+      "showtime_id": "40eed27d-3c85-4ef4-a325-120f17d45670",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "23e69170-779d-4b94-995b-6c6036175b7f",
+      "showtime_id": "40eed27d-3c85-4ef4-a325-120f17d45670",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "ef836af0-69bc-4706-915e-aa6f9c74b176",
+      "showtime_id": "40eed27d-3c85-4ef4-a325-120f17d45670",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "8b42d58d-9955-4789-a36d-f53cea269923",
+      "showtime_id": "8b8d9440-0381-447f-b65d-09e6457da68d",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "3aafc08d-ae99-475e-8087-71bdaa849b13",
+      "showtime_id": "8b8d9440-0381-447f-b65d-09e6457da68d",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "1132fc1c-6d01-478e-a37f-cb0e606c14e5",
+      "showtime_id": "8b8d9440-0381-447f-b65d-09e6457da68d",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "c4e6ee28-a430-4da3-89af-05b8d254852c",
+      "showtime_id": "fa066e51-0458-4e1d-9a88-8c1f48269d84",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "27e229b2-0414-49bc-8987-605ef47ec6ca",
+      "showtime_id": "fa066e51-0458-4e1d-9a88-8c1f48269d84",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "8b59e99f-1655-41fa-a9fb-d467343c8f91",
+      "showtime_id": "fa066e51-0458-4e1d-9a88-8c1f48269d84",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "2244605c-0d19-4bd9-a355-58fcece74175",
+      "showtime_id": "18358fb7-ab6a-43ec-9a45-af35ed052811",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "a15724dd-6658-4645-aa06-47bbceadd364",
+      "showtime_id": "18358fb7-ab6a-43ec-9a45-af35ed052811",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "c67408bd-cbaf-4e60-b0d6-4169b66c1dc0",
+      "showtime_id": "18358fb7-ab6a-43ec-9a45-af35ed052811",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "5561ad99-bd38-4bad-8031-068597cc7ab8",
+      "showtime_id": "9c6d3944-0312-4d98-863d-1b6e9357ad2e",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "ad301cee-49dc-471f-97da-2e7cfba8a903",
+      "showtime_id": "9c6d3944-0312-4d98-863d-1b6e9357ad2e",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "2a5ea442-8b86-4daf-9b4f-e7ec76104392",
+      "showtime_id": "9c6d3944-0312-4d98-863d-1b6e9357ad2e",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "ef9ade57-22dc-4826-a2d3-f483cae13c61",
+      "showtime_id": "8578e89c-8147-4631-bae1-a280e748408a",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "1d8a1591-6b81-48eb-a912-a194e3809fdf",
+      "showtime_id": "8578e89c-8147-4631-bae1-a280e748408a",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "b7897e90-dcb3-4d36-9c5e-e93419596b13",
+      "showtime_id": "8578e89c-8147-4631-bae1-a280e748408a",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "a60621bc-ee5f-488f-9672-cf919d75b5e6",
+      "showtime_id": "9dc305c4-e547-4a79-9360-f2f9cec753e7",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "30ef8a55-916b-4705-bce5-2d2f069d8b12",
+      "showtime_id": "9dc305c4-e547-4a79-9360-f2f9cec753e7",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "99c92d58-b2ec-4435-8e4d-b591c4ba22ad",
+      "showtime_id": "9dc305c4-e547-4a79-9360-f2f9cec753e7",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "f3f86268-29aa-4129-90b2-cf9a444a6699",
+      "showtime_id": "56d1ffd4-95eb-4059-aede-cf45023616f1",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "5f25a536-d598-4b4b-ac6e-26b5e6432ac1",
+      "showtime_id": "56d1ffd4-95eb-4059-aede-cf45023616f1",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "604f3c14-24d0-459c-aa09-28fd158a8697",
+      "showtime_id": "56d1ffd4-95eb-4059-aede-cf45023616f1",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "215ec6e6-376a-45fc-aac5-efdc11cb61fe",
+      "showtime_id": "7c22b1d2-fa12-4575-8c9a-3a9fda80248c",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "4c48fe99-5560-4876-9eb7-b3ab7d2ba3ab",
+      "showtime_id": "7c22b1d2-fa12-4575-8c9a-3a9fda80248c",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "3108d127-6cdf-439b-903a-9f58d31b447e",
+      "showtime_id": "7c22b1d2-fa12-4575-8c9a-3a9fda80248c",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "98846f5f-f5f9-44bc-8e37-8845e9265e10",
+      "showtime_id": "b878be18-066c-4b65-bd08-336ad81ad1f5",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "c69ecbcb-f1cb-4351-b78e-f76277c24b6e",
+      "showtime_id": "b878be18-066c-4b65-bd08-336ad81ad1f5",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "416bbdfc-6a03-4095-962a-b41f649a1a98",
+      "showtime_id": "b878be18-066c-4b65-bd08-336ad81ad1f5",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "03cbf1e6-7c03-4a68-9009-1101a9793ecb",
+      "showtime_id": "8a55fc61-29cf-4065-b000-f7adf8d46e44",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "ec9b3211-8e58-4b66-a4b0-013cf07dcad6",
+      "showtime_id": "8a55fc61-29cf-4065-b000-f7adf8d46e44",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "f9e19691-918c-436b-879d-0473ef27955f",
+      "showtime_id": "8a55fc61-29cf-4065-b000-f7adf8d46e44",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "ae2c5460-c0d0-4690-bffe-e1f4233c77f7",
+      "showtime_id": "628fa221-3946-4c8e-8b7b-d259c66fcc9c",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "221e3220-5819-4e4b-acc8-5b98881c31b5",
+      "showtime_id": "628fa221-3946-4c8e-8b7b-d259c66fcc9c",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "d2d494e8-4243-4432-8c91-da52716bad15",
+      "showtime_id": "628fa221-3946-4c8e-8b7b-d259c66fcc9c",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "cad43be0-4f4e-4ee5-bd10-cff32dbdeb8f",
+      "showtime_id": "a5eb1f7a-b848-42c1-9f29-52665f006da7",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 120000
+    },
+    {
+      "id": "f348815f-7eb3-4479-aba3-04bfb8860dcf",
+      "showtime_id": "a5eb1f7a-b848-42c1-9f29-52665f006da7",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 150000
+    },
+    {
+      "id": "072316e8-b972-49cb-bdc8-710c0fa36650",
+      "showtime_id": "a5eb1f7a-b848-42c1-9f29-52665f006da7",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 280000
+    },
+    {
+      "id": "5453f71e-b37a-440a-aa5a-c79528724084",
+      "showtime_id": "ef1535cb-1d80-4800-9bbb-d19d75d3b2f0",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "5a952b8f-8911-4861-8e52-5fd517054639",
+      "showtime_id": "ef1535cb-1d80-4800-9bbb-d19d75d3b2f0",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "1747d43e-a0d5-48df-96b5-1fff937a1bc4",
+      "showtime_id": "ef1535cb-1d80-4800-9bbb-d19d75d3b2f0",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "87fd6c3f-5bf2-434a-82ed-350f90c40d50",
+      "showtime_id": "2dcf159e-0bbc-404c-896f-d43fafdf4205",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 90000
+    },
+    {
+      "id": "8753df05-5689-4c2e-8b42-c99a2444853d",
+      "showtime_id": "2dcf159e-0bbc-404c-896f-d43fafdf4205",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 110000
+    },
+    {
+      "id": "bc80b1ae-93f0-4e98-9bd6-63f9ee7908e0",
+      "showtime_id": "2dcf159e-0bbc-404c-896f-d43fafdf4205",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 220000
+    },
+    {
+      "id": "66147f19-7554-4ff8-a9de-d7244c9bcc8a",
+      "showtime_id": "88bc34bd-a29c-4200-b3b0-466de8783e29",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "b24ac9e1-682e-4736-9f32-d7880fa16bea",
+      "showtime_id": "88bc34bd-a29c-4200-b3b0-466de8783e29",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "e4012120-e12c-4048-8bf5-73ffe98d8c83",
+      "showtime_id": "88bc34bd-a29c-4200-b3b0-466de8783e29",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "550089fb-6406-4f53-9e7d-136bb59aa7e9",
+      "showtime_id": "415c83f9-bbb7-48bb-8069-c9a35613abd6",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 90000
+    },
+    {
+      "id": "73e0c383-a00b-4582-bb96-c33c9526d6d3",
+      "showtime_id": "415c83f9-bbb7-48bb-8069-c9a35613abd6",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 110000
+    },
+    {
+      "id": "ecb2701b-f745-44b5-b1e3-9daa22deb307",
+      "showtime_id": "415c83f9-bbb7-48bb-8069-c9a35613abd6",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 220000
+    },
+    {
+      "id": "113e55e2-6b22-45ef-bc5d-47292c15532c",
+      "showtime_id": "f50027d1-44f2-4885-81f9-f8affc622321",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "cc8f94ed-cf63-4469-96fd-98587606019e",
+      "showtime_id": "f50027d1-44f2-4885-81f9-f8affc622321",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "3b0e83b7-6a35-4f0d-9f17-902448c48192",
+      "showtime_id": "f50027d1-44f2-4885-81f9-f8affc622321",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "467f0806-2752-47e0-8c07-a2f836cc822c",
+      "showtime_id": "e328facc-16e4-4fcb-be9a-b93b0140c5ac",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 90000
+    },
+    {
+      "id": "36c6e449-f8b6-420a-9111-87696fd2b3e0",
+      "showtime_id": "e328facc-16e4-4fcb-be9a-b93b0140c5ac",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 110000
+    },
+    {
+      "id": "4a2b0e06-e2dd-47fc-b5f2-cb81eac263c9",
+      "showtime_id": "e328facc-16e4-4fcb-be9a-b93b0140c5ac",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 220000
+    },
+    {
+      "id": "e1ae86c7-1198-4212-9830-a35daed3785c",
+      "showtime_id": "b3a203df-ca0a-43f6-92cd-63ebce04971a",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 85000
+    },
+    {
+      "id": "82057b1f-0455-4d5d-b238-3af156d65281",
+      "showtime_id": "b3a203df-ca0a-43f6-92cd-63ebce04971a",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 105000
+    },
+    {
+      "id": "6de40795-ef4a-4d64-9afa-30ff90e294ad",
+      "showtime_id": "b3a203df-ca0a-43f6-92cd-63ebce04971a",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 210000
+    },
+    {
+      "id": "95455522-2fd5-4ce9-8918-1c038c272a5c",
+      "showtime_id": "07c909d8-73ba-4f59-8a44-a0ed1ac4c68b",
+      "seat_type": "STANDARD",
+      "audience_type": "ADULT",
+      "price": 90000
+    },
+    {
+      "id": "e6abded0-1a00-4117-bcab-c0efdac73e3e",
+      "showtime_id": "07c909d8-73ba-4f59-8a44-a0ed1ac4c68b",
+      "seat_type": "VIP",
+      "audience_type": "ADULT",
+      "price": 110000
+    },
+    {
+      "id": "7cc84527-7303-4c82-952b-fca19a49aa98",
+      "showtime_id": "07c909d8-73ba-4f59-8a44-a0ed1ac4c68b",
+      "seat_type": "COUPLE",
+      "audience_type": "ADULT",
+      "price": 220000
     }
   ],
   "showtime_seats": [

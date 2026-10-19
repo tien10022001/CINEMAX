@@ -155,13 +155,36 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
   const dbMovies: Movie[] = (moviesRes.data || []).map((m: Record<string, unknown>, idx: number) => {
     const numId = uuidToNumId(String(m.id), idx + 1);
     const mockMatch = MOCK_MOVIES.find((mm) => mm.id === numId || mm.slug === m.slug);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const releaseDateStr = String(m.release_date || mockMatch?.release_date || '').slice(0, 10);
+    const endDateStr = m.end_date ? String(m.end_date).slice(0, 10) : '';
+
+    // Kiểm tra xem phim có suất chiếu mở bán hợp lệ từ hôm nay trở đi hay không
+    const hasActiveShowtimes = (showtimesRes.data || []).some((st: any) => {
+      const stMovieId = String(st.movie_id || '');
+      const matchM = stMovieId === String(m.id) || stMovieId === String(numId);
+      const isAvailable = String(st.status || 'open').toLowerCase() === 'open';
+      const stDate = String(st.starts_at || '').slice(0, 10);
+      return matchM && isAvailable && stDate >= todayStr;
+    });
+
     const rawStatus = String(m.status || 'now_showing').toUpperCase();
-    const mappedStatus: MovieStatus =
-      rawStatus === 'COMING_SOON'
-        ? 'COMING_SOON'
-        : rawStatus === 'ENDED'
-        ? 'ENDED'
-        : 'NOW_SHOWING';
+    let mappedStatus: MovieStatus = 'NOW_SHOWING';
+
+    if (rawStatus === 'ENDED' || (endDateStr && endDateStr < todayStr)) {
+      mappedStatus = 'ENDED';
+    } else if (hasActiveShowtimes) {
+      // 1. Nếu phim ĐÃ CÓ suất chiếu mở bán từ hôm nay trở đi -> Luôn là NOW_SHOWING để khán giả mua vé được
+      mappedStatus = 'NOW_SHOWING';
+    } else if (releaseDateStr && releaseDateStr > todayStr) {
+      // 2. Nếu chưa tới ngày khởi chiếu và chưa mở bán suất chiếu -> COMING_SOON (Phim sắp chiếu)
+      mappedStatus = 'COMING_SOON';
+    } else if (rawStatus === 'COMING_SOON') {
+      // 3. Nếu đánh dấu COMING_SOON nhưng ngày khởi chiếu đã tới (<= todayStr) -> tự động chuyển NOW_SHOWING khi qua ngày mới
+      mappedStatus = 'NOW_SHOWING';
+    } else {
+      mappedStatus = rawStatus === 'COMING_SOON' ? 'COMING_SOON' : 'NOW_SHOWING';
+    }
 
     const mgList = Array.isArray(m.movie_genres) ? m.movie_genres : [];
     const genres = mgList

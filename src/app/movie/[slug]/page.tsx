@@ -234,6 +234,27 @@ export default function MovieDetailPage() {
               const now = new Date();
               const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
+              // Tìm ngày gần nhất có suất chiếu nếu ngày hiện tại không có
+              const allDatesWithShowtimes = dates.filter((d) => {
+                return showtimes.some((s) => {
+                  const sStatus = String(s.status || 'OPEN').toUpperCase();
+                  if (sStatus === 'CANCELLED' || sStatus === 'CLOSED') return false;
+                  const sMovieId = String(s.movie_id || s.movie?.id || '');
+                  const mId = String(movie.id || '');
+                  const mSubId = movie.supabase_id ? String(movie.supabase_id) : '';
+                  const matchMovie =
+                    sMovieId === mId ||
+                    (mSubId && sMovieId === mSubId) ||
+                    (movie.slug && s.movie?.slug === movie.slug) ||
+                    (movie.title && s.movie?.title?.toLowerCase() === movie.title.toLowerCase()) ||
+                    (s.movie?.id && (String(s.movie.id) === mId || (mSubId && String(s.movie.id) === mSubId)));
+                  if (!matchMovie) return false;
+                  const stTime = s.start_time || (s as any).starts_at;
+                  return stTime && stTime.slice(0, 10) === d.date;
+                });
+              });
+              const nearestAvailableDate = allDatesWithShowtimes[0];
+
               return (
                 <div
                   key={cinema.id}
@@ -258,9 +279,24 @@ export default function MovieDetailPage() {
                       Chọn giờ chiếu để vào chọn ghế:
                     </div>
                     {slotsToRender.length === 0 ? (
-                      <p className="text-xs text-[#9EA6B8] py-2">
-                        Chưa có suất chiếu nào cho ngày đã chọn. Vui lòng chọn ngày chiếu khác ở trên.
-                      </p>
+                      nearestAvailableDate ? (
+                        <div className="bg-[#14161F] border border-[#303645] rounded-xl p-3.5 flex items-center justify-between flex-wrap gap-2 text-xs">
+                          <p className="text-[#9EA6B8]">
+                            Chưa có suất chiếu vào ngày đang chọn. Suất chiếu gần nhất: <span className="text-white font-bold">{nearestAvailableDate.label} ({nearestAvailableDate.day})</span>.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDate(nearestAvailableDate.date)}
+                            className="px-3 py-1.5 rounded-lg bg-[#E63845]/15 border border-[#E63845]/40 text-[#E63845] hover:bg-[#E63845] hover:text-white font-bold transition-all cursor-pointer"
+                          >
+                            Xem lịch ngày {nearestAvailableDate.day} &gt;
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-[#9EA6B8] py-2">
+                          Phim hiện chưa có suất chiếu nào được xếp lịch tại cụm rạp này trong 7 ngày tới. Vui lòng chọn cụm rạp khác hoặc quay lại sau.
+                        </p>
+                      )
                     ) : (
                       <div className="flex flex-wrap gap-3">
                         {slotsToRender.map((st) => {
