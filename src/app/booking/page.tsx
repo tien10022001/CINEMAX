@@ -2491,7 +2491,7 @@ function BookingContent() {
                   </div>
                   <div className="space-y-0.5">
                     <div className="text-[9px] text-[#FABF2E] font-bold uppercase tracking-wider">
-                      MÃ QUÉT SOÁT VÉ / IN KIOSK
+                      MÃ QUÉT SOÁT VÉ VÀO RẠP
                     </div>
                     <div className="font-mono text-xs font-black text-white tracking-widest bg-[#0F1217] py-0.5 px-2 rounded border border-[#303645]">
                       {completedBooking.bookingCode}
@@ -2524,18 +2524,36 @@ function BookingContent() {
                 type="button"
                 onClick={() => setShowUnifiedModal(true)}
                 className="bg-[#FABF2E] hover:bg-[#E5AC24] text-black py-2.5 px-2 rounded-full font-bold text-xs shadow-md shadow-[#FABF2E]/20 flex items-center justify-center gap-1.5 cursor-pointer transition-all truncate"
+                title="Xem thẻ vé điện tử và mã QR"
               >
                 <QrCode className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">Thẻ Vé Kiosk</span>
+                <span className="truncate">Thẻ Vé Điện Tử</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => {
+                  TicketScannerService.downloadTicketPdf({
+                    bookingCode: completedBooking.bookingCode,
+                    movieTitle: selectedMovie.title,
+                    cinemaName: selectedCinema.name,
+                    roomName: selectedShowtime?.room?.name || 'Phòng chiếu tiêu chuẩn',
+                    showtime: `${queryTime} • ${queryDate}`,
+                    seats: completedBooking.seatsStr,
+                    totalAmount: completedBooking.totalAmount,
+                    foodsStr: completedBooking.foodsStr,
+                    customerName: completedBooking.customerName,
+                    customerPhone: completedBooking.customerPhone,
+                    ageRating: selectedMovie.age_rating,
+                    format: selectedShowtime?.format || '2D Digital',
+                    status: 'ĐÃ THANH TOÁN',
+                  });
+                }}
                 className="bg-[#E63845] hover:bg-[#CC2B37] text-white py-2.5 px-2 rounded-full font-bold text-xs shadow-md shadow-[#E63845]/30 flex items-center justify-center gap-1.5 cursor-pointer transition-all truncate"
+                title="Tải vé xem phim dạng PDF về máy"
               >
                 <Download className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">In / Tải PDF</span>
+                <span className="truncate">Tải vé (PDF)</span>
               </button>
 
               <button

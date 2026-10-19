@@ -539,10 +539,10 @@ export default function LookupPage() {
                   <div className="space-y-1 text-center sm:text-left">
                     <div className="text-sm font-bold text-white flex items-center justify-center sm:justify-start gap-2">
                       <QrCode className="w-4 h-4 text-[#FABF2E]" />
-                      MÃ QR QUÉT VÀO RẠP & IN TẠI KIOSK
+                      MÃ QR SOÁT VÉ VÀO RẠP
                     </div>
                     <p className="text-xs text-[#9EA6B8]">
-                      Xuất trình mã QR này tại quầy soát vé hoặc quét tại máy in vé tự động (Kiosk).
+                      Xuất trình mã QR này trực tiếp tại quầy soát vé để vào phòng chiếu.
                     </p>
                   </div>
                   <div className="bg-white p-2.5 rounded-2xl shrink-0 shadow-lg">
@@ -565,7 +565,7 @@ export default function LookupPage() {
                       <span className="text-[10px] bg-[#E63845] text-white px-1.5 py-0.2 rounded font-black">QUAN TRỌNG</span>
                     </div>
                     <p className="text-[#D1D5DB] leading-relaxed">
-                      Tuyệt đối <strong className="text-white underline">KHÔNG chia sẻ hoặc chụp ảnh mã QR này đăng lên mạng xã hội</strong>. Ai có mã QR hoặc mã đơn ({orderData.order_code}) đều có thể quét vào rạp hoặc in vé tại Kiosk trước bạn, dẫn đến vé của bạn bị vô hiệu hóa khi vào phòng chiếu!
+                      Tuyệt đối <strong className="text-white underline">KHÔNG chia sẻ hoặc chụp ảnh mã QR này đăng lên mạng xã hội</strong>. Ai có mã QR hoặc mã đơn ({orderData.order_code}) đều có thể quét vào rạp trước bạn, dẫn đến vé của bạn bị vô hiệu hóa khi vào phòng chiếu!
                     </p>
                   </div>
                 </div>

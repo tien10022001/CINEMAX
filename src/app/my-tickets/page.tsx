@@ -637,9 +637,9 @@ export default function MyTicketsPage() {
 
                           <button
                             type="button"
-                            onClick={() => window.print()}
-                            className="border border-[#303645] hover:border-white text-white p-1.5 rounded-full transition-colors cursor-pointer"
-                            title="Tải PDF"
+                            onClick={() => TicketScannerService.downloadTicketPdf(ticket)}
+                            className="border border-[#303645] hover:border-[#06B6D4] hover:text-[#06B6D4] text-white p-1.5 rounded-full transition-colors cursor-pointer"
+                            title="Tải vé (PDF)"
                           >
                             <Download className="w-3.5 h-3.5" />
                           </button>

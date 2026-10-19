@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-10-19T01:28:04.955Z",
+  "last_updated": "2026-10-19T01:35:08.151Z",
   "movies": [
     {
       "id": "a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d",
@@ -17683,6 +17683,42 @@
     }
   ],
   "orders": [
+    {
+      "id": "CNM261019-3ZA45",
+      "order_code": "CNM261019-3ZA45",
+      "channel": "online",
+      "status": "paid",
+      "contact_name": "Quản trị viên Cinemax",
+      "contact_phone": "0988888888",
+      "contact_email": "admin@cinemax.vn",
+      "total_amount": 136000,
+      "subtotal": 136000,
+      "created_at": "2026-10-19T01:35:08.151Z",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 68000,
+          "item_snapshot": {
+            "movieTitle": "Deadpool & Wolverine",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 2 (2D Digital)",
+            "showTime": "12:02 • 2026-10-19",
+            "seatCode": "E9"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 68000,
+          "item_snapshot": {
+            "movieTitle": "Deadpool & Wolverine",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 2 (2D Digital)",
+            "showTime": "12:02 • 2026-10-19",
+            "seatCode": "E8"
+          }
+        }
+      ]
+    },
     {
       "id": "CNM261019-MBB21",
       "order_code": "CNM261019-MBB21",

@@ -592,10 +592,10 @@ export default function UnifiedTicketModal({
                 type="button"
                 onClick={handlePrintTicket}
                 className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#1F2739] hover:bg-[#2A344A] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                title="Lưu hoặc in riêng chiếc vé này dưới dạng file PDF"
+                title="Tải và lưu vé xem phim dạng file PDF"
               >
                 <Download className="w-3.5 h-3.5 text-[#06B6D4]" />
-                <span>Lưu Vé (PDF)</span>
+                <span>Tải Vé (PDF)</span>
               </button>
             </div>
 
