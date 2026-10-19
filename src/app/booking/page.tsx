@@ -215,22 +215,7 @@ function BookingContent() {
   });
   const [appliedPromo, setAppliedPromo] = useState<Promotion | null>(null);
   const [promoError, setPromoError] = useState<string>('');
-  const [isVoucherDropdownOpen, setIsVoucherDropdownOpen] = useState<boolean>(false);
-  const voucherDropdownRef = React.useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (voucherDropdownRef.current && !voucherDropdownRef.current.contains(e.target as Node)) {
-        setIsVoucherDropdownOpen(false);
-      }
-    };
-    if (isVoucherDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isVoucherDropdownOpen]);
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState<boolean>(false);
 
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState<'VIETQR' | 'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CARD'>('VIETQR');
@@ -889,7 +874,7 @@ function BookingContent() {
     }
 
     setAppliedPromo(promo);
-    setIsVoucherDropdownOpen(false);
+    setIsVoucherModalOpen(false);
   };
 
   const handleSelectVoucher = (v: Promotion) => {
@@ -900,7 +885,7 @@ function BookingContent() {
       return;
     }
     setAppliedPromo(v);
-    setIsVoucherDropdownOpen(false);
+    setIsVoucherModalOpen(false);
   };
 
   const handleRemovePromo = () => {
@@ -2280,24 +2265,23 @@ function BookingContent() {
                 </div>
 
                 {/* Mã giảm giá tích hợp gọn gàng trong tóm tắt đơn hàng */}
-                <div ref={voucherDropdownRef} className="pt-2 border-t border-[#303645] space-y-1.5 relative">
+                <div className="pt-2 border-t border-[#303645] space-y-1.5">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-semibold text-[#9EA6B8] flex items-center gap-1">
-                      <Tag className="w-3 h-3 text-[#FABF2E]" />
+                      <Tag className="w-3.5 h-3.5 text-[#FABF2E]" />
                       Mã giảm giá
                     </span>
                     <button
                       type="button"
-                      onClick={() => setIsVoucherDropdownOpen(!isVoucherDropdownOpen)}
-                      className="text-[10px] text-[#FABF2E] hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                      onClick={() => setIsVoucherModalOpen(true)}
+                      className="text-[10px] text-[#FABF2E] hover:underline font-bold cursor-pointer"
                     >
-                      <span>Voucher khả dụng ({validVouchers.length})</span>
-                      <ChevronDown className={`w-3 h-3 transition-transform ${isVoucherDropdownOpen ? 'rotate-180' : ''}`} />
+                      {appliedPromo ? 'Đổi voucher khác >' : `Chọn voucher (${validVouchers.length}) >`}
                     </button>
                   </div>
 
                   {appliedPromo ? (
-                    <div className="flex items-center justify-between bg-[#33C773]/10 border border-[#33C773]/40 px-2.5 py-1.5 rounded-lg text-xs">
+                    <div className="flex items-center justify-between bg-[#33C773]/10 border border-[#33C773]/40 px-2.5 py-1.5 rounded-xl text-xs">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <Check className="w-3.5 h-3.5 text-[#33C773] shrink-0" />
                         <span className="font-mono font-bold text-white truncate">{appliedPromo.code}</span>
@@ -2316,28 +2300,16 @@ function BookingContent() {
                     </div>
                   ) : (
                     <div className="flex gap-1.5">
-                      <div className="relative flex-1 min-w-0">
-                        <input
-                          type="text"
-                          placeholder="Mã KM (VD: GIAM20K)"
-                          value={promoInput}
-                          onFocus={() => setIsVoucherDropdownOpen(true)}
-                          onClick={() => setIsVoucherDropdownOpen(true)}
-                          onChange={(e) => {
-                            setPromoInput(e.target.value.toUpperCase());
-                            if (!isVoucherDropdownOpen) setIsVoucherDropdownOpen(true);
-                          }}
-                          className="w-full bg-[#0F1217] border border-[#303645] text-white pl-2.5 pr-7 py-1.5 rounded-lg text-xs font-mono uppercase focus:outline-none focus:border-[#E63845] transition-colors"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setIsVoucherDropdownOpen(!isVoucherDropdownOpen)}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#9EA6B8] hover:text-white p-1 cursor-pointer"
-                          title="Xem danh sách voucher"
-                        >
-                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isVoucherDropdownOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                      </div>
+                      <input
+                        type="text"
+                        placeholder="Mã KM (VD: GIAM20K)"
+                        value={promoInput}
+                        onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleApplyPromo();
+                        }}
+                        className="flex-1 min-w-0 bg-[#0F1217] border border-[#303645] text-white px-2.5 py-1.5 rounded-lg text-xs font-mono uppercase focus:outline-none focus:border-[#E63845] transition-colors"
+                      />
                       <button
                         type="button"
                         onClick={handleApplyPromo}
@@ -2349,100 +2321,6 @@ function BookingContent() {
                   )}
 
                   {promoError && <p className="text-[10px] text-[#FFA4A4]">{promoError}</p>}
-
-                  {/* Dropdown danh sách Voucher hợp lệ */}
-                  {isVoucherDropdownOpen && (
-                    <div className="absolute left-0 right-0 bottom-full mb-1.5 z-50 bg-[#14161F] border border-[#303645] rounded-xl shadow-2xl p-2.5 max-h-60 overflow-y-auto custom-scrollbar space-y-2 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-150">
-                      <div className="flex items-center justify-between pb-1 border-b border-[#303645]/60 text-[11px]">
-                        <span className="font-bold text-white flex items-center gap-1.5">
-                          <Tag className="w-3.5 h-3.5 text-[#FABF2E]" />
-                          Chọn voucher ưu đãi
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsVoucherDropdownOpen(false)}
-                          className="text-[#9EA6B8] hover:text-white p-0.5 cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {validVouchers.length === 0 ? (
-                        <div className="py-3 text-center text-xs text-[#9EA6B8]">
-                          Hiện chưa có voucher nào khả dụng
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {validVouchers
-                            .filter((v) => {
-                              if (!promoInput.trim()) return true;
-                              return (
-                                v.code.toUpperCase().includes(promoInput.trim().toUpperCase()) ||
-                                (v.description && v.description.toLowerCase().includes(promoInput.trim().toLowerCase()))
-                              );
-                            })
-                            .map((v) => {
-                              const isSelected = appliedPromo?.code?.toUpperCase() === v.code.toUpperCase();
-                              const isEligible = subtotalBeforeDiscount >= (v.min_order || 0);
-
-                              return (
-                                <div
-                                  key={v.id || v.code}
-                                  onClick={() => {
-                                    if (isEligible) {
-                                      handleSelectVoucher(v);
-                                    } else {
-                                      setPromoInput(v.code);
-                                      setPromoError(`Đơn tối thiểu ${v.min_order.toLocaleString('vi-VN')}đ (cần thêm ${(v.min_order - subtotalBeforeDiscount).toLocaleString('vi-VN')}đ)`);
-                                    }
-                                  }}
-                                  className={`p-2 rounded-lg border text-left transition-all ${
-                                    isSelected
-                                      ? 'border-[#33C773] bg-[#33C773]/10 ring-1 ring-[#33C773]'
-                                      : isEligible
-                                      ? 'border-[#303645] bg-[#0F1217] hover:border-[#FABF2E] hover:bg-[#FABF2E]/5 cursor-pointer'
-                                      : 'border-[#232733] bg-[#0F1217]/50 opacity-60 cursor-pointer'
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between gap-1 mb-1">
-                                    <span className="font-mono font-bold text-xs text-[#FABF2E] bg-[#FABF2E]/10 px-1.5 py-0.5 rounded border border-[#FABF2E]/30">
-                                      {v.code}
-                                    </span>
-                                    <span className="font-bold text-xs text-white">
-                                      {v.discount_type === 'PERCENT'
-                                        ? `Giảm ${v.discount_value}%`
-                                        : `Giảm ${v.discount_value.toLocaleString('vi-VN')}đ`}
-                                      {v.max_discount ? ` (Tối đa ${v.max_discount.toLocaleString('vi-VN')}đ)` : ''}
-                                    </span>
-                                  </div>
-                                  <p className="text-[10px] text-[#9EA6B8] line-clamp-1 mb-1">
-                                    {v.description || `Áp dụng đơn từ ${(v.min_order || 0).toLocaleString('vi-VN')}đ`}
-                                  </p>
-                                  <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/5">
-                                    <span className="text-[#6B7280]">
-                                      Đơn tối thiểu: {(v.min_order || 0).toLocaleString('vi-VN')}đ
-                                    </span>
-                                    {isSelected ? (
-                                      <span className="text-[#33C773] font-bold flex items-center gap-0.5">
-                                        <Check className="w-3 h-3" /> Đang dùng
-                                      </span>
-                                    ) : isEligible ? (
-                                      <span className="text-[#E63845] font-bold hover:underline">
-                                        Áp dụng &gt;
-                                      </span>
-                                    ) : (
-                                      <span className="text-[#FFA4A4]">
-                                        Thiếu {((v.min_order || 0) - subtotalBeforeDiscount).toLocaleString('vi-VN')}đ
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -2728,6 +2606,200 @@ function BookingContent() {
             }
           }}
         />
+      )}
+
+      {/* MODAL KHO VOUCHER ƯU ĐÃI CHUYÊN NGHIỆP */}
+      {isVoucherModalOpen && (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#1A1C26] border border-[#303645] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-[#303645] bg-[#14161F]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#E63845]/15 border border-[#E63845]/30 flex items-center justify-center text-[#E63845] shrink-0">
+                  <TicketIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">Kho Voucher Ưu Đãi CINEMAX</h3>
+                  <p className="text-[11px] text-[#9EA6B8]">Chọn mã ưu đãi có sẵn hoặc nhập mã khuyến mãi của bạn</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsVoucherModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-[#0F1217] hover:bg-[#242836] border border-[#303645] flex items-center justify-center text-[#9EA6B8] hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+              {/* Nhập mã trực tiếp */}
+              <div className="bg-[#0F1217] border border-[#303645] rounded-xl p-3 space-y-2">
+                <label className="text-[11px] font-semibold text-[#9EA6B8] block">Nhập mã khuyến mãi</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nhập mã voucher (VD: CINEMAX50K, CINEMAX20)"
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleApplyPromo();
+                    }}
+                    className="flex-1 bg-[#1A1C26] border border-[#303645] text-white px-3 py-2 rounded-xl text-xs font-mono uppercase focus:outline-none focus:border-[#E63845] transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyPromo}
+                    className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 shadow-sm"
+                  >
+                    Áp dụng
+                  </button>
+                </div>
+                {promoError && <p className="text-[11px] text-[#FFA4A4]">{promoError}</p>}
+              </div>
+
+              {/* Danh sách Voucher dạng Vé Rạp Phim sang trọng */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs px-0.5">
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-[#FABF2E]" />
+                    Mã ưu đãi khả dụng ({validVouchers.length})
+                  </span>
+                  <span className="text-[11px] text-[#9EA6B8]">
+                    Tạm tính đơn: <strong className="text-white font-mono">{subtotalBeforeDiscount.toLocaleString('vi-VN')}đ</strong>
+                  </span>
+                </div>
+
+                {validVouchers.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-[#9EA6B8] bg-[#0F1217] rounded-xl border border-[#303645]">
+                    Hiện chưa có mã ưu đãi nào khả dụng
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {validVouchers.map((v) => {
+                      const isSelected = appliedPromo?.code?.toUpperCase() === v.code.toUpperCase();
+                      const isEligible = subtotalBeforeDiscount >= (v.min_order || 0);
+
+                      return (
+                        <div
+                          key={v.id || v.code}
+                          className={`flex rounded-xl border transition-all overflow-hidden relative group ${
+                            isSelected
+                              ? 'border-[#33C773] bg-[#33C773]/10 ring-1 ring-[#33C773]'
+                              : isEligible
+                              ? 'border-[#303645] bg-[#0F1217] hover:border-[#FABF2E]/80 shadow-md'
+                              : 'border-[#232733] bg-[#0F1217]/50 opacity-60'
+                          }`}
+                        >
+                          {/* Cuống vé trái (Ticket Stub) */}
+                          <div
+                            className={`w-28 shrink-0 p-3 flex flex-col items-center justify-center text-center border-r border-dashed relative ${
+                              isSelected
+                                ? 'bg-[#33C773]/20 border-[#33C773]/40 text-[#33C773]'
+                                : isEligible
+                                ? 'bg-[#E63845]/15 border-[#E63845]/30 text-[#E63845]'
+                                : 'bg-[#232733]/40 border-[#303645]/40 text-[#6B7280]'
+                            }`}
+                          >
+                            <span className="text-[10px] uppercase font-bold tracking-wider">Ưu đãi</span>
+                            <span className="text-sm font-black mt-0.5">
+                              {v.discount_type === 'PERCENT'
+                                ? `-${v.discount_value}%`
+                                : `-${Math.round(v.discount_value / 1000)}K`}
+                            </span>
+                            <span className="text-[9px] opacity-75 mt-0.5">CINEMAX</span>
+                          </div>
+
+                          {/* Chi tiết bên phải */}
+                          <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+                            <div>
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <span className="font-mono font-bold text-xs text-white bg-[#1A1C26] px-2 py-0.5 rounded border border-[#303645]">
+                                  {v.code}
+                                </span>
+                                {isSelected ? (
+                                  <span className="text-[10px] text-[#33C773] font-bold bg-[#33C773]/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <Check className="w-3 h-3" /> Đang dùng
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-bold text-[#FABF2E]">
+                                    {v.discount_type === 'PERCENT'
+                                      ? `Giảm ${v.discount_value}%`
+                                      : `Giảm ${v.discount_value.toLocaleString('vi-VN')}đ`}
+                                    {v.max_discount ? ` (Tối đa ${v.max_discount.toLocaleString('vi-VN')}đ)` : ''}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-[#CBD5E1] line-clamp-1 mb-1">
+                                {v.description || `Áp dụng đơn từ ${(v.min_order || 0).toLocaleString('vi-VN')}đ`}
+                              </p>
+                              <div className="text-[10px] text-[#9EA6B8] flex items-center gap-3">
+                                <span>Đơn tối thiểu: <strong>{(v.min_order || 0).toLocaleString('vi-VN')}đ</strong></span>
+                                <span>HSD: {v.valid_to ? (v.valid_to.includes('T') ? v.valid_to.slice(0, 10) : v.valid_to) : '31/12/2026'}</span>
+                              </div>
+                            </div>
+
+                            <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between">
+                              {!isEligible ? (
+                                <span className="text-[10px] text-[#FFA4A4]">
+                                  Cần thêm {((v.min_order || 0) - subtotalBeforeDiscount).toLocaleString('vi-VN')}đ
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-[#33C773] font-semibold">
+                                  ✓ Đủ điều kiện sử dụng
+                                </span>
+                              )}
+
+                              <button
+                                type="button"
+                                disabled={!isEligible}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    handleRemovePromo();
+                                  } else {
+                                    handleSelectVoucher(v);
+                                  }
+                                }}
+                                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#E63845]/20 text-[#E63845] hover:bg-[#E63845] hover:text-white border border-[#E63845]/40'
+                                    : isEligible
+                                    ? 'bg-[#E63845] hover:bg-[#CC2B37] text-white shadow-sm'
+                                    : 'bg-[#232733] text-[#6B7280] cursor-not-allowed'
+                                }`}
+                              >
+                                {isSelected ? 'Gỡ mã' : 'Dùng mã'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 border-t border-[#303645] bg-[#14161F] flex items-center justify-between text-xs">
+              <div>
+                <span className="text-[#9EA6B8]">Tổng tiền thanh toán: </span>
+                <span className="text-white font-bold text-sm font-mono">{finalTotal.toLocaleString('vi-VN')}đ</span>
+                {discountAmount > 0 && (
+                  <span className="text-[#33C773] text-[11px] ml-1.5">(Đã giảm -{discountAmount.toLocaleString('vi-VN')}đ)</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsVoucherModalOpen(false)}
+                className="px-4 py-1.5 rounded-xl bg-[#242836] hover:bg-[#303645] text-white font-semibold transition-all cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <Footer />

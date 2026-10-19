@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-10-19T01:02:16.987Z",
+  "last_updated": "2026-10-19T01:28:04.955Z",
   "movies": [
     {
       "id": "a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d",
@@ -17683,6 +17683,31 @@
     }
   ],
   "orders": [
+    {
+      "id": "CNM261019-MBB21",
+      "order_code": "CNM261019-MBB21",
+      "channel": "online",
+      "status": "paid",
+      "contact_name": "Quản trị viên Cinemax",
+      "contact_phone": "0988888888",
+      "contact_email": "admin@cinemax.vn",
+      "total_amount": 85000,
+      "subtotal": 85000,
+      "created_at": "2026-10-19T01:28:04.955Z",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 85000,
+          "item_snapshot": {
+            "movieTitle": "Hành Tinh Khỉ: Vương Quốc Mới",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 1 (2D Tiêu Chuẩn)",
+            "showTime": "08:00 • 2026-10-19",
+            "seatCode": "A5"
+          }
+        }
+      ]
+    },
     {
       "id": "CNM261019-FPGND",
       "order_code": "CNM261019-FPGND",
