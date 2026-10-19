@@ -185,35 +185,45 @@ export default function MovieDetailPage() {
             {cinemas.map((cinema) => {
               // Tìm suất chiếu của phim này và ngày được chọn từ DB/Admin
               const matchedShowtimes = showtimes.filter((s) => {
-                if (s.status !== 'OPEN') return false;
+                const sStatus = String(s.status || 'OPEN').toUpperCase();
+                if (sStatus === 'CANCELLED' || sStatus === 'CLOSED') return false;
+
+                const sMovieId = String(s.movie_id || s.movie?.id || '');
+                const mId = String(movie.id || '');
+                const mSubId = movie.supabase_id ? String(movie.supabase_id) : '';
+
                 const matchMovie =
-                  String(s.movie_id) === String(movie.id) ||
-                  (movie.supabase_id && String(s.movie_id) === String(movie.supabase_id)) ||
+                  sMovieId === mId ||
+                  (mSubId && sMovieId === mSubId) ||
                   (movie.slug && s.movie?.slug === movie.slug) ||
-                  (movie.title && s.movie?.title?.toLowerCase() === movie.title.toLowerCase());
+                  (movie.title && s.movie?.title?.toLowerCase() === movie.title.toLowerCase()) ||
+                  (s.movie?.id && (String(s.movie.id) === mId || (mSubId && String(s.movie.id) === mSubId)));
                 if (!matchMovie) return false;
 
                 // Khớp ngày đã chọn (YYYY-MM-DD)
-                const stDate = s.start_time?.slice(0, 10);
+                const stTime = s.start_time || (s as any).starts_at;
+                if (!stTime) return false;
+                const stDate = stTime.slice(0, 10);
                 if (selectedDate && stDate && stDate !== selectedDate) return false;
 
                 return true;
               });
 
               const slotsToRender = matchedShowtimes
-                .map((st) => {
-                  const dt = new Date(st.start_time);
+                .map((st: any) => {
+                  const rawTime = st.start_time || st.starts_at;
+                  const dt = new Date(rawTime);
                   const timeStr = dt.toLocaleTimeString('vi-VN', {
                     hour: '2-digit',
                     minute: '2-digit',
                   });
                   const soldCount = (soldSeatsByShowtime[Number(st.id)] || []).length;
-                  const totalSeats = Number(st.room?.total_seats || 80);
+                  const totalSeats = Number(st.room?.total_seats || st.auditorium?.total_seats || 80);
                   return {
                     id: st.id,
                     time: timeStr,
-                    roomName: st.room?.name || 'Phòng 1 (2D Tiêu Chuẩn)',
-                    screenType: st.room?.screen_type || st.format || '2D',
+                    roomName: st.room?.name || st.auditorium?.name || 'Phòng 1 (2D Tiêu Chuẩn)',
+                    screenType: st.room?.screen_type || st.auditorium?.screen_type || st.format || '2D',
                     availableSeats: Math.max(0, totalSeats - soldCount),
                     sortMinutes: dt.getHours() * 60 + dt.getMinutes(),
                   };
