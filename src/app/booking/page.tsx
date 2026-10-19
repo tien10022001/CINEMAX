@@ -34,6 +34,10 @@ import {
   AlertTriangle,
   Sparkles,
   ShieldAlert,
+  Tag,
+  ChevronDown,
+  Check,
+  X,
 } from 'lucide-react';
 import VietQRModal from '@/components/booking/VietQRModal';
 import ShowtimeModal from '@/components/common/ShowtimeModal';
@@ -211,6 +215,22 @@ function BookingContent() {
   });
   const [appliedPromo, setAppliedPromo] = useState<Promotion | null>(null);
   const [promoError, setPromoError] = useState<string>('');
+  const [isVoucherDropdownOpen, setIsVoucherDropdownOpen] = useState<boolean>(false);
+  const voucherDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (voucherDropdownRef.current && !voucherDropdownRef.current.contains(e.target as Node)) {
+        setIsVoucherDropdownOpen(false);
+      }
+    };
+    if (isVoucherDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isVoucherDropdownOpen]);
 
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState<'VIETQR' | 'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CARD'>('VIETQR');
@@ -807,25 +827,89 @@ function BookingContent() {
 
   const finalTotal = Math.max(0, subtotalBeforeDiscount - discountAmount);
 
+  // Danh sách voucher hợp lệ từ Admin và Database
+  const validVouchers = React.useMemo(() => {
+    let list: Promotion[] = promotions || [];
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cinemax_promotions_v2');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const map = new Map<string, Promotion>();
+            list.forEach((p) => map.set(p.code.toUpperCase(), p));
+            parsed.forEach((p: any) => {
+              map.set(p.code.toUpperCase(), {
+                id: p.id || Math.random(),
+                code: p.code,
+                description: p.description,
+                discount_type: p.discount_type,
+                discount_value: p.discount_value,
+                max_discount: p.max_discount,
+                min_order: p.min_order || p.min_order_amount || 0,
+                per_user_limit: p.per_user_limit || 1,
+                used_count: p.used_count || 0,
+                valid_from: p.valid_from || '2026-01-01',
+                valid_to: p.valid_to || '2026-12-31',
+                is_active: p.is_active !== false,
+              });
+            });
+            list = Array.from(map.values());
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing cinemax_promotions_v2:', e);
+      }
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return list.filter((v) => {
+      if (v.is_active === false) return false;
+      if (v.valid_to && v.valid_to < todayStr) return false;
+      return true;
+    });
+  }, [promotions]);
+
   const handleApplyPromo = () => {
     setPromoError('');
     if (!promoInput.trim()) return;
 
-    const promo = promotions.find(
+    const promo = validVouchers.find(
       (p) => p.code.toUpperCase() === promoInput.trim().toUpperCase()
     );
 
     if (!promo) {
-      setPromoError('Mã giảm giá không hợp lệ');
+      setPromoError('Mã giảm giá không tồn tại hoặc đã hết hạn');
       return;
     }
 
     if (subtotalBeforeDiscount < promo.min_order) {
-      setPromoError(`Đơn hàng tối thiểu ${promo.min_order.toLocaleString('vi-VN')}đ`);
+      setPromoError(`Đơn hàng tối thiểu ${promo.min_order.toLocaleString('vi-VN')}đ để áp dụng mã ${promo.code}`);
       return;
     }
 
     setAppliedPromo(promo);
+    setIsVoucherDropdownOpen(false);
+  };
+
+  const handleSelectVoucher = (v: Promotion) => {
+    setPromoInput(v.code);
+    setPromoError('');
+    if (subtotalBeforeDiscount < v.min_order) {
+      setPromoError(`Đơn tối thiểu ${v.min_order.toLocaleString('vi-VN')}đ (cần thêm ${(v.min_order - subtotalBeforeDiscount).toLocaleString('vi-VN')}đ)`);
+      return;
+    }
+    setAppliedPromo(v);
+    setIsVoucherDropdownOpen(false);
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoInput('');
+    setPromoError('');
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('cinemax_applied_promo');
+    }
   };
 
   // P0.2: Xử lý Đổi Suất Chiếu chuẩn logic nghiệp vụ
@@ -2196,29 +2280,168 @@ function BookingContent() {
                 </div>
 
                 {/* Mã giảm giá tích hợp gọn gàng trong tóm tắt đơn hàng */}
-                <div className="pt-2 border-t border-[#303645] space-y-1">
-                  <div className="text-[11px] font-semibold text-[#9EA6B8]">Mã giảm giá</div>
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      placeholder="Mã KM (VD: GIAM20K)"
-                      value={promoInput}
-                      onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
-                      className="flex-1 min-w-0 bg-[#0F1217] border border-[#303645] text-white px-2.5 py-1.5 rounded-lg text-xs font-mono uppercase focus:outline-none focus:border-[#E63845]"
-                    />
+                <div ref={voucherDropdownRef} className="pt-2 border-t border-[#303645] space-y-1.5 relative">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-semibold text-[#9EA6B8] flex items-center gap-1">
+                      <Tag className="w-3 h-3 text-[#FABF2E]" />
+                      Mã giảm giá
+                    </span>
                     <button
                       type="button"
-                      onClick={handleApplyPromo}
-                      className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0"
+                      onClick={() => setIsVoucherDropdownOpen(!isVoucherDropdownOpen)}
+                      className="text-[10px] text-[#FABF2E] hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
                     >
-                      Áp dụng
+                      <span>Voucher khả dụng ({validVouchers.length})</span>
+                      <ChevronDown className={`w-3 h-3 transition-transform ${isVoucherDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
                   </div>
-                  {promoError && <p className="text-[10px] text-[#E63845]">{promoError}</p>}
-                  {appliedPromo && (
-                    <p className="text-[10px] text-[#33C773] font-semibold">
-                      ✓ Đã giảm {discountAmount.toLocaleString('vi-VN')}đ
-                    </p>
+
+                  {appliedPromo ? (
+                    <div className="flex items-center justify-between bg-[#33C773]/10 border border-[#33C773]/40 px-2.5 py-1.5 rounded-lg text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Check className="w-3.5 h-3.5 text-[#33C773] shrink-0" />
+                        <span className="font-mono font-bold text-white truncate">{appliedPromo.code}</span>
+                        <span className="text-[#33C773] font-semibold text-[11px] truncate">
+                          (-{discountAmount.toLocaleString('vi-VN')}đ)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemovePromo}
+                        className="text-[11px] font-bold text-[#E63845] hover:text-[#CC2B37] ml-2 shrink-0 cursor-pointer"
+                        title="Bỏ áp dụng mã giảm giá này"
+                      >
+                        ✕ Gỡ
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1.5">
+                      <div className="relative flex-1 min-w-0">
+                        <input
+                          type="text"
+                          placeholder="Mã KM (VD: GIAM20K)"
+                          value={promoInput}
+                          onFocus={() => setIsVoucherDropdownOpen(true)}
+                          onClick={() => setIsVoucherDropdownOpen(true)}
+                          onChange={(e) => {
+                            setPromoInput(e.target.value.toUpperCase());
+                            if (!isVoucherDropdownOpen) setIsVoucherDropdownOpen(true);
+                          }}
+                          className="w-full bg-[#0F1217] border border-[#303645] text-white pl-2.5 pr-7 py-1.5 rounded-lg text-xs font-mono uppercase focus:outline-none focus:border-[#E63845] transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setIsVoucherDropdownOpen(!isVoucherDropdownOpen)}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#9EA6B8] hover:text-white p-1 cursor-pointer"
+                          title="Xem danh sách voucher"
+                        >
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isVoucherDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleApplyPromo}
+                        className="bg-[#E63845] hover:bg-[#CC2B37] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
+                  )}
+
+                  {promoError && <p className="text-[10px] text-[#FFA4A4]">{promoError}</p>}
+
+                  {/* Dropdown danh sách Voucher hợp lệ */}
+                  {isVoucherDropdownOpen && (
+                    <div className="absolute left-0 right-0 bottom-full mb-1.5 z-50 bg-[#14161F] border border-[#303645] rounded-xl shadow-2xl p-2.5 max-h-60 overflow-y-auto custom-scrollbar space-y-2 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-150">
+                      <div className="flex items-center justify-between pb-1 border-b border-[#303645]/60 text-[11px]">
+                        <span className="font-bold text-white flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5 text-[#FABF2E]" />
+                          Chọn voucher ưu đãi
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsVoucherDropdownOpen(false)}
+                          className="text-[#9EA6B8] hover:text-white p-0.5 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {validVouchers.length === 0 ? (
+                        <div className="py-3 text-center text-xs text-[#9EA6B8]">
+                          Hiện chưa có voucher nào khả dụng
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {validVouchers
+                            .filter((v) => {
+                              if (!promoInput.trim()) return true;
+                              return (
+                                v.code.toUpperCase().includes(promoInput.trim().toUpperCase()) ||
+                                (v.description && v.description.toLowerCase().includes(promoInput.trim().toLowerCase()))
+                              );
+                            })
+                            .map((v) => {
+                              const isSelected = appliedPromo?.code?.toUpperCase() === v.code.toUpperCase();
+                              const isEligible = subtotalBeforeDiscount >= (v.min_order || 0);
+
+                              return (
+                                <div
+                                  key={v.id || v.code}
+                                  onClick={() => {
+                                    if (isEligible) {
+                                      handleSelectVoucher(v);
+                                    } else {
+                                      setPromoInput(v.code);
+                                      setPromoError(`Đơn tối thiểu ${v.min_order.toLocaleString('vi-VN')}đ (cần thêm ${(v.min_order - subtotalBeforeDiscount).toLocaleString('vi-VN')}đ)`);
+                                    }
+                                  }}
+                                  className={`p-2 rounded-lg border text-left transition-all ${
+                                    isSelected
+                                      ? 'border-[#33C773] bg-[#33C773]/10 ring-1 ring-[#33C773]'
+                                      : isEligible
+                                      ? 'border-[#303645] bg-[#0F1217] hover:border-[#FABF2E] hover:bg-[#FABF2E]/5 cursor-pointer'
+                                      : 'border-[#232733] bg-[#0F1217]/50 opacity-60 cursor-pointer'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-1 mb-1">
+                                    <span className="font-mono font-bold text-xs text-[#FABF2E] bg-[#FABF2E]/10 px-1.5 py-0.5 rounded border border-[#FABF2E]/30">
+                                      {v.code}
+                                    </span>
+                                    <span className="font-bold text-xs text-white">
+                                      {v.discount_type === 'PERCENT'
+                                        ? `Giảm ${v.discount_value}%`
+                                        : `Giảm ${v.discount_value.toLocaleString('vi-VN')}đ`}
+                                      {v.max_discount ? ` (Tối đa ${v.max_discount.toLocaleString('vi-VN')}đ)` : ''}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-[#9EA6B8] line-clamp-1 mb-1">
+                                    {v.description || `Áp dụng đơn từ ${(v.min_order || 0).toLocaleString('vi-VN')}đ`}
+                                  </p>
+                                  <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/5">
+                                    <span className="text-[#6B7280]">
+                                      Đơn tối thiểu: {(v.min_order || 0).toLocaleString('vi-VN')}đ
+                                    </span>
+                                    {isSelected ? (
+                                      <span className="text-[#33C773] font-bold flex items-center gap-0.5">
+                                        <Check className="w-3 h-3" /> Đang dùng
+                                      </span>
+                                    ) : isEligible ? (
+                                      <span className="text-[#E63845] font-bold hover:underline">
+                                        Áp dụng &gt;
+                                      </span>
+                                    ) : (
+                                      <span className="text-[#FFA4A4]">
+                                        Thiếu {((v.min_order || 0) - subtotalBeforeDiscount).toLocaleString('vi-VN')}đ
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
