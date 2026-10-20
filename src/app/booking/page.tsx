@@ -330,7 +330,7 @@ function BookingContent() {
     // Tự động giải phóng các ghế giữ tạm đã hết hạn
     await BookingService.releaseExpiredHolds();
 
-    // 1. Đọc danh sách vé đã đặt từ localStorage CHỈ cho đúng rạp, phim và suất chiếu này
+    // 1. Đọc danh sách vé đã đặt từ Server (/api/sync?entity=orders) và LocalStorage
     const stored = typeof window !== 'undefined' ? localStorage.getItem('cinemax_user_tickets') : null;
     const localTickets = stored ? JSON.parse(stored) : [];
     const bookedSeatLabels = new Set<string>();
@@ -343,7 +343,53 @@ function BookingContent() {
       }
     }
 
-    localTickets.forEach((t: any) => {
+    // Tải danh sách đơn hàng từ Server Store để đồng bộ giữa tất cả người dùng, thiết bị & tab ẩn danh
+    let serverOrders: any[] = [];
+    try {
+      const syncRes = await fetch('/api/sync?entity=orders', { cache: 'no-store' });
+      if (syncRes.ok) {
+        const syncJson = await syncRes.json();
+        if (syncJson.success && Array.isArray(syncJson.data)) {
+          serverOrders = syncJson.data;
+        }
+      }
+    } catch {}
+
+    const allConfirmedTickets = [...localTickets, ...serverOrders];
+
+    allConfirmedTickets.forEach((t: any) => {
+      // Chỉ lấy các đơn đã thanh toán thành công
+      const statusUpper = String(t.status || '').toUpperCase();
+      if (
+        statusUpper &&
+        statusUpper !== 'PAID' &&
+        statusUpper !== 'DA THANH TOAN' &&
+        statusUpper !== 'USED' &&
+        statusUpper !== 'COMPLETED'
+      ) {
+        return;
+      }
+
+      // 1. Xử lý đơn hàng có items[] (từ store.orders)
+      if (Array.isArray(t.items)) {
+        t.items.forEach((item: any) => {
+          if (item.item_type === 'ticket' && item.item_snapshot) {
+            const snap = item.item_snapshot;
+            const matchMovie = !selectedMovie?.title || snap.movieTitle === selectedMovie.title;
+            const matchCinema = !selectedCinema?.name || snap.cinemaName === selectedCinema.name;
+            const matchShowTime =
+              !queryDate ||
+              !queryTime ||
+              (snap.showTime && snap.showTime.includes(queryDate) && snap.showTime.includes(queryTime));
+
+            if (matchMovie && matchCinema && matchShowTime && snap.seatCode) {
+              bookedSeatLabels.add(String(snap.seatCode).trim().toUpperCase());
+            }
+          }
+        });
+      }
+
+      // 2. Xử lý đơn hàng có seats[] (từ cinemax_user_tickets hoặc format tương đương)
       const matchExactShowtime =
         t.showtimeId &&
         selectedShowtime?.id &&
@@ -366,7 +412,7 @@ function BookingContent() {
         t.showtimeTime === queryTime ||
         (t.showtime && t.showtime.includes(queryTime));
 
-      if (matchExactShowtime || (matchCinema && matchMovie && matchDate && matchTime)) {
+      if (matchExactShowtime || (matchCinema && matchMovie && (matchDate || matchTime))) {
         if (Array.isArray(t.seats)) {
           t.seats.forEach((s: string) => bookedSeatLabels.add(String(s).trim().toUpperCase()));
         } else if (typeof t.seats === 'string') {
