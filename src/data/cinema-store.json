@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-10-19T02:18:44.115Z",
+  "last_updated": "2026-10-20T18:50:34.565Z",
   "movies": [
     {
       "id": "d4e5f6a1-b2c3-4d4e-0f5a-6b7c8d9e0f1a",
@@ -10919,6 +10919,78 @@
   ],
   "orders": [
     {
+      "id": "CNM261020-NMWW7",
+      "order_code": "CNM261020-NMWW7",
+      "channel": "online",
+      "status": "paid",
+      "contact_name": "nguyen van f",
+      "contact_phone": "0988821212",
+      "contact_email": "eee112@gmail.com",
+      "total_amount": 136000,
+      "subtotal": 136000,
+      "created_at": "2026-10-20T18:50:33.222Z",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 68000,
+          "item_snapshot": {
+            "movieTitle": "Deadpool & Wolverine",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 2 (2D Digital)",
+            "showTime": "12:02 • 2026-10-21",
+            "seatCode": "E6"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 68000,
+          "item_snapshot": {
+            "movieTitle": "Deadpool & Wolverine",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 2 (2D Digital)",
+            "showTime": "12:02 • 2026-10-21",
+            "seatCode": "E5"
+          }
+        }
+      ]
+    },
+    {
+      "id": "CNM261020-K4JI8",
+      "order_code": "CNM261020-K4JI8",
+      "channel": "online",
+      "status": "paid",
+      "contact_name": "nguyen van d",
+      "contact_phone": "0911222222",
+      "contact_email": "qqq222@gmail.com",
+      "total_amount": 136000,
+      "subtotal": 136000,
+      "created_at": "2026-10-20T18:48:39.184Z",
+      "items": [
+        {
+          "item_type": "ticket",
+          "unit_price": 68000,
+          "item_snapshot": {
+            "movieTitle": "Deadpool & Wolverine",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 2 (2D Digital)",
+            "showTime": "12:02 • 2026-10-21",
+            "seatCode": "E7"
+          }
+        },
+        {
+          "item_type": "ticket",
+          "unit_price": 68000,
+          "item_snapshot": {
+            "movieTitle": "Deadpool & Wolverine",
+            "cinemaName": "CINEMAX Xuân Thủy",
+            "roomName": "Phòng 2 (2D Digital)",
+            "showTime": "12:02 • 2026-10-21",
+            "seatCode": "E8"
+          }
+        }
+      ]
+    },
+    {
       "id": "CNM261019-QBFG4",
       "order_code": "CNM261019-QBFG4",
       "channel": "online",
@@ -10928,7 +11000,7 @@
       "contact_email": "ttiiwewi@gmail.com",
       "total_amount": 136000,
       "subtotal": 136000,
-      "created_at": "2026-10-19T02:11:50.873Z",
+      "created_at": "2026-10-20T18:50:33.257Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11094,7 +11166,7 @@
       "contact_email": "ttiieennkkooyy123@gmail.com",
       "total_amount": 180000,
       "subtotal": 180000,
-      "created_at": "2026-10-19T02:11:51.787Z",
+      "created_at": "2026-10-20T18:50:34.488Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11130,7 +11202,7 @@
       "contact_email": "user@cinemax.vn",
       "total_amount": 210000,
       "subtotal": 210000,
-      "created_at": "2026-10-19T02:11:51.777Z",
+      "created_at": "2026-10-20T18:50:34.462Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11166,7 +11238,7 @@
       "contact_email": "user@cinemax.vn",
       "total_amount": 210000,
       "subtotal": 210000,
-      "created_at": "2026-10-19T02:11:51.767Z",
+      "created_at": "2026-10-20T18:50:34.436Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11202,7 +11274,7 @@
       "contact_email": "user@cinemax.vn",
       "total_amount": 215000,
       "subtotal": 215000,
-      "created_at": "2026-10-19T02:11:51.754Z",
+      "created_at": "2026-10-20T18:50:34.419Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11238,7 +11310,7 @@
       "contact_email": "1",
       "total_amount": 105000,
       "subtotal": 105000,
-      "created_at": "2026-10-19T02:11:51.717Z",
+      "created_at": "2026-10-20T18:50:34.402Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11263,7 +11335,7 @@
       "contact_email": "2",
       "total_amount": 380000,
       "subtotal": 380000,
-      "created_at": "2026-10-19T02:11:51.701Z",
+      "created_at": "2026-10-20T18:50:34.364Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11598,7 +11670,7 @@
       "contact_email": "user@cinemax.vn",
       "total_amount": 180000,
       "subtotal": 180000,
-      "created_at": "2026-10-19T02:11:51.549Z",
+      "created_at": "2026-10-20T18:50:34.078Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11634,7 +11706,7 @@
       "contact_email": "user@cinemax.vn",
       "total_amount": 180000,
       "subtotal": 180000,
-      "created_at": "2026-10-19T02:11:51.531Z",
+      "created_at": "2026-10-20T18:50:34.063Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11706,7 +11778,7 @@
       "contact_email": "220500@gmail.com",
       "total_amount": 170000,
       "subtotal": 170000,
-      "created_at": "2026-10-19T02:11:50.943Z",
+      "created_at": "2026-10-20T18:50:33.338Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11742,7 +11814,7 @@
       "contact_email": "admin@cinemax.vn",
       "total_amount": 170000,
       "subtotal": 170000,
-      "created_at": "2026-10-19T02:11:50.957Z",
+      "created_at": "2026-10-20T18:50:33.350Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11778,7 +11850,7 @@
       "contact_email": "admin@cinemax.vn",
       "total_amount": 136000,
       "subtotal": 136000,
-      "created_at": "2026-10-19T02:11:50.970Z",
+      "created_at": "2026-10-20T18:50:33.364Z",
       "items": [
         {
           "item_type": "ticket",
@@ -11839,7 +11911,7 @@
       "contact_email": "admin@cinemax.vn",
       "total_amount": 105000,
       "subtotal": 105000,
-      "created_at": "2026-10-19T02:11:50.985Z",
+      "created_at": "2026-10-20T18:50:33.376Z",
       "items": [
         {
           "item_type": "ticket",
@@ -12105,7 +12177,7 @@
       "contact_email": "admin@cinemax.vn",
       "total_amount": 254000,
       "subtotal": 254000,
-      "created_at": "2026-10-19T02:11:51.000Z",
+      "created_at": "2026-10-20T18:50:33.408Z",
       "items": [
         {
           "item_type": "ticket",

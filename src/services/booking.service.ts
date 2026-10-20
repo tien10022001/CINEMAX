@@ -525,7 +525,11 @@ export class BookingService {
             });
           });
           try {
-            localStorage.setItem('cinemax_held_seats', JSON.stringify(valid));
+            const currentStr = localStorage.getItem('cinemax_held_seats') || '[]';
+            const newStr = JSON.stringify(valid);
+            if (currentStr !== newStr) {
+              localStorage.setItem('cinemax_held_seats', newStr);
+            }
           } catch {}
         }
       }

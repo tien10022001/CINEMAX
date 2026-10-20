@@ -498,7 +498,13 @@ function BookingContent() {
               status: seatStatus,
             };
           });
-          setSeats(mapped);
+          setSeats((prev) => {
+            if (prev.length === mapped.length) {
+              const hasDiff = mapped.some((ds, idx) => ds.status !== prev[idx]?.status);
+              if (!hasDiff) return prev;
+            }
+            return mapped;
+          });
           return;
         }
       } catch (err) {
@@ -518,30 +524,45 @@ function BookingContent() {
       blockedSeatLabels
     );
 
-    setSeats(dynamicSeats);
+    setSeats((prev) => {
+      if (prev.length === dynamicSeats.length) {
+        const hasDiff = dynamicSeats.some((ds, idx) => ds.status !== prev[idx]?.status);
+        if (!hasDiff) return prev;
+      }
+      return dynamicSeats;
+    });
   }, [selectedShowtime, queryCinemaId, queryShowtimeId, queryDate, queryTime, selectedCinema, sessionId]);
 
   useEffect(() => {
     loadSeats();
     const handleUpdate = () => loadSeats();
+    const handleStorage = (e: StorageEvent) => {
+      // Bỏ qua cinemax_held_seats để chặn hoàn toàn vòng lặp ping-pong giữa các tab
+      if (e.key === 'cinemax_held_seats') return;
+      loadSeats();
+    };
+
     window.addEventListener('cinemax_data_updated', handleUpdate);
     window.addEventListener('cinemax_db_updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
+    window.addEventListener('storage', handleStorage);
 
     let bc: BroadcastChannel | null = null;
     try {
       if (typeof BroadcastChannel !== 'undefined') {
         bc = new BroadcastChannel('cinemax_seat_sync');
-        bc.onmessage = () => {
+        bc.onmessage = (event) => {
+          if (event.data?.sessionId === sessionId) return;
           loadSeats();
         };
       }
     } catch {}
 
-    // Polling tự động mỗi 2.5s để cập nhật tức thời ghế khi có khách khác vào từ trình duyệt/thiết bị khác
+    // Polling định kỳ 6s và chỉ chạy khi tab đang mở hiển thị (tiết kiệm CPU & Dev server)
     const pollInterval = setInterval(() => {
-      loadSeats();
-    }, 2500);
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadSeats();
+      }
+    }, 6000);
 
     const handleBeforeUnload = () => {
       if (currentStep !== 3) {
@@ -553,7 +574,7 @@ function BookingContent() {
     return () => {
       window.removeEventListener('cinemax_data_updated', handleUpdate);
       window.removeEventListener('cinemax_db_updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('storage', handleStorage);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       clearInterval(pollInterval);
       bc?.close();
