@@ -824,14 +824,45 @@ export default function StaffWorkspacePage() {
       };
     } catch {}
 
+    window.addEventListener('online', flushOfflineCheckIns);
+    flushOfflineCheckIns();
+
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('cinemax_db_updated', handleStorage);
       window.removeEventListener('cinemax_data_updated', handleStorage);
+      window.removeEventListener('online', flushOfflineCheckIns);
       if (bc) bc.close();
       supabase.removeChannel(channel);
     };
   }, [loadSynchronizedData]);
+
+  const enqueueOfflineCheckIn = (orderId: string, ageVerified: boolean) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('cinemax_offline_checkins') || '[]');
+      existing.push({ orderId, ageVerified, timestamp: Date.now() });
+      localStorage.setItem('cinemax_offline_checkins', JSON.stringify(existing));
+    } catch {}
+  };
+
+  const flushOfflineCheckIns = async () => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('cinemax_offline_checkins') || '[]');
+      if (!existing || existing.length === 0) return;
+      const remaining: any[] = [];
+      for (const item of existing) {
+        try {
+          await syncCheckInToSupabase(item.orderId, item.ageVerified);
+        } catch {
+          remaining.push(item);
+        }
+      }
+      localStorage.setItem('cinemax_offline_checkins', JSON.stringify(remaining));
+      if (existing.length > remaining.length) {
+        showToast(`Đã đồng bộ ${existing.length - remaining.length} lượt check-in offline lên hệ thống!`);
+      }
+    } catch {}
+  };
 
   const saveOrders = (nextOrders: SharedTicketOrder[]) => {
     setOrders(nextOrders);
@@ -1230,7 +1261,11 @@ export default function StaffWorkspacePage() {
     );
     saveOrders(updatedOrders);
     setInspectedOrder(updatedOrders.find((o) => o.id === orderToCheckIn.id) || null);
-    await syncCheckInToSupabase(orderToCheckIn.id, true);
+    try {
+      await syncCheckInToSupabase(orderToCheckIn.id, true);
+    } catch {
+      enqueueOfflineCheckIn(orderToCheckIn.id, true);
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('cinemax_data_updated'));
       window.dispatchEvent(new Event('storage'));
@@ -1246,7 +1281,11 @@ export default function StaffWorkspacePage() {
     );
     saveOrders(updatedOrders);
     setInspectedOrder(updatedOrders.find((o) => o.id === orderToReject.id) || null);
-    await syncCheckInToSupabase(orderToReject.id, false);
+    try {
+      await syncCheckInToSupabase(orderToReject.id, false);
+    } catch {
+      enqueueOfflineCheckIn(orderToReject.id, false);
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('cinemax_data_updated'));
       window.dispatchEvent(new Event('storage'));
