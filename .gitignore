@@ -51,3 +51,8 @@ src/data/seat-holds.json
 
 # Office temporary files
 ~$*
+
+# Reports
+BAOCAO*
+*.docx
+
