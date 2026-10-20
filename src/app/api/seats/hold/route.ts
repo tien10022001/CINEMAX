@@ -168,11 +168,14 @@ export async function POST(request: NextRequest) {
     const {
       showtimeId,
       sessionId,
-      seatLabels,
       action = 'HOLD', // 'HOLD' | 'EXTEND_PAYMENT' | 'PENDING_RECONCILIATION' | 'RELEASE' | 'RESET_COOLDOWN'
       holdMinutes = 10,
       userId,
     } = body;
+
+    // Chấp nhận cả seatLabels và seatCodes từ client
+    const rawSeats = body.seatLabels !== undefined ? body.seatLabels : body.seatCodes;
+    const seatsArray: string[] = Array.isArray(rawSeats) ? rawSeats : [];
 
     // Cho phép reset cooldown khi đơn hàng đã thanh toán thành công
     if (action === 'RESET_COOLDOWN') {
@@ -190,13 +193,13 @@ export async function POST(request: NextRequest) {
     }
 
     const stIdStr = showtimeId.toString();
-    const seatsArray: string[] = Array.isArray(seatLabels) ? seatLabels : [];
     let currentHolds = readHoldsFile();
     const now = Date.now();
     const existingHold = currentHolds.find((h) => h.sessionId === sessionId);
 
-    // XỬ LÝ HỦY GIỮ GHẾ
-    if (action === 'RELEASE' || (action === 'HOLD' && seatsArray.length === 0)) {
+    // XỬ LÝ HỦY GIỮ GHẾ (Chỉ giải phóng khi action === 'RELEASE' hoặc chủ động gửi mảng rỗng)
+    const isExplicitRelease = action === 'RELEASE' || (action === 'HOLD' && Array.isArray(rawSeats) && rawSeats.length === 0);
+    if (isExplicitRelease) {
       if (existingHold && existingHold.seats && existingHold.seats.length > 0) {
         recordRelease(clientIp);
         recordRelease(sessionId);
@@ -300,7 +303,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Chống bot/đầu cơ găm-nhả ghế (Anti-Speculation Cooldown)
-    const ipCooldown = checkCooldown(clientIp);
+    const isLoopback = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === 'localhost';
+    const ipCooldown = isLoopback ? { isCooldown: false, remainingSeconds: 0 } : checkCooldown(clientIp);
     const sessionCooldown = checkCooldown(sessionId);
     const userCooldown = userId ? checkCooldown(userId) : { isCooldown: false, remainingSeconds: 0 };
     if (ipCooldown.isCooldown || sessionCooldown.isCooldown || userCooldown.isCooldown) {
@@ -321,19 +325,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Kiểm tra giới hạn số ghế tối đa per IP (Max 8 ghế toàn hệ thống/IP)
-    const otherHoldsOfIp = currentHolds.filter(
-      (h) => h.clientIp === clientIp && h.sessionId !== sessionId && h.expiresAt > now
-    );
-    const totalOtherSeatsOfIp = otherHoldsOfIp.reduce((acc, h) => acc + (h.seats?.length || 0), 0);
-    if (totalOtherSeatsOfIp + seatsArray.length > 8) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Địa chỉ IP của bạn đang giữ ${totalOtherSeatsOfIp} ghế. Mỗi IP chỉ được giữ tối đa 8 ghế đồng thời trên toàn hệ thống để chống phá hoại.`,
-        },
-        { status: 403 }
+    // 3. Kiểm tra giới hạn số ghế tối đa per IP (Max 8 ghế toàn hệ thống/IP) - Bỏ qua loopback IP khi test local
+    if (!isLoopback) {
+      const otherHoldsOfIp = currentHolds.filter(
+        (h) => h.clientIp === clientIp && h.sessionId !== sessionId && h.expiresAt > now
       );
+      const totalOtherSeatsOfIp = otherHoldsOfIp.reduce((acc, h) => acc + (h.seats?.length || 0), 0);
+      if (totalOtherSeatsOfIp + seatsArray.length > 8) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Địa chỉ IP của bạn đang giữ ${totalOtherSeatsOfIp} ghế. Mỗi IP chỉ được giữ tối đa 8 ghế đồng thời trên toàn hệ thống để chống phá hoại.`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // 4. Kiểm tra giới hạn số ghế tối đa per User ID trên nhiều tab/thiết bị

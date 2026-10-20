@@ -453,6 +453,11 @@ function BookingContent() {
         return heldSeatLabels.has(label) || bookedSeatLabels.has(label);
       });
       if (conflicted.length > 0) {
+        if (currentStep === 2) {
+          const names = conflicted.map((c) => `${c.row_label}${c.seat_number}`).join(', ');
+          alert(`Ghế (${names}) đã bị hết hạn giữ chỗ hoặc có người khác đặt. Hệ thống đưa bạn quay lại bước chọn ghế.`);
+          setCurrentStep(1);
+        }
         return prev.filter((s) => !conflicted.some((c) => c.id === s.id));
       }
       return prev;
@@ -754,18 +759,6 @@ function BookingContent() {
       return;
     }
 
-    // Đồng bộ trạng thái giữ ghế lên server API (/api/seats/hold)
-    fetch('/api/seats/hold', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        showtimeId: String(selectedShowtime?.id || queryShowtimeId),
-        seatCodes: seatLabels,
-        sessionId,
-        userId: currentUser?.id,
-      }),
-    }).catch((err) => console.warn('API Hold sync:', err));
-
     // Khi sang bước thanh toán: tự động cộng thêm 1 phút (tối đa 11 phút) và giữ timer đếm tiếp
     if (!isPaymentGraceApplied) {
       await BookingService.extendPaymentGracePeriod(selectedShowtime?.id || queryShowtimeId, sessionId);
@@ -995,7 +988,8 @@ function BookingContent() {
 
   const handleCheckout = async () => {
     if (selectedSeats.length === 0) {
-      alert('Vui lòng chọn ít nhất một ghế');
+      alert('Đơn hàng chưa có ghế nào. Vui lòng quay lại bước 1 để chọn ghế!');
+      setCurrentStep(1);
       return;
     }
 
@@ -2337,11 +2331,19 @@ function BookingContent() {
                 </div>
 
                 <button
-                  disabled={isProcessingPayment}
+                  disabled={isProcessingPayment || selectedSeats.length === 0}
                   onClick={handleCheckout}
-                  className="w-full bg-[#E63845] hover:bg-[#CC2B37] text-white py-2.5 rounded-full font-bold text-xs sm:text-sm shadow-md shadow-[#E63845]/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  className={`w-full py-2.5 rounded-full font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-1.5 ${
+                    selectedSeats.length === 0
+                      ? 'bg-neutral-700 text-neutral-400 cursor-not-allowed shadow-none'
+                      : 'bg-[#E63845] hover:bg-[#CC2B37] text-white shadow-[#E63845]/30 cursor-pointer'
+                  }`}
                 >
-                  {isProcessingPayment ? 'Đang xử lý...' : `Thanh toán ${finalTotal.toLocaleString('vi-VN')}đ`}
+                  {isProcessingPayment
+                    ? 'Đang xử lý...'
+                    : selectedSeats.length === 0
+                    ? 'Chưa chọn ghế (Vui lòng chọn ghế)'
+                    : `Thanh toán ${finalTotal.toLocaleString('vi-VN')}đ`}
                 </button>
 
                 <button

@@ -524,6 +524,9 @@ export class BookingService {
               map.set(seatLabel, { expiresAt: h.expiresAt, sessionId: h.sessionId });
             });
           });
+          try {
+            localStorage.setItem('cinemax_held_seats', JSON.stringify(valid));
+          } catch {}
         }
       }
     } catch {}
