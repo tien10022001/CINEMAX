@@ -276,6 +276,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           if (syncRes.ok) {
             const syncJson = await syncRes.json();
             if (syncJson.success && syncJson.data) {
+              const d = syncJson.data;
               if (d.movies?.length) {
                 const normMovies = d.movies.map((m: any, idx: number) => ({
                   id: m.id || idx + 1,

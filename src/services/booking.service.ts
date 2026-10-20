@@ -244,6 +244,26 @@ export class BookingService {
   }
 
   /**
+   * Reset cooldown nhả ghế khi người dùng thanh toán vé thành công
+   */
+  static async resetHoldCooldown(sessionId: string, userId?: string) {
+    try {
+      await fetch('/api/seats/hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          showtimeId: '0',
+          sessionId,
+          action: 'RESET_COOLDOWN',
+          userId,
+        }),
+      });
+    } catch (e) {
+      console.warn('Failed to reset hold cooldown:', e);
+    }
+  }
+
+  /**
     * Giữ ghế tạm thời (HELD) 10 phút chống đặt trùng đồng thời (Hỗ trợ cả Server API và LocalStorage)
    */
   static async holdSeatsLocal(params: {
@@ -251,7 +271,8 @@ export class BookingService {
     sessionId: string;
     seatLabels: string[];
     holdMinutes?: number;
-    action?: 'HOLD' | 'EXTEND_PAYMENT' | 'PENDING_RECONCILIATION' | 'RELEASE';
+    action?: 'HOLD' | 'EXTEND_PAYMENT' | 'PENDING_RECONCILIATION' | 'RELEASE' | 'RESET_COOLDOWN';
+    userId?: string;
   }): Promise<{ success: boolean; error?: string; expiresAt: number; firstHeldAt?: number }> {
     if (typeof window === 'undefined') {
       return { success: false, error: 'Chỉ hỗ trợ trên client', expiresAt: 0 };
@@ -319,6 +340,7 @@ export class BookingService {
             seatLabels: params.seatLabels,
             action: params.action || 'HOLD',
             holdMinutes,
+            userId: params.userId,
           }),
         });
 

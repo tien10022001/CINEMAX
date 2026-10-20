@@ -880,6 +880,30 @@ export class AdminDataService {
     }
   }
 
+  /**
+   * Chuyển trạng thái suất chiếu sang CANCELLED (Bất biến dữ liệu - không xóa cứng khi đã có vé)
+   */
+  static async cancelShowtime(id: string, reason: string = 'Hủy theo quyết định quản trị rạp') {
+    if (typeof window !== 'undefined') {
+      try {
+        await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'cancel_showtime', data: { id, reason } })
+        });
+      } catch (err) {
+        console.warn('Sync cancel showtime error:', err);
+      }
+    }
+
+    const supabase = this.supabase;
+    try {
+      await supabase.from('showtimes').update({ status: 'cancelled' }).eq('id', id);
+    } catch {
+      // Fallback
+    }
+  }
+
   // 5. Products & Inventory
   static async upsertProduct(product: Partial<Product>) {
     const supabase = this.supabase;

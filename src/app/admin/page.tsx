@@ -815,16 +815,111 @@ export default function AdminPage() {
     }
   };
 
+  // Helper kiểm tra số lượng vé đã bán thực tế của 1 suất chiếu (từ Database Orders + LocalStorage)
+  const getSoldTicketsForShowtime = useCallback((showtimeId: string): any[] => {
+    const targetShowtime = showtimes.find((s) => String(s.id) === String(showtimeId));
+    const matched: any[] = [];
+
+    // 1. Kiểm tra từ state orders / order_items đã thanh toán
+    (orders || []).forEach((o: any) => {
+      if (o.status === 'paid' || o.status === 'completed' || o.status === 'used') {
+        const hasItem = (o.items || []).some((item: any) => {
+          if (String(item.showtime_id) === String(showtimeId)) return true;
+          if (targetShowtime && String(item.item_snapshot?.showtime_id) === String(showtimeId)) return true;
+          return false;
+        });
+        if (hasItem) matched.push(o);
+      }
+    });
+
+    // 2. Kiểm tra từ localStorage (cinemax_user_tickets) của khách hàng
+    if (typeof window !== 'undefined') {
+      try {
+        const storedTickets = JSON.parse(localStorage.getItem('cinemax_user_tickets') || '[]');
+        storedTickets.forEach((t: any) => {
+          if (t.status === 'ĐÃ THANH TOÁN' || t.status === 'ĐÃ SOÁT VÉ') {
+            if (t.showtimeId && String(t.showtimeId) === String(showtimeId)) {
+              matched.push(t);
+            } else if (targetShowtime) {
+              const movieObj = movies.find((m) => String(m.id) === String(targetShowtime.movie_id));
+              const stDate = new Date(targetShowtime.starts_at);
+              const dateStr = stDate.toISOString().slice(0, 10);
+              const timeStr = stDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+              const isMovieMatch =
+                t.movieTitle && movieObj && t.movieTitle.trim().toLowerCase() === movieObj.title.trim().toLowerCase();
+              const isTimeMatch =
+                t.showtime && (t.showtime.includes(timeStr) || t.showtime.includes(dateStr));
+              if (isMovieMatch && isTimeMatch) {
+                matched.push(t);
+              }
+            }
+          }
+        });
+      } catch (err) {}
+    }
+
+    // Deduplicate kết quả
+    const seen = new Set<string>();
+    return matched.filter((item) => {
+      const code = item.order_code || item.bookingCode || item.id;
+      if (!code || seen.has(code)) return false;
+      seen.add(code);
+      return true;
+    });
+  }, [showtimes, orders, movies]);
+
   const handleDeleteMovie = async (id: string) => {
+    const movieObj = movies.find((m) => String(m.id) === String(id));
+    const movieShowtimes = showtimes.filter((s) => String(s.movie_id) === String(id));
+
+    // NGUYÊN TẮC BẤT BIẾN: Kiểm tra xem phim này có suất chiếu nào đã bán vé cho khách chưa
+    const hasSoldTickets = movieShowtimes.some((st) => getSoldTicketsForShowtime(st.id).length > 0);
+
+    if (hasSoldTickets) {
+      // KHÔNG ĐƯỢC XÓA CỨNG! Đổi trạng thái sang ended (kết thúc chiếu) và cancel các suất chiếu
+      let nextMovies: Movie[] = [];
+      let nextShowtimes: Showtime[] = [];
+
+      setMovies((prev) => {
+        nextMovies = prev.map((m) => String(m.id) === String(id) ? { ...m, status: 'ended' as any } : m);
+        return nextMovies;
+      });
+      setShowtimes((prev) => {
+        nextShowtimes = prev.map((s) => String(s.movie_id) === String(id) ? { ...s, status: 'cancelled' as any } : s);
+        return nextShowtimes;
+      });
+
+      try {
+        if (movieObj) {
+          await AdminDataService.upsertMovie({ ...movieObj, status: 'ended' as any });
+        }
+        await Promise.allSettled(movieShowtimes.map((st) => AdminDataService.cancelShowtime(st.id, 'Phim kết thúc chiếu')));
+        await syncToCustomerView(nextMovies);
+        await syncShowtimesToCustomer(nextShowtimes);
+      } catch {}
+
+      addNotification(
+        'Đổi trạng thái phim (Bảo vệ vé)',
+        `Phim "${movieObj?.title || ''}" đã có vé phát sinh. Đã chuyển sang [KẾT THÚC CHIẾU] và hủy các suất liên quan thay vì xóa cứng.`,
+        'WARNING',
+        'MOVIES',
+        'MOVIES'
+      );
+      showToast(`Phim đã có vé bán ra! Đã chuyển sang [ĐÃ DỪNG CHIẾU] để bảo vệ vé của khách.`);
+      return;
+    }
+
+    // Nếu chưa có vé: Xóa an toàn
     let nextMovies: Movie[] = [];
     let nextShowtimes: Showtime[] = [];
 
     setMovies((prev) => {
-      nextMovies = prev.filter((m) => m.id !== id);
+      nextMovies = prev.filter((m) => String(m.id) !== String(id));
       return nextMovies;
     });
     setShowtimes((prev) => {
-      nextShowtimes = prev.filter((s) => s.movie_id !== id);
+      nextShowtimes = prev.filter((s) => String(s.movie_id) !== String(id));
       return nextShowtimes;
     });
 
@@ -837,7 +932,7 @@ export default function AdminPage() {
     await syncToCustomerView(nextMovies);
     await syncShowtimesToCustomer(nextShowtimes);
 
-    addNotification('Xóa phim khỏi danh mục', 'Đã xóa phim và gỡ toàn bộ suất chiếu liên quan.', 'DANGER', 'MOVIES', 'MOVIES');
+    addNotification('Xóa phim khỏi danh mục', 'Đã xóa an toàn phim và các suất chiếu trống liên quan.', 'DANGER', 'MOVIES', 'MOVIES');
     showToast('Đã xóa phim khỏi danh mục!');
   };
 
@@ -942,9 +1037,53 @@ export default function AdminPage() {
   };
 
   const handleDeleteShowtime = async (id: string) => {
+    const soldTickets = getSoldTicketsForShowtime(id);
+    const targetShowtime = showtimes.find((s) => String(s.id) === String(id));
+
+    if (soldTickets.length > 0) {
+      // BẢO VỆ TOÀN VẸN DỮ LIỆU: Không xóa cứng mà chuyển sang CANCELLED
+      let nextList: Showtime[] = [];
+      setShowtimes((prev) => {
+        nextList = prev.map((s) => String(s.id) === String(id) ? { ...s, status: 'cancelled' as any } : s);
+        return nextList;
+      });
+
+      try {
+        await AdminDataService.cancelShowtime(id, `Hủy suất chiếu đã có ${soldTickets.length} vé`);
+        await syncShowtimesToCustomer(nextList);
+      } catch {
+        // Local fallback
+      }
+
+      // Tạo Audit Log bất biến
+      const newLog: AuditLog = {
+        id: 'log-' + Date.now(),
+        actor_id: adminEmail || 'Admin',
+        action: 'CANCEL_SHOWTIME',
+        entity_type: 'showtimes',
+        entity_id: id,
+        before_data: targetShowtime || null,
+        after_data: { ...targetShowtime, status: 'cancelled', affected_tickets: soldTickets.length },
+        created_at: new Date().toISOString()
+      };
+      setAuditLogs((prev) => [newLog, ...prev]);
+      AdminDataService.saveEntity('logs', [newLog, ...auditLogs]).catch(() => {});
+
+      addNotification(
+        'Hủy suất chiếu (Bảo vệ vé)',
+        `Suất chiếu "${targetShowtime?.movie?.title || 'Phim'}" đã bán ${soldTickets.length} vé. Đã chuyển sang trạng thái [ĐÃ HỦY] để bảo vệ quyền lợi khách hàng.`,
+        'WARNING',
+        'MOVIES',
+        'SHOWTIMES'
+      );
+      showToast(`Đã chuyển suất chiếu sang [ĐÃ HỦY]! Bảo toàn ${soldTickets.length} vé của khách.`);
+      return;
+    }
+
+    // Nếu chưa có vé: Xóa an toàn
     let nextList: Showtime[] = [];
     setShowtimes((prev) => {
-      nextList = prev.filter((s) => s.id !== id);
+      nextList = prev.filter((s) => String(s.id) !== String(id));
       return nextList;
     });
     try {
@@ -953,27 +1092,57 @@ export default function AdminPage() {
     } catch {
       // Local fallback
     }
-    addNotification('Xóa suất chiếu', 'Đã xóa suất chiếu khỏi lịch chiếu của rạp.', 'DANGER', 'MOVIES', 'SHOWTIMES');
+    addNotification('Xóa suất chiếu', 'Đã xóa an toàn suất chiếu chưa phát sinh vé khỏi lịch chiếu.', 'INFO', 'MOVIES', 'SHOWTIMES');
     showToast('Đã xóa suất chiếu khỏi hệ thống!');
   };
 
   const handleBulkDeleteShowtimes = async (ids: string[]) => {
     if (!ids || ids.length === 0) return;
-    const idSet = new Set(ids);
+
+    const toCancel: string[] = [];
+    const toDelete: string[] = [];
+
+    ids.forEach((id) => {
+      const tickets = getSoldTicketsForShowtime(id);
+      if (tickets.length > 0) {
+        toCancel.push(id);
+      } else {
+        toDelete.push(id);
+      }
+    });
+
     let nextList: Showtime[] = [];
     setShowtimes((prev) => {
-      nextList = prev.filter((s) => !idSet.has(s.id));
+      nextList = prev
+        .filter((s) => !toDelete.includes(String(s.id)))
+        .map((s) => toCancel.includes(String(s.id)) ? { ...s, status: 'cancelled' as any } : s);
       return nextList;
     });
+
     try {
-      await Promise.allSettled(ids.map((id) => AdminDataService.deleteShowtime(id)));
+      if (toDelete.length > 0) {
+        await Promise.allSettled(toDelete.map((id) => AdminDataService.deleteShowtime(id)));
+      }
+      if (toCancel.length > 0) {
+        await Promise.allSettled(toCancel.map((id) => AdminDataService.cancelShowtime(id, 'Hủy hàng loạt')));
+      }
       await AdminDataService.saveEntity('showtimes', nextList);
       await syncShowtimesToCustomer(nextList);
     } catch {
       // Local fallback
     }
-    addNotification('Xóa suất chiếu hàng loạt', `Đã xóa ${ids.length} suất chiếu khỏi hệ thống.`, 'DANGER', 'MOVIES', 'SHOWTIMES');
-    showToast(`Đã xóa thành công ${ids.length} suất chiếu!`);
+
+    let msg = '';
+    if (toDelete.length > 0 && toCancel.length > 0) {
+      msg = `Đã xóa ${toDelete.length} suất trống và chuyển ${toCancel.length} suất đã có vé sang [ĐÃ HỦY]!`;
+    } else if (toCancel.length > 0) {
+      msg = `Đã chuyển ${toCancel.length} suất chiếu đã có vé sang trạng thái [ĐÃ HỦY]!`;
+    } else {
+      msg = `Đã xóa an toàn ${toDelete.length} suất chiếu!`;
+    }
+
+    addNotification('Thao tác suất chiếu hàng loạt', msg, toCancel.length > 0 ? 'WARNING' : 'INFO', 'MOVIES', 'SHOWTIMES');
+    showToast(msg);
   };
 
   const handleBulkUpdateShowtimes = async (updatedList: Showtime[]) => {
@@ -2175,6 +2344,7 @@ export default function AdminPage() {
                   onDeleteShowtime={handleDeleteShowtime}
                   onBulkDeleteShowtimes={handleBulkDeleteShowtimes}
                   onBulkUpdateShowtimes={handleBulkUpdateShowtimes}
+                  getSoldTicketsCount={(id) => getSoldTicketsForShowtime(id).length}
                   showToast={showToast}
                 />
               )}

@@ -52,6 +52,7 @@ interface ShowtimesViewProps {
   onDeleteShowtime: (id: string) => Promise<void>;
   onBulkDeleteShowtimes?: (ids: string[]) => Promise<void>;
   onBulkUpdateShowtimes?: (updatedShowtimes: Showtime[]) => Promise<void>;
+  getSoldTicketsCount?: (id: string) => number;
   showToast: (msg: string) => void;
 }
 
@@ -65,6 +66,7 @@ export default function ShowtimesView({
   onDeleteShowtime,
   onBulkDeleteShowtimes,
   onBulkUpdateShowtimes,
+  getSoldTicketsCount,
   showToast
 }: ShowtimesViewProps) {
   const [selectedAuditoriumId, setSelectedAuditoriumId] = useState<string>('all');
@@ -1447,6 +1449,7 @@ export default function ShowtimesView({
                         });
 
                         const isSelected = selectedShowtimeIds.includes(st.id);
+                        const isCancelled = st.status === 'cancelled';
                         const trackIndex = showtimeTrackMap.get(st.id) || 0;
                         const cardTopPx = trackCount === 1 ? 5 : trackIndex * 38 + 4;
 
@@ -1469,12 +1472,16 @@ export default function ShowtimesView({
                             className={`absolute h-8.5 rounded-lg px-1.5 py-0.5 z-10 shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer select-none group/card min-w-[32px] ${
                               isSelected
                                 ? 'bg-[#0B2538] border-2 border-[#06B6D4] ring-2 ring-[#06B6D4]/50 shadow-lg shadow-cyan-950/70 text-cyan-200'
+                                : isCancelled
+                                ? 'bg-[#201015]/90 border border-dashed border-[#EF4444]/60 text-[#EF4444] opacity-85 hover:opacity-100'
                                 : isOverlap
                                 ? 'bg-[#3B191C] border-2 border-[#EF4444] animate-pulse text-[#EF4444]'
                                 : 'bg-gradient-to-r from-[#172233] to-[#141B29] border border-[#2D3F5E] hover:border-[#06B6D4] hover:shadow-cyan-900/40'
                             }`}
                             title={
-                              isBulkMode
+                              isCancelled
+                                ? `[ĐÃ HỦY] ${movie?.title || 'Phim'} (${startTimeStr} - ${endTimeStr})`
+                                : isBulkMode
                                 ? `Click để ${isSelected ? 'bỏ chọn' : 'chọn'} suất chiếu này`
                                 : `Bấm để chỉnh sửa: ${movie?.title || 'Phim'} (${startTimeStr} - ${endTimeStr})`
                             }
@@ -1497,15 +1504,21 @@ export default function ShowtimesView({
                                 >
                                   <Check className="w-2.5 h-2.5 stroke-[3]" />
                                 </button>
-                                <span className="font-bold text-white text-[10px] truncate">
+                                <span className={`font-bold text-[10px] truncate ${isCancelled ? 'line-through text-[#FFA4A4]/80' : 'text-white'}`}>
                                   {movie?.title || 'Phim'}
                                 </span>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
-                                <span className="px-1 py-0.2 rounded text-[7px] font-black bg-[#E63845] text-white">
-                                  {st.format || '2D'}
-                                </span>
-                                {isOverlap && (
+                                {isCancelled ? (
+                                  <span className="px-1 py-0.2 rounded text-[7px] font-black bg-[#EF4444]/25 text-[#FFA4A4] border border-[#EF4444]/40 shrink-0">
+                                    ĐÃ HỦY
+                                  </span>
+                                ) : (
+                                  <span className="px-1 py-0.2 rounded text-[7px] font-black bg-[#E63845] text-white">
+                                    {st.format || '2D'}
+                                  </span>
+                                )}
+                                {isOverlap && !isCancelled && (
                                   <AlertTriangle className="w-2.5 h-2.5 text-[#EF4444] shrink-0" />
                                 )}
                               </div>
@@ -2749,47 +2762,81 @@ export default function ShowtimesView({
       )}
 
       {/* In-App Showtime Delete Confirmation Modal */}
-      {deleteConfirmShowtime && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121622] border border-[#2E1F24] rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#3B191C] text-[#EF4444] flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-white text-base">Xác Nhận Xóa Suất Chiếu</h3>
-                <p className="text-xs text-[#8E9AAF]">Suất chiếu này sẽ bị gỡ khỏi lịch chiếu của rạp.</p>
-              </div>
-            </div>
+      {deleteConfirmShowtime && (() => {
+        const soldCount = getSoldTicketsCount ? getSoldTicketsCount(deleteConfirmShowtime.id) : 0;
+        const hasTickets = soldCount > 0;
 
-            <div className="p-3.5 rounded-xl bg-[#1A1F2C] border border-[#263147] text-xs text-white space-y-1">
-              <div>Phim: <strong className="text-[#FABF2E]">{deleteConfirmShowtime.title}</strong></div>
-              <div>Giờ chiếu: <strong className="font-mono text-white">{deleteConfirmShowtime.time}</strong> ({deleteConfirmShowtime.room})</div>
-            </div>
+        return (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-[#121622] border border-[#2E1F24] rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${hasTickets ? 'bg-[#E63845]/20 text-[#E63845]' : 'bg-[#3B191C] text-[#EF4444]'}`}>
+                  {hasTickets ? <AlertTriangle className="w-5 h-5" /> : <Trash2 className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">
+                    {hasTickets ? 'Xác Nhận Hủy Suất Chiếu (Đã Bán Vé)' : 'Xác Nhận Xóa Suất Chiếu'}
+                  </h3>
+                  <p className="text-xs text-[#8E9AAF]">
+                    {hasTickets
+                      ? 'Suất chiếu đã có vé bán ra, hệ thống sẽ chuyển sang trạng thái ĐÃ HỦY.'
+                      : 'Suất chiếu này chưa có vé và sẽ bị gỡ an toàn khỏi lịch chiếu.'}
+                  </p>
+                </div>
+              </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmShowtime(null)}
-                className="px-4 py-2.5 rounded-xl bg-[#1A202E] text-[#8E9AAF] hover:text-white font-bold transition-all cursor-pointer"
-              >
-                Hủy Bỏ
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const id = deleteConfirmShowtime.id;
-                  setDeleteConfirmShowtime(null);
-                  await onDeleteShowtime(id);
-                }}
-                className="px-5 py-2.5 rounded-xl bg-[#EF4444] hover:bg-[#DC2626] text-white font-bold transition-all shadow-lg shadow-[#EF4444]/30 cursor-pointer"
-              >
-                Xóa Vĩnh Viễn
-              </button>
+              {hasTickets && (
+                <div className="p-3 bg-[#E63845]/15 border border-[#E63845]/40 rounded-xl text-xs space-y-1">
+                  <span className="font-bold text-[#FFA4A4] flex items-center gap-1.5 uppercase text-[11px]">
+                    <AlertTriangle className="w-3.5 h-3.5 text-[#E63845] shrink-0" />
+                    ĐÃ CÓ {soldCount} VÉ ĐƯỢC BÁN RA
+                  </span>
+                  <p className="text-[#D1D5DB] text-[11px] leading-relaxed">
+                    Theo nguyên tắc bất biến nghiệp vụ, bạn <strong>không thể xóa vĩnh viễn</strong> suất chiếu này vì sẽ làm mất dữ liệu vé của khách hàng. Suất chiếu sẽ được chuyển sang trạng thái <strong>[ĐÃ HỦY]</strong> để bảo vệ quyền lợi của khán giả và phục vụ công tác đối soát, hoàn tiền hoặc đổi suất.
+                  </p>
+                </div>
+              )}
+
+              <div className="p-3.5 rounded-xl bg-[#1A1F2C] border border-[#263147] text-xs text-white space-y-1">
+                <div>Phim: <strong className="text-[#FABF2E]">{deleteConfirmShowtime.title}</strong></div>
+                <div>Giờ chiếu: <strong className="font-mono text-white">{deleteConfirmShowtime.time}</strong> ({deleteConfirmShowtime.room})</div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmShowtime(null)}
+                  className="px-4 py-2.5 rounded-xl bg-[#1A202E] text-[#8E9AAF] hover:text-white font-bold transition-all cursor-pointer text-xs"
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const id = deleteConfirmShowtime.id;
+                    setDeleteConfirmShowtime(null);
+                    await onDeleteShowtime(id);
+                  }}
+                  className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg cursor-pointer text-xs flex items-center gap-1.5 ${
+                    hasTickets
+                      ? 'bg-[#E63845] hover:bg-[#CC2B37] text-white shadow-[#E63845]/30'
+                      : 'bg-[#EF4444] hover:bg-[#DC2626] text-white shadow-[#EF4444]/30'
+                  }`}
+                >
+                  {hasTickets ? (
+                    <>
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Xác Nhận Hủy Suất ({soldCount} vé)</span>
+                    </>
+                  ) : (
+                    <span>Xóa Vĩnh Viễn</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* FLOATING BULK ACTIONS TOOLBAR (THANH THAO TÁC HÀNG LOẠT NỔI CỐ ĐỊNH) */}
       {selectedShowtimeIds.length > 0 && (
@@ -2879,88 +2926,128 @@ export default function ShowtimesView({
       )}
 
       {/* BULK DELETE CONFIRMATION MODAL */}
-      {bulkDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#121622] border border-[#3B191C] rounded-3xl w-full max-w-lg p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-[#3B191C] border border-[#EF4444]/40 text-[#EF4444] flex items-center justify-center shrink-0 shadow-lg shadow-red-950/50">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-black text-white text-lg">
-                  Xác Nhận Xóa {selectedShowtimeIds.length} Suất Chiếu
-                </h3>
-                <p className="text-xs text-[#8E9AAF] mt-0.5">
-                  Toàn bộ suất chiếu đã chọn sẽ bị gỡ vĩnh viễn khỏi lịch chiếu và đồng bộ ngay lập tức.
-                </p>
-              </div>
-            </div>
+      {bulkDeleteModalOpen && (() => {
+        const showtimesWithTickets = selectedShowtimes.filter((st) => (getSoldTicketsCount ? getSoldTicketsCount(st.id) : 0) > 0);
+        const emptyShowtimes = selectedShowtimes.filter((st) => (getSoldTicketsCount ? getSoldTicketsCount(st.id) : 0) === 0);
 
-            {/* Selected showtimes list summary (scrollable max 240px) */}
-            <div className="bg-[#0A0D14] border border-[#1E2536] rounded-2xl p-3 max-h-60 overflow-y-auto space-y-2 custom-scrollbar">
-              <div className="text-[11px] font-bold text-[#8E9AAF] px-1 flex items-center justify-between">
-                <span>Danh sách {selectedShowtimes.length} suất sẽ bị xóa:</span>
-                <span className="text-[#EF4444] font-mono">{selectedShowtimes.filter(checkOverlap).length} suất trùng</span>
+        return (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-[#121622] border border-[#3B191C] rounded-3xl w-full max-w-lg p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#3B191C] border border-[#EF4444]/40 text-[#EF4444] flex items-center justify-center shrink-0 shadow-lg shadow-red-950/50">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-lg">
+                    Xử Lý {selectedShowtimeIds.length} Suất Chiếu Đã Chọn
+                  </h3>
+                  <p className="text-xs text-[#8E9AAF] mt-0.5">
+                    Hệ thống tự động phân loại suất trống và suất đã có vé để bảo vệ quyền lợi khách hàng.
+                  </p>
+                </div>
               </div>
-              <div className="divide-y divide-[#171E2D]">
-                {selectedShowtimes.map((st) => {
-                  const m = st.movie || movies.find((movie) => movie.id === st.movie_id);
-                  const aud = st.auditorium || auditoriums.find((a) => a.id === st.auditorium_id);
-                  const sDate = new Date(st.starts_at);
-                  const eDate = new Date(st.ends_at);
-                  const timeStr = `${sDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${eDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
-                  const isConflict = checkOverlap(st);
 
-                  return (
-                    <div key={st.id} className="py-1.5 px-2 flex items-center justify-between text-xs hover:bg-[#141A26] rounded-lg">
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-[#E63845] text-white shrink-0">
-                          {st.format || '2D'}
-                        </span>
-                        <span className="font-bold text-white truncate max-w-[180px]">
-                          {m?.title || 'Phim'}
-                        </span>
-                        <span className="text-[10px] text-[#8E9AAF] shrink-0">
-                          • {aud?.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-mono text-[#06B6D4] text-[11px] font-semibold">
-                          {timeStr}
-                        </span>
-                        {isConflict && (
-                          <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/40">
-                            Trùng lịch
+              {/* Summary protection banner */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-[#0F172A] border border-[#1E293B]">
+                  <span className="text-[10px] text-[#94A3B8] block">Suất chưa có vé (Sẽ xóa sạch):</span>
+                  <span className="font-bold text-white font-mono text-sm">{emptyShowtimes.length} suất</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#450A0A]/40 border border-[#EF4444]/30">
+                  <span className="text-[10px] text-[#FCA5A5] block">Đã có vé bán (Sẽ [HỦY SUẤT]):</span>
+                  <span className="font-bold text-[#EF4444] font-mono text-sm">{showtimesWithTickets.length} suất</span>
+                </div>
+              </div>
+
+              {showtimesWithTickets.length > 0 && (
+                <div className="p-2.5 bg-[#E63845]/15 border border-[#E63845]/40 rounded-xl text-xs space-y-0.5">
+                  <span className="font-bold text-[#FFA4A4] flex items-center gap-1.5 text-[11px]">
+                    <AlertTriangle className="w-3.5 h-3.5 text-[#E63845]" />
+                    QUY TẮC BẤT BIẾN NGHIỆP VỤ ĐƯỢC ÁP DỤNG
+                  </span>
+                  <p className="text-[#D1D5DB] text-[10px] leading-relaxed">
+                    {showtimesWithTickets.length} suất chiếu đã bán vé sẽ KHÔNG bị xóa cứng khỏi cơ sở dữ liệu. Hệ thống sẽ chuyển trạng thái sang <strong>[ĐÃ HỦY]</strong> để bảo toàn vé xem phim của khách.
+                  </p>
+                </div>
+              )}
+
+              {/* Selected showtimes list summary (scrollable max 240px) */}
+              <div className="bg-[#0A0D14] border border-[#1E2536] rounded-2xl p-3 max-h-56 overflow-y-auto space-y-2 custom-scrollbar">
+                <div className="text-[11px] font-bold text-[#8E9AAF] px-1 flex items-center justify-between">
+                  <span>Danh sách {selectedShowtimes.length} suất đã chọn:</span>
+                  <span className="text-[#EF4444] font-mono">{selectedShowtimes.filter(checkOverlap).length} suất trùng</span>
+                </div>
+                <div className="divide-y divide-[#171E2D]">
+                  {selectedShowtimes.map((st) => {
+                    const m = st.movie || movies.find((movie) => movie.id === st.movie_id);
+                    const aud = st.auditorium || auditoriums.find((a) => a.id === st.auditorium_id);
+                    const sDate = new Date(st.starts_at);
+                    const eDate = new Date(st.ends_at);
+                    const timeStr = `${sDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${eDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+                    const isConflict = checkOverlap(st);
+                    const ticketsCount = getSoldTicketsCount ? getSoldTicketsCount(st.id) : 0;
+
+                    return (
+                      <div key={st.id} className="py-1.5 px-2 flex items-center justify-between text-xs hover:bg-[#141A26] rounded-lg">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-[#E63845] text-white shrink-0">
+                            {st.format || '2D'}
                           </span>
-                        )}
+                          <span className="font-bold text-white truncate max-w-[170px]">
+                            {m?.title || 'Phim'}
+                          </span>
+                          <span className="text-[10px] text-[#8E9AAF] shrink-0">
+                            • {aud?.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {ticketsCount > 0 ? (
+                            <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-[#E63845]/20 text-[#FFA4A4] border border-[#E63845]/40">
+                              {ticketsCount} vé (HỦY)
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-[#33C773]/15 text-[#33C773] border border-[#33C773]/30">
+                              Trống (XÓA)
+                            </span>
+                          )}
+                          <span className="font-mono text-[#06B6D4] text-[11px] font-semibold">
+                            {timeStr}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-[#1E2536]">
-              <button
-                type="button"
-                onClick={() => setBulkDeleteModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl bg-[#1A202E] hover:bg-[#252E42] text-[#8E9AAF] hover:text-white font-bold transition-all cursor-pointer text-xs"
-              >
-                Hủy Bỏ
-              </button>
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleConfirmBulkDelete}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#EF4444] to-[#DC2626] hover:from-[#DC2626] hover:to-[#B91C1C] text-white font-black transition-all shadow-lg shadow-red-950/50 cursor-pointer text-xs flex items-center gap-2 disabled:opacity-50"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>{isSubmitting ? 'Đang Xóa...' : `Xóa Vĩnh Viễn ${selectedShowtimeIds.length} Suất`}</span>
-              </button>
+              <div className="flex items-center justify-between pt-2 border-t border-[#1E2536]">
+                <button
+                  type="button"
+                  onClick={() => setBulkDeleteModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-[#1A202E] hover:bg-[#252E42] text-[#8E9AAF] hover:text-white font-bold transition-all cursor-pointer text-xs"
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleConfirmBulkDelete}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#EF4444] to-[#DC2626] hover:from-[#DC2626] hover:to-[#B91C1C] text-white font-black transition-all shadow-lg shadow-red-950/50 cursor-pointer text-xs flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>
+                    {isSubmitting
+                      ? 'Đang Xử Lý...'
+                      : showtimesWithTickets.length > 0
+                      ? `Xác Nhận (Xóa ${emptyShowtimes.length} & Hủy ${showtimesWithTickets.length})`
+                      : `Xóa Vĩnh Viễn ${selectedShowtimeIds.length} Suất`}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* BULK EDIT MODAL */}
       {bulkEditModalOpen && (

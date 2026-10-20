@@ -204,6 +204,8 @@ async function syncToSupabaseIfConfigured(entityOrAction: string, data: any) {
           status: shiftData.status || 'open'
         }]);
       }
+    } else if (entityOrAction === 'cancel_showtime' && data?.id) {
+      await supabase.from('showtimes').update({ status: 'cancelled' }).eq('id', data.id);
     }
   } catch (err) {
     console.warn('Supabase Cloud sync note:', err);
@@ -266,8 +268,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, id: deleteId });
     }
 
+    if (action === 'cancel_showtime') {
+      const showtimeId = data?.id;
+      if (showtimeId && Array.isArray(store.showtimes)) {
+        store.showtimes = store.showtimes.map((st: any) =>
+          String(st.id) === String(showtimeId) ? { ...st, status: 'cancelled' } : st
+        );
+        writeStoreFile(store);
+      }
+      syncToSupabaseIfConfigured('cancel_showtime', data).catch(() => {});
+      return NextResponse.json({ success: true, cancelled: showtimeId, status: 'cancelled' });
+    }
+
     if (action && action.startsWith('delete_')) {
       const deleteId = data?.id;
+
+      // NGUYÊN TẮC BẤT BIẾN: Nếu xóa suất chiếu mà đã có vé/đơn hàng, tự động chuyển sang CANCELLED thay vì xóa cứng
+      if (action === 'delete_showtime' && deleteId) {
+        const hasSoldTickets = (store.orders || []).some((o: any) =>
+          (o.items || []).some((item: any) => String(item.showtime_id) === String(deleteId) || String(item.item_snapshot?.showtime_id) === String(deleteId))
+        );
+        if (hasSoldTickets) {
+          if (Array.isArray(store.showtimes)) {
+            store.showtimes = store.showtimes.map((st: any) =>
+              String(st.id) === String(deleteId) ? { ...st, status: 'cancelled' } : st
+            );
+            writeStoreFile(store);
+          }
+          syncToSupabaseIfConfigured('cancel_showtime', data).catch(() => {});
+          return NextResponse.json({
+            success: true,
+            cancelled: deleteId,
+            status: 'cancelled',
+            note: 'Tự động chuyển sang CANCELLED để bảo vệ dữ liệu vé của khách hàng'
+          });
+        }
+      }
+
       store.deleted_ids = store.deleted_ids || [];
       if (deleteId && !store.deleted_ids.includes(deleteId)) {
         store.deleted_ids.push(deleteId);

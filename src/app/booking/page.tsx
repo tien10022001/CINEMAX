@@ -746,6 +746,7 @@ function BookingContent() {
       sessionId,
       seatLabels,
       holdMinutes: 10,
+      userId: currentUser?.id,
     });
 
     if (!holdRes.success) {
@@ -1273,6 +1274,7 @@ function BookingContent() {
         dedupedList.unshift(ticketRecord);
         localStorage.setItem('cinemax_user_tickets', JSON.stringify(dedupedList));
         localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
+        BookingService.resetHoldCooldown(sessionId, currentUser?.id);
 
         // Cập nhật số ghế trống khả dụng của suất chiếu trong cinemax_showtimes_v2
         const showtimesStored = localStorage.getItem('cinemax_showtimes_v2');
@@ -1506,6 +1508,7 @@ function BookingContent() {
       dedupedList.unshift(ticketRecord);
       localStorage.setItem('cinemax_user_tickets', JSON.stringify(dedupedList));
       localStorage.setItem('cinemax_last_booking', JSON.stringify(ticketRecord));
+      BookingService.resetHoldCooldown(sessionId, currentUser?.id);
 
       // Cập nhật số ghế trống khả dụng nếu không bị tranh chấp
       if (!isOverduePaid) {
