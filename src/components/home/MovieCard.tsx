@@ -13,6 +13,20 @@ interface MovieCardProps {
 export default function MovieCard({ movie, isUpcoming = false }: MovieCardProps) {
   const [reminded, setReminded] = useState(false);
 
+  const today = new Date().toISOString().slice(0, 10);
+  const normRelDate = movie.release_date?.includes('/')
+    ? movie.release_date.split('/').reverse().join('-')
+    : movie.release_date?.slice(0, 10);
+
+  // Phim sắp chiếu nếu có cờ isUpcoming hoặc release_date > hôm nay hoặc status là coming_soon
+  const isActualUpcoming = Boolean(
+    isUpcoming ||
+    (normRelDate && normRelDate > today) ||
+    movie.status?.toLowerCase() === 'coming_soon'
+  );
+
+  const hasAdvanceTickets = Boolean(movie.has_advance_tickets);
+
   const handleRemindClick = (e: React.MouseEvent) => {
     e.preventDefault();
     setReminded(!reminded);
@@ -32,6 +46,20 @@ export default function MovieCard({ movie, isUpcoming = false }: MovieCardProps)
           loading="lazy"
           suppressHydrationWarning
         />
+
+        {/* Badge Vé bán trước nếu là phim sắp chiếu có suất chiếu trước */}
+        {isActualUpcoming && hasAdvanceTickets && (
+          <div className="absolute top-2.5 left-2.5 z-10 bg-gradient-to-r from-[#E63845] to-[#FABF2E] text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-lg shadow-black/60 flex items-center gap-1 border border-white/20">
+            <span>🎟 Bán vé trước</span>
+          </div>
+        )}
+
+        {/* Overlay ngày khởi chiếu cho phim sắp chiếu */}
+        {isActualUpcoming && movie.release_date && (
+          <div className="absolute bottom-2 left-2 right-2 z-10 bg-black/85 backdrop-blur-md text-amber-300 text-[11px] font-bold px-2 py-1 rounded-lg border border-amber-500/40 text-center shadow-lg">
+            Khởi chiếu: {movie.release_date}
+          </div>
+        )}
       </Link>
 
       {/* Info: Title & Meta */}
@@ -79,30 +107,39 @@ export default function MovieCard({ movie, isUpcoming = false }: MovieCardProps)
         </div>
       </div>
 
-      {/* Button: Đặt vé for Now Showing, Nhắc tôi for Upcoming (Figma Screen 1) */}
+      {/* Button: Đặt vé cho Phim đang chiếu, Đặt vé sớm cho Phim có vé bán trước, Nhắc tôi cho Phim sắp chiếu chưa mở bán */}
       <div className="pt-1">
-        {isUpcoming ? (
-          <button
-            type="button"
-            onClick={handleRemindClick}
-            className={`w-full py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              reminded
-                ? 'bg-[#33C773]/20 border border-[#33C773] text-[#33C773]'
-                : 'bg-[#1A1C26] border border-[#303645] hover:border-white text-white'
-            }`}
-          >
-            {reminded ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-[#33C773]" />
-                <span>Đã đặt nhắc tôi</span>
-              </>
-            ) : (
-              <>
-                <Bell className="w-3.5 h-3.5 text-[#9EA6B8]" />
-                <span>Nhắc tôi</span>
-              </>
-            )}
-          </button>
+        {isActualUpcoming ? (
+          hasAdvanceTickets ? (
+            <Link
+              href={`/movie/${movie.slug}#schedule-section`}
+              className="w-full bg-[#E63845] hover:bg-[#CC2B37] text-white py-2.5 rounded-lg font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md shadow-[#E63845]/25 transition-all transform hover:scale-[1.02] cursor-pointer"
+            >
+              <span>Đặt vé sớm</span>
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={handleRemindClick}
+              className={`w-full py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                reminded
+                  ? 'bg-[#33C773]/20 border border-[#33C773] text-[#33C773]'
+                  : 'bg-[#1A1C26] border border-[#303645] hover:border-white text-white'
+              }`}
+            >
+              {reminded ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-[#33C773]" />
+                  <span>Đã đặt nhắc tôi</span>
+                </>
+              ) : (
+                <>
+                  <Bell className="w-3.5 h-3.5 text-[#9EA6B8]" />
+                  <span>Nhắc tôi</span>
+                </>
+              )}
+            </button>
+          )
         ) : (
           <Link
             href={`/movie/${movie.slug}#schedule-section`}

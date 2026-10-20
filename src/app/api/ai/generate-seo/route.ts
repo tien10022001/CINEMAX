@@ -81,8 +81,8 @@ YÊU CẦU BẮT BUỘC:
 
 Hãy viết Meta Title và Meta Description chuẩn Sale rạp chiếu phim CINEMAX cho phim này.`;
 
-    // Call Gemini API (gemini-1.5-flash)
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // Call Gemini API (gemini-2.5-flash)
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const geminiRes = await fetch(geminiUrl, {
       method: 'POST',

@@ -249,6 +249,8 @@ export default function DashboardView({
   }, [timeRange, orders]);
 
   // 3. Dynamic Movie Revenue Ranking (Bottom Left & Right)
+  const [chartLimit, setChartLimit] = useState<number | 'ALL'>(5);
+
   const rankedMovies = useMemo(() => {
     const statsMap: Record<string, { id: string; title: string; revenue: number; tickets: number }> = {};
 
@@ -267,6 +269,8 @@ export default function DashboardView({
     showtimes.forEach((st) => {
       showtimeMovieMap[String(st.id)] = String(st.movie_id);
     });
+
+    const countedOrderIds = new Set<string>();
 
     orders.forEach((o) => {
       if (o.status === 'cancelled') return;
@@ -297,23 +301,39 @@ export default function DashboardView({
       if (matchedMovieId && statsMap[matchedMovieId]) {
         statsMap[matchedMovieId].revenue += orderAmount;
         statsMap[matchedMovieId].tickets += tCount || 1;
-      } else if (movies.length > 0) {
-        // Distribute unassigned historical orders gracefully across movies based on id hash
-        const hashIdx =
-          Math.abs(
-            o.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-          ) % movies.length;
-        const targetMovie = movies[hashIdx];
-        if (targetMovie && statsMap[String(targetMovie.id)]) {
-          statsMap[String(targetMovie.id)].revenue += orderAmount;
-          statsMap[String(targetMovie.id)].tickets += tCount || 1;
-        }
+        countedOrderIds.add(String(o.id));
       }
     });
 
-    const list = Object.values(statsMap).sort((a, b) => b.revenue - a.revenue || b.tickets - a.tickets);
-    return list.slice(0, 5);
-  }, [movies, showtimes, orders]);
+    // Also account for tickets if not already represented in orders
+    if (tickets && tickets.length > 0) {
+      tickets.forEach((t) => {
+        if (t.status === 'cancelled' || (t.status as string) === 'refunded') return;
+        if (t.order_id && countedOrderIds.has(String(t.order_id))) return;
+
+        const movieTitle = t.movie_title;
+        if (movieTitle) {
+          const found = movies.find(
+            (m) => m.title.trim().toLowerCase() === movieTitle.trim().toLowerCase()
+          );
+          if (found && statsMap[String(found.id)]) {
+            statsMap[String(found.id)].tickets += 1;
+            statsMap[String(found.id)].revenue += Number(t.price) || 0;
+          }
+        }
+      });
+    }
+
+    return Object.values(statsMap).sort((a, b) => b.revenue - a.revenue || b.tickets - a.tickets);
+  }, [movies, showtimes, orders, tickets]);
+
+  const chartMovies = useMemo(() => {
+    if (chartLimit === 'ALL') {
+      const active = rankedMovies.filter((m) => m.revenue > 0 || m.tickets > 0);
+      return active.length >= 5 ? active : rankedMovies.slice(0, 8);
+    }
+    return rankedMovies.slice(0, typeof chartLimit === 'number' ? chartLimit : 5);
+  }, [rankedMovies, chartLimit]);
 
   const handleRefresh = () => {
     setLastRefreshed(
@@ -721,47 +741,107 @@ export default function DashboardView({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: So Sánh Doanh Thu Top Phim */}
         <div className="p-6 rounded-3xl bg-[#0C1019] border border-[#192130] space-y-5 shadow-xl">
-          <div className="space-y-0.5">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E]" />
-              <span>So Sánh Doanh Thu Top Phim</span>
-            </h3>
-            <p className="text-xs text-[#6E7B91]">Top phim có doanh thu cao nhất theo dữ liệu thực tế</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-0.5">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-pulse" />
+                <span>So Sánh Doanh Thu Phim</span>
+              </h3>
+              <p className="text-xs text-[#6E7B91]">Dữ liệu thời gian thực đồng bộ từ đơn hàng & vé</p>
+            </div>
+
+            {/* Toggle column count: Top 5, Top 8, Tất cả */}
+            <div className="flex items-center gap-1 bg-[#121724] p-1 rounded-xl border border-[#1E2738]">
+              <button
+                type="button"
+                onClick={() => setChartLimit(5)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  chartLimit === 5
+                    ? 'bg-[#E50914] text-white shadow-md shadow-[#E50914]/30'
+                    : 'text-[#8E9AAF] hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Top 5
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartLimit(8)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  chartLimit === 8
+                    ? 'bg-[#E50914] text-white shadow-md shadow-[#E50914]/30'
+                    : 'text-[#8E9AAF] hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Top 8
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartLimit('ALL')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  chartLimit === 'ALL'
+                    ? 'bg-[#E50914] text-white shadow-md shadow-[#E50914]/30'
+                    : 'text-[#8E9AAF] hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Tất cả
+              </button>
+            </div>
           </div>
 
-          {/* Bar Chart Representation */}
-          <div className="h-52 flex items-end justify-between gap-4 pt-6 px-4 pb-2 border-b border-[#1E2738]">
-            {rankedMovies.length === 0 ? (
+          {/* Bar Chart Representation - Responsive & Non-overflowing */}
+          <div className="h-56 w-full flex items-end justify-between gap-1 sm:gap-2 pt-6 px-1 sm:px-3 pb-2 border-b border-[#1E2738] overflow-hidden">
+            {chartMovies.length === 0 ? (
               <div className="w-full text-center text-xs text-[#6E7B91] py-16">
                 Chưa có dữ liệu phim nào
               </div>
             ) : (
-              rankedMovies.map((m, idx) => {
+              chartMovies.map((m, idx) => {
                 const maxRev = rankedMovies[0]?.revenue || 1;
                 const heightPct =
                   maxRev > 0
-                    ? Math.max(15, Math.round(((m.revenue || 0) / maxRev) * 100))
-                    : 15;
+                    ? Math.max(12, Math.round(((m.revenue || 0) / maxRev) * 100))
+                    : 12;
+
+                // Tự động thu bé kích thước cột khi có thêm cột mới
+                const barWidthClass =
+                  chartMovies.length <= 4
+                    ? 'max-w-[42px]'
+                    : chartMovies.length <= 6
+                    ? 'max-w-[32px]'
+                    : chartMovies.length <= 8
+                    ? 'max-w-[24px]'
+                    : 'max-w-[18px]';
+
+                const labelSizeClass =
+                  chartMovies.length <= 5
+                    ? 'text-[10px]'
+                    : chartMovies.length <= 8
+                    ? 'text-[9px]'
+                    : 'text-[8px]';
 
                 return (
                   <div
                     key={m.id || idx}
-                    className="flex-1 flex flex-col items-center gap-2 h-full justify-end group"
+                    className="flex-1 min-w-0 flex flex-col items-center gap-1.5 h-full justify-end group transition-all duration-300 relative"
                   >
-                    <div className="text-[10px] font-mono text-[#8E9AAF] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    {/* Tooltip hiển thị giá trị doanh thu chi tiết khi hover */}
+                    <div className="text-[10px] font-mono font-semibold text-emerald-400 opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap mb-1 bg-[#121824]/95 backdrop-blur-sm px-2 py-0.5 rounded-md border border-[#1E2638] shadow-lg pointer-events-none z-20 absolute -top-3">
                       {m.revenue >= 1000000
-                        ? `${(m.revenue / 1000000).toFixed(1).replace('.0', '')}M`
-                        : `${Math.round(m.revenue / 1000)}k`}
+                        ? `${(m.revenue / 1000000).toFixed(1).replace('.0', '')}M đ`
+                        : `${Math.round(m.revenue / 1000)}k đ`}
+                      <span className="text-[#8E9AAF] ml-1">({m.tickets} vé)</span>
                     </div>
 
+                    {/* Cột bar với chiều cao tỉ lệ & hiệu ứng gradient */}
                     <div
                       style={{ height: `${heightPct}%` }}
-                      className="w-full max-w-[42px] rounded-t-lg bg-[#E50914] group-hover:bg-[#FF2E3B] transition-all relative shadow-lg shadow-[#E50914]/20"
+                      className={`w-full ${barWidthClass} mx-auto rounded-t-lg bg-gradient-to-t from-[#B91C1C] via-[#E50914] to-[#FF4D4D] group-hover:brightness-125 transition-all duration-300 relative shadow-lg shadow-[#E50914]/20`}
                     />
 
+                    {/* Tên phim rút gọn sạch sẽ trong min-w-0 container */}
                     <span
-                      title={m.title}
-                      className="text-[10px] text-[#6E7B91] truncate w-full text-center mt-1"
+                      title={`${m.title} — ${m.revenue.toLocaleString('vi-VN')} đ (${m.tickets} vé)`}
+                      className={`${labelSizeClass} text-[#8E9AAF] group-hover:text-white truncate w-full text-center mt-1 font-medium transition-colors cursor-default block px-0.5`}
                     >
                       {m.title}
                     </span>
@@ -788,7 +868,7 @@ export default function DashboardView({
                 Chưa có dữ liệu xếp hạng
               </div>
             ) : (
-              rankedMovies.map((m, idx) => (
+              rankedMovies.slice(0, 5).map((m, idx) => (
                 <div
                   key={m.id || idx}
                   className="p-3.5 rounded-2xl bg-[#121724] border border-[#1D2536] flex items-center justify-between hover:border-[#2D3952] transition-colors"

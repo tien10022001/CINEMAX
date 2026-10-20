@@ -91,6 +91,10 @@ export default function UnifiedTicketModal({
     ? ticket.seats.join(', ')
     : ticket.seats || 'Đang cập nhật';
 
+  const seatCount = Array.isArray(ticket.seats)
+    ? ticket.seats.length
+    : seatsDisplay.split(',').filter(Boolean).length || 1;
+
   // Normalize foods
   let foodsDisplay = ticket.foodsStr;
   if (!foodsDisplay && ticket.foods && ticket.foods.length > 0) {
@@ -310,10 +314,14 @@ export default function UnifiedTicketModal({
               <td class="info-label">Khách hàng:</td>
               <td class="info-val">${ticket.customerName || 'Khách xem phim'} ${ticket.customerPhone ? `(${ticket.customerPhone})` : ''}</td>
             </tr>
+            <tr>
+              <td class="info-label">Số lượng vé:</td>
+              <td class="info-val" style="font-weight: 600;">${seatCount} vé</td>
+            </tr>
             ${ticket.totalAmount !== undefined ? `
             <tr>
               <td class="info-label">Tổng thanh toán:</td>
-              <td class="info-val" style="color: #16a34a; font-size: 15px;">${ticket.totalAmount.toLocaleString('vi-VN')} đ</td>
+              <td class="info-val" style="color: #16a34a; font-size: 15px; font-weight: bold;">${ticket.totalAmount.toLocaleString('vi-VN')} đ</td>
             </tr>` : ''}
           </table>
 
@@ -487,9 +495,13 @@ export default function UnifiedTicketModal({
                       {ticket.customerPhone ? `(${ticket.customerPhone})` : ''}
                     </span>
                   </div>
+                  <div className="flex justify-between text-[#8E9AAF] text-xs">
+                    <span>Số lượng vé:</span>
+                    <span className="text-white font-semibold">{seatCount} vé</span>
+                  </div>
                   {ticket.totalAmount !== undefined && (
-                    <div className="flex justify-between font-bold text-sm text-white">
-                      <span>Tổng tiền:</span>
+                    <div className="flex justify-between font-bold text-sm text-white pt-1 border-t border-[#242E40]/60">
+                      <span>Tổng thanh toán:</span>
                       <span className="font-mono text-[#22C55E] text-base">
                         {ticket.totalAmount.toLocaleString('vi-VN')} đ
                       </span>

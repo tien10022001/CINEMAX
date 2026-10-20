@@ -1435,9 +1435,9 @@ export default function StaffWorkspacePage() {
       const vipPrice =
         activeShowtime?.prices?.find((p) => p.seat_type?.code === 'VIP')?.price || 95000;
       const couplePrice =
-        activeShowtime?.prices?.find((p) => p.seat_type?.code === 'COUPLE')?.price || 110000;
+        activeShowtime?.prices?.find((p) => p.seat_type?.code === 'COUPLE')?.price || 160000;
 
-      const base = row === 'H' ? couplePrice : row === 'F' || row === 'G' ? vipPrice : stdPrice;
+      const base = row === 'H' ? couplePrice : row === 'E' || row === 'F' || row === 'G' ? vipPrice : stdPrice;
       const discountPct = AUDIENCE_CONFIG[posAudienceType].discountPercent;
       return Math.round((base * (100 - discountPct)) / 100);
     },
@@ -1467,22 +1467,6 @@ export default function StaffWorkspacePage() {
       currentShowtimeSoldSeats.includes(seatCode) ||
       currentRoomMaintenanceSeats.includes(seatCode)
     ) {
-      return;
-    }
-
-    const partner = getCouplePartnerSeat(seatCode);
-    if (partner) {
-      if (
-        currentShowtimeSoldSeats.includes(partner) ||
-        currentRoomMaintenanceSeats.includes(partner)
-      ) {
-        return;
-      }
-      setPosSelectedSeats((prev) =>
-        prev.includes(seatCode)
-          ? prev.filter((s) => s !== seatCode && s !== partner)
-          : Array.from(new Set([...prev, seatCode, partner]))
-      );
       return;
     }
 
@@ -1844,30 +1828,71 @@ export default function StaffWorkspacePage() {
         o.status !== 'REJECTED_AGE'
     );
     const posOrders = validOrders.filter((o) => o.channel === 'POS');
-    const posCashRevenue = posOrders
-      .filter((o) => {
-        const pm = String(o.payment_method || '').toUpperCase();
-        return pm === 'CASH' || pm.includes('TIỀN MẶT') || pm === 'POS';
-      })
-      .reduce((sum, o) => sum + o.total_amount, 0);
-    const posTotalRevenue = posOrders.reduce((sum, o) => sum + o.total_amount, 0);
-    const posTicketsSoldCount = posOrders.length;
-    const checkedInCount = orders.filter((o) => o.status === 'USED').length;
+    const posCashOrders = posOrders.filter((o) => {
+      const pm = String(o.payment_method || '').toUpperCase();
+      return pm === 'CASH' || pm.includes('TIỀN MẶT') || pm === 'POS';
+    });
+    const posCashRevenue = posCashOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+    const posTransferOrders = posOrders.filter((o) => {
+      const pm = String(o.payment_method || '').toUpperCase();
+      return !(pm === 'CASH' || pm.includes('TIỀN MẶT') || pm === 'POS');
+    });
+    const posTransferRevenue = posTransferOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+    const posTotalRevenue = posCashRevenue + posTransferRevenue;
+
+    const posTicketsSoldCount = posOrders.reduce(
+      (sum, o) => sum + (Array.isArray(o.seats) && o.seats.length > 0 ? o.seats.length : 1),
+      0
+    );
+
+    const checkedInCount = orders.reduce((sum, o) => {
+      if (Array.isArray(o.checked_in_seats) && o.checked_in_seats.length > 0) {
+        return sum + o.checked_in_seats.length;
+      }
+      if (o.status === 'USED') {
+        return sum + (Array.isArray(o.seats) && o.seats.length > 0 ? o.seats.length : 1);
+      }
+      return sum;
+    }, 0);
 
     return {
+      posOrders,
+      posCashOrders,
+      posTransferOrders,
       posCashRevenue,
+      posTransferRevenue,
       posTotalRevenue,
       posTicketsSoldCount,
+      posOrdersCount: posOrders.length,
       checkedInCount,
     };
   }, [orders]);
 
-  const [openingCash, setOpeningCash] = useState<number>(2000000);
+  const [openingCash, setOpeningCash] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('cinemax_staff_opening_cash');
+      if (saved && !isNaN(Number(saved))) return Number(saved);
+    }
+    return 2000000;
+  });
+  const [isEditingOpeningCash, setIsEditingOpeningCash] = useState<boolean>(false);
+  const [openingCashDraft, setOpeningCashDraft] = useState<string>('2000000');
   const [countedCashInput, setCountedCashInput] = useState<string>('');
   const [varianceReasonInput, setVarianceReasonInput] = useState<string>('');
   const [shiftApprovedStatus, setShiftApprovedStatus] = useState<'OPEN' | 'SUBMITTED' | 'APPROVED'>(
     'OPEN'
   );
+
+  const handleSaveOpeningCash = () => {
+    const val = Number(openingCashDraft);
+    const valid = isNaN(val) ? 0 : Math.max(0, val);
+    setOpeningCash(valid);
+    setIsEditingOpeningCash(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cinemax_staff_opening_cash', String(valid));
+    }
+    showToast(`Đã lưu tiền đầu ca tại két: ${valid.toLocaleString('vi-VN')} đ`);
+  };
 
   const expectedDrawerCash = openingCash + shiftMetrics.posCashRevenue;
   const parsedCountedCash =
@@ -2777,7 +2802,7 @@ export default function StaffWorkspacePage() {
 
                     <div className="space-y-1.5">
                       {SEAT_ROWS.map((row) => {
-                        const isVipRow = row === 'F' || row === 'G';
+                        const isVipRow = row === 'E' || row === 'F' || row === 'G';
                         const isCoupleRow = row === 'H';
                         return (
                           <div key={row} className="flex items-center justify-center gap-1">
@@ -2792,17 +2817,18 @@ export default function StaffWorkspacePage() {
                                 const isSelected = posSelectedSeats.includes(code);
 
                                 let seatClass =
-                                  'bg-[#283044] text-slate-200 border-[#36415C] hover:border-white';
+                                  'bg-[#1E2738] text-white border border-[#2D3A50] hover:border-white';
                                 if (isVipRow) {
                                   seatClass =
-                                    'bg-[#3B2610] text-[#FBBF24] border-[#92400E] hover:border-[#FBBF24]';
+                                    'bg-[#FABF2E] text-black border border-[#E5AC25] font-bold shadow-sm hover:brightness-110';
                                 }
                                 if (isCoupleRow) {
                                   seatClass =
-                                    'bg-[#3B1530] text-[#F472B6] border-[#9D174D] hover:border-[#F472B6]';
+                                    'bg-[#E50914] text-white border border-[#E50914] font-bold shadow-sm hover:brightness-110';
                                 }
                                 if (isSelected) {
-                                  seatClass = 'bg-[#E63845] text-white border-[#E63845] font-bold';
+                                  seatClass =
+                                    'ring-2 ring-white scale-110 shadow-2xl z-20 font-black brightness-125 border-white';
                                 }
                                 if (isSold) {
                                   seatClass =
@@ -2810,7 +2836,7 @@ export default function StaffWorkspacePage() {
                                 }
                                 if (isMaint) {
                                   seatClass =
-                                    'bg-[#3A1217] text-[#F87171] border-[#7F1D1D] cursor-not-allowed line-through';
+                                    'bg-[#3B191C] text-[#E50914] border border-[#E50914] cursor-not-allowed line-through';
                                 }
 
                                 return (
@@ -2819,7 +2845,7 @@ export default function StaffWorkspacePage() {
                                     type="button"
                                     disabled={isSold || isMaint}
                                     onClick={() => togglePosSeat(code)}
-                                    className={`w-7 h-7 rounded text-[10px] border transition ${seatClass}`}
+                                    className={`w-7 h-7 rounded text-[10px] border transition cursor-pointer ${seatClass}`}
                                   >
                                     {code}
                                   </button>
@@ -2839,10 +2865,22 @@ export default function StaffWorkspacePage() {
                   </div>
 
                   <div className="pt-4 border-t border-[#1E2433] flex flex-wrap items-center justify-center gap-3 text-[10px] text-slate-400">
-                    <span>Thường (A-E)</span>
-                    <span className="text-[#FBBF24]">VIP (F-G)</span>
-                    <span className="text-[#F472B6]">Đôi (H)</span>
-                    <span className="text-[#E63845]">Đang chọn ({posSelectedSeats.length})</span>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2.5 h-2.5 rounded bg-[#1E2738] border border-[#2D3A50]" />
+                      <span>Thường (A-D: 75k)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2.5 h-2.5 rounded bg-[#FABF2E] text-black font-bold flex items-center justify-center text-[7px]">V</div>
+                      <span className="text-[#FABF2E]">VIP (E-G: 95k)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2.5 h-2.5 rounded bg-[#E50914] text-white font-bold flex items-center justify-center text-[7px]">C</div>
+                      <span className="text-[#EF4444]">Couple (H: 160k)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2.5 h-2.5 rounded bg-[#E50914] ring-2 ring-white" />
+                      <span className="text-white">Đang chọn ({posSelectedSeats.length})</span>
+                    </div>
                   </div>
                 </div>
 
@@ -3114,7 +3152,7 @@ export default function StaffWorkspacePage() {
                 </span>
               </div>
 
-              {/* 3 Large KPI Cards Matching Video */}
+              {/* 3 Large KPI Cards with Live Breakdowns */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-6 space-y-1.5">
                   <div className="text-[11px] font-bold text-slate-400 uppercase">
@@ -3123,8 +3161,13 @@ export default function StaffWorkspacePage() {
                   <div className="text-2xl font-black text-[#22C55E]">
                     {shiftMetrics.posTotalRevenue.toLocaleString('vi-VN')} đ
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    Tiền mặt tại két: {shiftMetrics.posCashRevenue.toLocaleString('vi-VN')} đ
+                  <div className="text-[11px] text-slate-400 flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-[#1E2433]">
+                    <span>
+                      Tiền mặt: <strong className="text-white">{shiftMetrics.posCashRevenue.toLocaleString('vi-VN')} đ</strong>
+                    </span>
+                    <span>
+                      Chuyển khoản: <strong className="text-[#38BDF8]">{shiftMetrics.posTransferRevenue.toLocaleString('vi-VN')} đ</strong>
+                    </span>
                   </div>
                 </div>
 
@@ -3135,7 +3178,9 @@ export default function StaffWorkspacePage() {
                   <div className="text-2xl font-black text-[#3B82F6]">
                     {shiftMetrics.posTicketsSoldCount} vé
                   </div>
-                  <div className="text-[11px] text-slate-500">Tổng số đơn bán tại quầy</div>
+                  <div className="text-[11px] text-slate-400 pt-1 border-t border-[#1E2433]">
+                    Tổng <strong className="text-white">{shiftMetrics.posOrdersCount}</strong> hóa đơn bán tại quầy
+                  </div>
                 </div>
 
                 <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-6 space-y-1.5">
@@ -3145,41 +3190,97 @@ export default function StaffWorkspacePage() {
                   <div className="text-2xl font-black text-[#A855F7]">
                     {shiftMetrics.checkedInCount} vé
                   </div>
-                  <div className="text-[11px] text-slate-500">Tổng số vé đã vào rạp</div>
+                  <div className="text-[11px] text-slate-400 pt-1 border-t border-[#1E2433]">
+                    Tổng số vé khách đã quét hợp lệ vào rạp
+                  </div>
                 </div>
               </div>
 
               {/* Clean Handover & Cash Count Box */}
               <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-6 space-y-5">
-                <div>
-                  <h2 className="text-sm font-bold text-white mb-2">Hướng dẫn bàn giao ca</h2>
-                  <div className="bg-[#0D1017] border border-[#1A1F2C] rounded-lg p-4 space-y-1.5 text-xs text-slate-400">
-                    <div>
-                      1. Kiểm tra lại tổng tiền mặt trong két khớp với &quot;Doanh thu trong ca&quot;.
-                    </div>
-                    <div>
-                      2. Đối chiếu cuộn giấy in bill từ máy POS với &quot;Số vé bán tại quầy&quot;.
-                    </div>
-                    <div>
-                      3. Ký sổ bàn giao ca cho quản lý hoặc nhân viên ca tiếp theo.
-                    </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold text-white">Hướng dẫn bàn giao ca & Đối chiếu quỹ két</h2>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-400">Vốn két đầu ca:</span>
+                    {isEditingOpeningCash ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          value={openingCashDraft}
+                          onChange={(e) => setOpeningCashDraft(e.target.value)}
+                          className="w-28 bg-[#161A26] border border-[#3B82F6] rounded px-2 py-1 text-xs text-white font-bold"
+                          placeholder="2000000"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveOpeningCash}
+                          className="bg-[#22C55E] hover:bg-[#16A34A] text-black font-bold text-[11px] px-2.5 py-1 rounded"
+                        >
+                          Lưu
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingOpeningCash(false)}
+                          className="bg-[#262D40] text-slate-300 text-[11px] px-2 py-1 rounded"
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#FABF2E]">
+                          {openingCash.toLocaleString('vi-VN')} đ
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpeningCashDraft(String(openingCash));
+                            setIsEditingOpeningCash(true);
+                          }}
+                          className="text-[10px] text-[#38BDF8] hover:underline cursor-pointer"
+                        >
+                          [Sửa vốn đầu ca]
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-[#0D1017] border border-[#1A1F2C] rounded-lg p-4 space-y-1.5 text-xs text-slate-400">
+                  <div>
+                    1. Kiểm tra lại tổng tiền mặt trong két khớp với &quot;Kỳ vọng trong két&quot; (Vốn đầu ca + Tiền mặt thu trong ca).
+                  </div>
+                  <div>
+                    2. Đối chiếu cuộn giấy in bill từ máy POS với &quot;Số vé bán tại quầy&quot; ({shiftMetrics.posTicketsSoldCount} vé).
+                  </div>
+                  <div>
+                    3. Ký sổ bàn giao ca cho quản lý hoặc nhân viên ca tiếp theo.
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end pt-2 border-t border-[#1E2433]">
                   <div>
                     <label className="block text-[11px] text-slate-400 mb-1">
-                      Tiền đầu ca ({openingCash.toLocaleString('vi-VN')} đ) + Thu tiền mặt:
+                      Kỳ vọng trong két (Vốn + Thu tiền mặt):
                     </label>
                     <div className="bg-[#0D1017] border border-[#242B3D] rounded-lg px-3 py-2 text-xs font-bold text-[#22C55E]">
-                      Kỳ vọng: {expectedDrawerCash.toLocaleString('vi-VN')} đ
+                      {expectedDrawerCash.toLocaleString('vi-VN')} đ
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">
-                      Tiền mặt thực đếm cuối ca:
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] text-slate-400">
+                        Tiền mặt thực đếm cuối ca:
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setCountedCashInput(String(expectedDrawerCash))}
+                        className="text-[10px] text-[#38BDF8] hover:underline cursor-pointer"
+                      >
+                        Khớp két
+                      </button>
+                    </div>
                     <input
                       type="number"
                       value={countedCashInput}
@@ -3191,13 +3292,28 @@ export default function StaffWorkspacePage() {
 
                   <div>
                     <label className="block text-[11px] text-slate-400 mb-1">
-                      Ghi chú / Giải trình chênh lệch ({cashVariance.toLocaleString('vi-VN')} đ):
+                      Chênh lệch:{' '}
+                      <span
+                        className={`font-bold ${
+                          cashVariance === 0
+                            ? 'text-[#22C55E]'
+                            : cashVariance > 0
+                            ? 'text-[#FBBF24]'
+                            : 'text-[#F87171]'
+                        }`}
+                      >
+                        {cashVariance === 0
+                          ? '0 đ (Khớp)'
+                          : cashVariance > 0
+                          ? `+${cashVariance.toLocaleString('vi-VN')} đ (Thừa)`
+                          : `${cashVariance.toLocaleString('vi-VN')} đ (Thiếu)`}
+                      </span>
                     </label>
                     <input
                       type="text"
                       value={varianceReasonInput}
                       onChange={(e) => setVarianceReasonInput(e.target.value)}
-                      placeholder="Khớp quỹ tiền mặt..."
+                      placeholder={cashVariance === 0 ? 'Khớp quỹ tiền mặt...' : 'Nhập lý do chênh lệch tiền mặt...'}
                       className="w-full bg-[#161A26] border border-[#262D40] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#E63845]"
                     />
                   </div>
@@ -3205,11 +3321,83 @@ export default function StaffWorkspacePage() {
                   <button
                     type="button"
                     onClick={handleCloseShift}
-                    className="bg-[#E63845] hover:bg-[#D02B38] text-white font-bold text-xs py-2.5 px-4 rounded-lg transition"
+                    className="bg-[#E63845] hover:bg-[#D02B38] text-white font-bold text-xs py-2.5 px-4 rounded-lg transition cursor-pointer"
                   >
                     {staffRole === 'SUPERVISOR' ? 'Chốt & Duyệt Ca' : 'Gửi Kết Ca'}
                   </button>
                 </div>
+              </div>
+
+              {/* POS Invoices Breakdown in Shift */}
+              <div className="bg-[#11141D] border border-[#1E2433] rounded-xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Danh sách hóa đơn POS trong ca ({shiftMetrics.posOrders.length} giao dịch)
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Bảng kê chi tiết để nhân viên đối chiếu bill in nhiệt từ máy POS
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-[#22C55E]">
+                    {shiftMetrics.posTotalRevenue.toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
+
+                {shiftMetrics.posOrders.length === 0 ? (
+                  <div className="text-center py-6 text-xs text-slate-500 bg-[#0D1017] rounded-lg border border-[#1E2433]">
+                    Chưa có giao dịch bán vé tại quầy nào trong ca làm việc này.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-72 overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#0D1017] text-slate-400 text-[11px] sticky top-0 border-b border-[#1E2433]">
+                        <tr>
+                          <th className="py-2 px-3">Mã đơn</th>
+                          <th className="py-2 px-3">Giờ tạo</th>
+                          <th className="py-2 px-3">Ghế đã mua</th>
+                          <th className="py-2 px-3">Phương thức</th>
+                          <th className="py-2 px-3 text-right">Số tiền</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1A1F2C]">
+                        {shiftMetrics.posOrders.map((ord) => {
+                          const pm = String(ord.payment_method || '').toUpperCase();
+                          const isCash = pm === 'CASH' || pm.includes('TIỀN MẶT') || pm === 'POS';
+                          return (
+                            <tr key={ord.id} className="hover:bg-[#161A26]/50 transition-colors">
+                              <td className="py-2 px-3 font-mono font-bold text-white">
+                                {ord.id.slice(0, 14)}
+                              </td>
+                              <td className="py-2 px-3 text-slate-400 text-[11px]">
+                                {ord.created_at || 'Vừa xong'}
+                              </td>
+                              <td className="py-2 px-3 font-mono font-semibold text-[#38BDF8]">
+                                {Array.isArray(ord.seats) && ord.seats.length > 0
+                                  ? ord.seats.join(', ')
+                                  : 'F&B Only'}
+                              </td>
+                              <td className="py-2 px-3">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    isCash
+                                      ? 'bg-[#152E20] text-[#4ADE80] border border-[#22C55E]/30'
+                                      : 'bg-[#12283A] text-[#38BDF8] border border-[#38BDF8]/30'
+                                  }`}
+                                >
+                                  {isCash ? 'Tiền mặt' : 'Chuyển khoản / QR'}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono font-bold text-white">
+                                {ord.total_amount.toLocaleString('vi-VN')} đ
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}

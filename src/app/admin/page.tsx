@@ -2281,12 +2281,12 @@ export default function AdminPage() {
 
                     <button
                       onClick={() => {
-                        setActiveTab('AUDIT_LOGS');
+                        setActiveTab('SETTINGS');
                         setIsNotificationOpen(false);
                       }}
                       className="text-[#8E9AAF] hover:text-white flex items-center gap-1 transition-colors cursor-pointer text-[11px]"
                     >
-                      <span>Xem sổ kiểm toán (Audit)</span>
+                      <span>Cài đặt hệ thống & nhân sự</span>
                       <ExternalLink className="w-3 h-3" />
                     </button>
                   </div>
@@ -2345,6 +2345,7 @@ export default function AdminPage() {
                   onBulkDeleteShowtimes={handleBulkDeleteShowtimes}
                   onBulkUpdateShowtimes={handleBulkUpdateShowtimes}
                   getSoldTicketsCount={(id) => getSoldTicketsForShowtime(id).length}
+                  orders={orders}
                   showToast={showToast}
                 />
               )}
@@ -2440,13 +2441,12 @@ export default function AdminPage() {
                 />
               )}
 
-              {(activeTab === 'SETTINGS' || activeTab === 'AUDIT_LOGS') && (
+              {activeTab === 'SETTINGS' && (
                 <SystemSettingsView
                   settings={settings}
-                  auditLogs={auditLogs}
                   onUpdateSetting={handleUpdateSetting}
                   showToast={showToast}
-                  initialSubTab={activeTab === 'AUDIT_LOGS' ? 'AUDIT' : 'SETTINGS'}
+                  initialSubTab="SETTINGS"
                 />
               )}
             </>

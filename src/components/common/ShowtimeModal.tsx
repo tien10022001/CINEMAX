@@ -46,7 +46,24 @@ export default function ShowtimeModal({
     return result;
   }, []);
 
-  const [selectedDate, setSelectedDate] = useState<string>(() => initialDate || dates[0]?.date || '2026-10-17');
+  const normReleaseDate = React.useMemo(() => {
+    if (!movie?.release_date) return '';
+    return movie.release_date.includes('/')
+      ? movie.release_date.split('/').reverse().join('-')
+      : movie.release_date.slice(0, 10);
+  }, [movie?.release_date]);
+
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    if (initialDate) return initialDate;
+    if (normReleaseDate && dates.some((d) => d.date === normReleaseDate)) return normReleaseDate;
+    return dates[0]?.date || '2026-10-17';
+  });
+
+  useEffect(() => {
+    if (isOpen && normReleaseDate && dates.some((d) => d.date === normReleaseDate)) {
+      setSelectedDate(normReleaseDate);
+    }
+  }, [isOpen, normReleaseDate, dates]);
   const [selectedCinemaId, setSelectedCinemaId] = useState<string | number>(
     cinemas[0]?.id || 1
   );
@@ -160,6 +177,7 @@ export default function ShowtimeModal({
         <div className="flex items-center justify-start sm:justify-center gap-6 sm:gap-10 border-b border-[#303645] pb-2 overflow-x-auto">
           {dates.map((d) => {
             const isSelected = selectedDate === d.date;
+            const isBeforeRelease = Boolean(normReleaseDate && d.date < normReleaseDate);
             const [dayNum, weekday] = d.label.split(' - ');
             const [day, month] = dayNum.split('/');
 
@@ -171,19 +189,30 @@ export default function ShowtimeModal({
                 className={`flex items-baseline gap-1 pb-2 cursor-pointer transition-all relative group ${
                   isSelected
                     ? 'text-[#E63845] font-extrabold'
+                    : isBeforeRelease
+                    ? 'text-[#5D6475] hover:text-[#9EA6B8] font-bold opacity-60'
                     : 'text-[#9EA6B8] hover:text-white font-bold opacity-85'
                 }`}
+                title={isBeforeRelease ? `Phim khởi chiếu từ ${movie.release_date}` : undefined}
               >
                 <span
                   className={`text-2xl sm:text-3xl font-black transition-colors ${
-                    isSelected ? 'text-[#E63845]' : 'text-[#9EA6B8] group-hover:text-white'
+                    isSelected
+                      ? 'text-[#E63845]'
+                      : isBeforeRelease
+                      ? 'text-[#5D6475] group-hover:text-[#9EA6B8]'
+                      : 'text-[#9EA6B8] group-hover:text-white'
                   }`}
                 >
                   {day}
                 </span>
                 <span
                   className={`text-xs font-bold transition-colors ${
-                    isSelected ? 'text-[#E63845]' : 'text-[#9EA6B8] group-hover:text-white'
+                    isSelected
+                      ? 'text-[#E63845]'
+                      : isBeforeRelease
+                      ? 'text-[#5D6475] group-hover:text-[#9EA6B8]'
+                      : 'text-[#9EA6B8] group-hover:text-white'
                   }`}
                 >
                   /{month} - {weekday}
@@ -219,6 +248,24 @@ export default function ShowtimeModal({
               >
                 Tải lại suất chiếu
               </button>
+            </div>
+          ) : normReleaseDate && selectedDate < normReleaseDate ? (
+            <div className="text-center py-8 space-y-3 bg-[#14161F] border border-amber-500/30 rounded-2xl p-6">
+              <div className="inline-flex items-center gap-1.5 text-xs uppercase font-bold tracking-wider px-3 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                <span>Phim sắp khởi chiếu</span>
+              </div>
+              <p className="text-white text-sm font-semibold max-w-md mx-auto">
+                "{movie.title}" chính thức công chiếu từ ngày <strong className="text-amber-400">{movie.release_date}</strong>. Suất chiếu chỉ mở từ ngày khởi chiếu trở đi.
+              </p>
+              {dates.some((d) => d.date === normReleaseDate) && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(normReleaseDate)}
+                  className="px-5 py-2.5 rounded-full bg-[#E63845] hover:bg-[#CC2B37] text-white text-xs font-bold transition-all shadow-md shadow-[#E63845]/30 cursor-pointer"
+                >
+                  Xem suất chiếu ngày {dates.find((d) => d.date === normReleaseDate)?.dayStr} &gt;
+                </button>
+              )}
             </div>
           ) : slots.length === 0 ? (
             <div className="text-center py-8 space-y-2">

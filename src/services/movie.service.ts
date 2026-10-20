@@ -267,6 +267,16 @@ export class MovieService {
         }
       }
 
+      // Chặn tuyệt đối: Suất chiếu không được phép diễn ra trước ngày khởi chiếu chính thức của phim
+      if (st.movie?.release_date) {
+        const normRel = st.movie.release_date.includes('/')
+          ? st.movie.release_date.split('/').reverse().join('-')
+          : st.movie.release_date.slice(0, 10);
+        if (normRel && dateKey && dateKey < normRel) {
+          continue;
+        }
+      }
+
       // Đếm số ghế đã bán từ cinemax_user_tickets cho suất chiếu này
       let bookedCount = 0;
       if (typeof window !== 'undefined') {

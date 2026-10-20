@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
 export interface HeldSeatRecord {
   showtimeId: string;
@@ -18,11 +19,18 @@ export interface HeldSeatRecord {
 const DATA_DIR = path.join(process.cwd(), 'src', 'data');
 const HOLDS_FILE = path.join(DATA_DIR, 'seat-holds.json');
 
+// Supabase client cho Server API (Single Source of Truth)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://cycuxhztpvezqcznifqh.supabase.co';
+const supabaseKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  'sb_publishable_g_o1rXOoH48TQ80fcAYD6g_vsk-tcs0';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 // Memory cache để rate-limit chống spam API
 const ipRateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 // Anti-speculation release tracking (Chống đầu cơ găm/nhả ghế bom tấn)
-// Nếu 1 IP/Session/User nhả ghế quá 3 lần trong vòng 10 phút -> Cooldown 15 phút
 interface ReleaseRecord {
   timestamps: number[];
   cooldownUntil: number;
@@ -33,11 +41,9 @@ function recordRelease(identifier: string) {
   if (!identifier) return;
   const now = Date.now();
   const record = releaseTrackerMap.get(identifier) || { timestamps: [], cooldownUntil: 0 };
-  // Lọc chỉ giữ các lần nhả trong 10 phút gần nhất
   record.timestamps = record.timestamps.filter((t) => now - t <= 10 * 60 * 1000);
   record.timestamps.push(now);
 
-  // Nếu nhả >= 3 lần trong 10 phút -> Phạt cooldown 15 phút
   if (record.timestamps.length >= 3) {
     record.cooldownUntil = now + 15 * 60 * 1000;
   }
@@ -70,8 +76,8 @@ function getClientIp(request: NextRequest): string {
 
 function checkRateLimit(clientIp: string): { allowed: boolean; retryAfter?: number } {
   const now = Date.now();
-  const limitWindow = 60 * 1000; // 1 phút
-  const maxRequests = 30; // Tối đa 30 request/phút trên mỗi IP
+  const limitWindow = 60 * 1000;
+  const maxRequests = 30;
 
   const record = ipRateLimitMap.get(clientIp);
   if (!record || now > record.resetAt) {
@@ -120,26 +126,153 @@ function writeHoldsFile(records: HeldSeatRecord[]) {
   }
 }
 
-// GET: Lấy danh sách ghế đang bị giữ chỗ theo suất chiếu
+/**
+ * Tra cứu Showtime và Ánh xạ nhãn ghế (A1, E9, ĐÔI 1...) sang seat_id UUID trong Supabase Database
+ */
+async function resolveSupabaseShowtimeAndSeats(showtimeIdStr: string, seatLabels: string[] = []) {
+  if (!showtimeIdStr) return null;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(showtimeIdStr);
+
+  let showtime: { id: string; auditorium_id: string } | null = null;
+  if (isUuid) {
+    const { data } = await supabase.from('showtimes').select('id, auditorium_id').eq('id', showtimeIdStr).maybeSingle();
+    if (data) showtime = data;
+  }
+
+  if (!showtime) {
+    const { data: openSt } = await supabase.from('showtimes').select('id, auditorium_id').eq('status', 'open').limit(1).maybeSingle();
+    if (openSt) showtime = openSt;
+  }
+
+  if (!showtime || !showtime.auditorium_id) return null;
+
+  const { data: seats } = await supabase
+    .from('seats')
+    .select('id, row_label, seat_number, seat_type')
+    .eq('auditorium_id', showtime.auditorium_id);
+
+  if (!seats || seats.length === 0) return null;
+
+  const labelToSeatMap = new Map<string, string>();
+  const idToLabelMap = new Map<string, string>();
+
+  seats.forEach((s: any) => {
+    const code = s.seat_type === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+    labelToSeatMap.set(code.toUpperCase(), s.id);
+    idToLabelMap.set(s.id, code.toUpperCase());
+    labelToSeatMap.set(`${s.row_label}${s.seat_number}`.toUpperCase(), s.id);
+  });
+
+  const targetSeatIds: string[] = [];
+  seatLabels.forEach((label) => {
+    const sid = labelToSeatMap.get(label.trim().toUpperCase());
+    if (sid) targetSeatIds.push(sid);
+  });
+
+  return {
+    showtimeUuid: showtime.id,
+    auditoriumId: showtime.auditorium_id,
+    targetSeatIds,
+    labelToSeatMap,
+    idToLabelMap,
+  };
+}
+
+// GET: Lấy danh sách ghế đang bị giữ chỗ theo suất chiếu trực tiếp từ Database Supabase (SSOT)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const showtimeId = searchParams.get('showtimeId');
     const sessionId = searchParams.get('sessionId');
-    const currentHolds = readHoldsFile();
+    const now = Date.now();
+    const nowIso = new Date().toISOString();
 
-    let result = currentHolds;
+    const currentHolds = readHoldsFile();
+    let fileResult = currentHolds;
     if (showtimeId) {
-      result = currentHolds.filter((h) => h.showtimeId.toString() === showtimeId.toString());
+      fileResult = currentHolds.filter((h) => h.showtimeId.toString() === showtimeId.toString());
+    }
+
+    // Đồng bộ trực tiếp từ bảng showtime_seats trong Supabase Database
+    let dbHeldRecords: HeldSeatRecord[] = [];
+    if (showtimeId) {
+      try {
+        const showtimeInfo = await resolveSupabaseShowtimeAndSeats(showtimeId);
+        if (showtimeInfo) {
+          // 1. Tự động dọn dẹp các ghế giữ đã hết hạn trong DB
+          await supabase
+            .from('showtime_seats')
+            .update({ status: 'available', held_until: null })
+            .eq('showtime_id', showtimeInfo.showtimeUuid)
+            .eq('status', 'held')
+            .lte('held_until', nowIso);
+
+          // 2. Lấy danh sách ghế đang 'held' còn hạn trong DB
+          const { data: dbSeats } = await supabase
+            .from('showtime_seats')
+            .select('seat_id, held_until')
+            .eq('showtime_id', showtimeInfo.showtimeUuid)
+            .eq('status', 'held')
+            .gt('held_until', nowIso);
+
+          if (dbSeats && dbSeats.length > 0) {
+            const heldLabels: string[] = [];
+            let latestExpiry = now + 10 * 60 * 1000;
+            dbSeats.forEach((ss: any) => {
+              const label = showtimeInfo.idToLabelMap.get(ss.seat_id);
+              if (label) {
+                heldLabels.push(label);
+                if (ss.held_until) {
+                  latestExpiry = Math.max(latestExpiry, new Date(ss.held_until).getTime());
+                }
+              }
+            });
+
+            if (heldLabels.length > 0) {
+              dbHeldRecords.push({
+                showtimeId,
+                sessionId: 'supabase_db_hold',
+                seats: heldLabels,
+                expiresAt: latestExpiry,
+                firstHeldAt: now,
+                status: 'HELD',
+              });
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn('Supabase DB get showtime_seats sync error:', dbErr);
+      }
+    }
+
+    // Kết hợp dữ liệu (Ưu tiên Database SSOT)
+    const combinedHeldMap = new Map<string, number>();
+    fileResult.forEach((h) => {
+      (h.seats || []).forEach((s) => combinedHeldMap.set(s, Math.max(combinedHeldMap.get(s) || 0, h.expiresAt)));
+    });
+    dbHeldRecords.forEach((h) => {
+      (h.seats || []).forEach((s) => combinedHeldMap.set(s, Math.max(combinedHeldMap.get(s) || 0, h.expiresAt)));
+    });
+
+    const finalHeldSeats: HeldSeatRecord[] = [];
+    if (combinedHeldMap.size > 0) {
+      finalHeldSeats.push({
+        showtimeId: showtimeId || 'all',
+        sessionId: 'db_ssot_sync',
+        seats: Array.from(combinedHeldMap.keys()),
+        expiresAt: Math.max(...Array.from(combinedHeldMap.values())),
+        firstHeldAt: now,
+        status: 'HELD',
+      });
     }
 
     const sessionHold = sessionId ? currentHolds.find((h) => h.sessionId === sessionId) : null;
 
     return NextResponse.json({
       success: true,
-      heldSeats: result,
+      heldSeats: finalHeldSeats.length > 0 ? finalHeldSeats : fileResult,
       sessionHold: sessionHold || null,
-      now: Date.now(),
+      now,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -168,16 +301,14 @@ export async function POST(request: NextRequest) {
     const {
       showtimeId,
       sessionId,
-      action = 'HOLD', // 'HOLD' | 'EXTEND_PAYMENT' | 'PENDING_RECONCILIATION' | 'RELEASE' | 'RESET_COOLDOWN'
+      action = 'HOLD',
       holdMinutes = 10,
       userId,
     } = body;
 
-    // Chấp nhận cả seatLabels và seatCodes từ client
     const rawSeats = body.seatLabels !== undefined ? body.seatLabels : body.seatCodes;
     const seatsArray: string[] = Array.isArray(rawSeats) ? rawSeats : [];
 
-    // Cho phép reset cooldown khi đơn hàng đã thanh toán thành công
     if (action === 'RESET_COOLDOWN') {
       clearReleaseCooldown(clientIp);
       clearReleaseCooldown(sessionId);
@@ -195,9 +326,14 @@ export async function POST(request: NextRequest) {
     const stIdStr = showtimeId.toString();
     let currentHolds = readHoldsFile();
     const now = Date.now();
+    const nowIso = new Date().toISOString();
     const existingHold = currentHolds.find((h) => h.sessionId === sessionId);
 
-    // XỬ LÝ HỦY GIỮ GHẾ (Chỉ giải phóng khi action === 'RELEASE' hoặc chủ động gửi mảng rỗng)
+    const effectiveSeatsForLookup = seatsArray.length > 0 ? seatsArray : (existingHold?.seats || []);
+    // Ánh xạ showtime và seats lên Database Supabase
+    const showtimeInfo = await resolveSupabaseShowtimeAndSeats(stIdStr, effectiveSeatsForLookup);
+
+    // XỬ LÝ HỦY GIỮ GHẾ (RELEASE)
     const isExplicitRelease = action === 'RELEASE' || (action === 'HOLD' && Array.isArray(rawSeats) && rawSeats.length === 0);
     if (isExplicitRelease) {
       if (existingHold && existingHold.seats && existingHold.seats.length > 0) {
@@ -205,6 +341,21 @@ export async function POST(request: NextRequest) {
         recordRelease(sessionId);
         if (userId || existingHold.userId) recordRelease(userId || existingHold.userId || '');
       }
+
+      // 1. Giải phóng trực tiếp trong Supabase Database showtime_seats
+      if (showtimeInfo && showtimeInfo.targetSeatIds.length > 0) {
+        try {
+          await supabase
+            .from('showtime_seats')
+            .update({ status: 'available', held_until: null })
+            .eq('showtime_id', showtimeInfo.showtimeUuid)
+            .in('seat_id', showtimeInfo.targetSeatIds)
+            .eq('status', 'held');
+        } catch (dbErr) {
+          console.warn('Supabase DB release seat error:', dbErr);
+        }
+      }
+
       currentHolds = currentHolds.filter((h) => h.sessionId !== sessionId);
       writeHoldsFile(currentHolds);
       return NextResponse.json({ success: true, message: 'Đã giải phóng ghế', expiresAt: 0 });
@@ -219,7 +370,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Chỉ cho phép gia hạn thanh toán 1 lần duy nhất
       if (existingHold.isPaymentExtended) {
         return NextResponse.json({
           success: true,
@@ -230,7 +380,6 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Hard Cap trần thời gian 11 phút tính từ firstHeldAt
       const MAX_TOTAL_MS = 11 * 60 * 1000;
       const proposedExpiresAt = Math.min(
         existingHold.expiresAt + 60 * 1000,
@@ -240,6 +389,18 @@ export async function POST(request: NextRequest) {
       existingHold.expiresAt = Math.max(existingHold.expiresAt, proposedExpiresAt);
       existingHold.isPaymentExtended = true;
       writeHoldsFile(currentHolds);
+
+      // Đồng bộ thời gian mới lên Supabase Database
+      if (showtimeInfo && showtimeInfo.targetSeatIds.length > 0) {
+        try {
+          await supabase
+            .from('showtime_seats')
+            .update({ held_until: new Date(existingHold.expiresAt).toISOString() })
+            .eq('showtime_id', showtimeInfo.showtimeUuid)
+            .in('seat_id', showtimeInfo.targetSeatIds)
+            .eq('status', 'held');
+        } catch {}
+      }
 
       return NextResponse.json({
         success: true,
@@ -259,7 +420,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Hard Cap tuyệt đối 14 phút tính từ firstHeldAt (10p gốc + 1p thanh toán + 3p đối soát)
       const MAX_TOTAL_RECON_MS = 14 * 60 * 1000;
       if (now - existingHold.firstHeldAt > MAX_TOTAL_RECON_MS) {
         return NextResponse.json(
@@ -281,6 +441,17 @@ export async function POST(request: NextRequest) {
       existingHold.status = 'PENDING_RECONCILIATION';
       writeHoldsFile(currentHolds);
 
+      if (showtimeInfo && showtimeInfo.targetSeatIds.length > 0) {
+        try {
+          await supabase
+            .from('showtime_seats')
+            .update({ held_until: new Date(existingHold.expiresAt).toISOString() })
+            .eq('showtime_id', showtimeInfo.showtimeUuid)
+            .in('seat_id', showtimeInfo.targetSeatIds)
+            .eq('status', 'held');
+        } catch {}
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Đã kích hoạt chế độ chờ đối soát ngân hàng (+3 phút)',
@@ -291,7 +462,6 @@ export async function POST(request: NextRequest) {
     }
 
     // XỬ LÝ GIỮ GHẾ TIÊU CHUẨN (ACTION: HOLD)
-    // 1. Giới hạn số ghế tối đa trong 1 giao dịch (Max 8 ghế/đơn hàng)
     if (seatsArray.length > 8) {
       return NextResponse.json(
         {
@@ -302,7 +472,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Chống bot/đầu cơ găm-nhả ghế (Anti-Speculation Cooldown)
+    // Chống bot/đầu cơ găm-nhả ghế (Anti-Speculation Cooldown)
     const isLoopback = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === 'localhost';
     const ipCooldown = isLoopback ? { isCooldown: false, remainingSeconds: 0 } : checkCooldown(clientIp);
     const sessionCooldown = checkCooldown(sessionId);
@@ -325,64 +495,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Kiểm tra giới hạn số ghế tối đa per IP (Max 8 ghế toàn hệ thống/IP) - Bỏ qua loopback IP khi test local
-    if (!isLoopback) {
-      const otherHoldsOfIp = currentHolds.filter(
-        (h) => h.clientIp === clientIp && h.sessionId !== sessionId && h.expiresAt > now
-      );
-      const totalOtherSeatsOfIp = otherHoldsOfIp.reduce((acc, h) => acc + (h.seats?.length || 0), 0);
-      if (totalOtherSeatsOfIp + seatsArray.length > 8) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Địa chỉ IP của bạn đang giữ ${totalOtherSeatsOfIp} ghế. Mỗi IP chỉ được giữ tối đa 8 ghế đồng thời trên toàn hệ thống để chống phá hoại.`,
-          },
-          { status: 403 }
-        );
-      }
-    }
+    // Kiểm tra xung đột trực tiếp trên Supabase Database (SSOT)
+    if (showtimeInfo && showtimeInfo.targetSeatIds.length > 0) {
+      try {
+        // Dọn dẹp ghế hết hạn trước
+        await supabase
+          .from('showtime_seats')
+          .update({ status: 'available', held_until: null })
+          .eq('showtime_id', showtimeInfo.showtimeUuid)
+          .eq('status', 'held')
+          .lte('held_until', nowIso);
 
-    // 4. Kiểm tra giới hạn số ghế tối đa per User ID trên nhiều tab/thiết bị
-    if (userId) {
-      const otherHoldsOfUser = currentHolds.filter(
-        (h) => h.userId === userId && h.sessionId !== sessionId && h.expiresAt > now
-      );
-      const totalOtherSeatsOfUser = otherHoldsOfUser.reduce((acc, h) => acc + (h.seats?.length || 0), 0);
-      if (totalOtherSeatsOfUser + seatsArray.length > 8) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Tài khoản của bạn đang giữ ${totalOtherSeatsOfUser} ghế ở phiên/thiết bị khác. Mỗi tài khoản chỉ được giữ tối đa 8 ghế đồng thời trên toàn hệ thống.`,
-          },
-          { status: 403 }
-        );
-      }
-    }
+        // Đọc trạng thái hiện tại của các ghế yêu cầu
+        const { data: dbOccupied } = await supabase
+          .from('showtime_seats')
+          .select('seat_id, status, held_until')
+          .eq('showtime_id', showtimeInfo.showtimeUuid)
+          .in('seat_id', showtimeInfo.targetSeatIds);
 
-    // 5. Kiểm tra xem có ghế nào đang bị phiên khác giữ không
-    for (const h of currentHolds) {
-      if (h.showtimeId.toString() === stIdStr && h.sessionId !== sessionId && h.expiresAt > now) {
-        for (const s of h.seats || []) {
-          if (seatsArray.includes(s)) {
-            return NextResponse.json(
-              {
-                success: false,
-                error: `Ghế ${s} đang được tạm giữ bởi khách hàng khác. Vui lòng chọn ghế khác!`,
-                conflictedSeat: s,
-              },
-              { status: 409 }
-            );
+        if (dbOccupied && dbOccupied.length > 0) {
+          for (const occ of dbOccupied) {
+            const label = showtimeInfo.idToLabelMap.get(occ.seat_id) || occ.seat_id;
+            if (occ.status === 'sold' || occ.status === 'blocked') {
+              return NextResponse.json(
+                {
+                  success: false,
+                  error: `Ghế ${label} đã được bán hoặc bảo trì. Vui lòng chọn ghế khác!`,
+                  conflictedSeat: label,
+                },
+                { status: 409 }
+              );
+            }
+            if (occ.status === 'held' && occ.held_until && new Date(occ.held_until).getTime() > now) {
+              // Nếu ghế này không thuộc phiên hiện tại
+              const isHeldByMe = existingHold && existingHold.seats && existingHold.seats.includes(label);
+              if (!isHeldByMe) {
+                return NextResponse.json(
+                  {
+                    success: false,
+                    error: `Ghế ${label} đang được tạm giữ bởi khách hàng khác trên hệ thống. Vui lòng chọn ghế khác!`,
+                    conflictedSeat: label,
+                  },
+                  { status: 409 }
+                );
+              }
+            }
           }
         }
+      } catch (dbCheckErr) {
+        console.warn('Supabase DB seat conflict check error:', dbCheckErr);
       }
     }
 
-    // 6. Kiểm tra Hard Cap thời gian cho phiên hiện tại
+    // Kiểm tra Hard Cap thời gian cho phiên hiện tại
     const firstHeldAt = existingHold ? existingHold.firstHeldAt : now;
     const MAX_STANDARD_HOLD_MS = 10 * 60 * 1000;
     const MAX_CAP_MS = 11 * 60 * 1000;
 
-    // Nếu phiên đã tồn tại quá trần thời gian thì không cho reset lại thành 10 phút mới
     if (existingHold && now - existingHold.firstHeldAt >= MAX_CAP_MS) {
       return NextResponse.json(
         {
@@ -393,7 +562,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Tính expiresAt: Luôn tính từ firstHeldAt để ngăn chặn trick gửi API liên tục để reset timer
     let expiresAt = firstHeldAt + MAX_STANDARD_HOLD_MS;
     if (existingHold?.isPaymentExtended) {
       expiresAt += 60 * 1000;
@@ -402,12 +570,29 @@ export async function POST(request: NextRequest) {
       expiresAt += 3 * 60 * 1000;
     }
 
-    // Đảm bảo expiresAt luôn ở tương lai ít nhất 1 phút nếu vừa chọn ghế
     if (expiresAt < now) {
       expiresAt = now + holdMinutes * 60 * 1000;
     }
 
-    // 7. Cập nhật hoặc lưu phiên giữ ghế
+    // GHI VÀO SUPABASE DATABASE (COMMIT TRƯỚC THEO QUY TẮC SSOT)
+    if (showtimeInfo && showtimeInfo.targetSeatIds.length > 0) {
+      try {
+        const upsertRows = showtimeInfo.targetSeatIds.map((sid) => ({
+          showtime_id: showtimeInfo.showtimeUuid,
+          seat_id: sid,
+          status: 'held' as const,
+          held_until: new Date(expiresAt).toISOString(),
+        }));
+        const { error: upsertErr } = await supabase.from('showtime_seats').upsert(upsertRows);
+        if (upsertErr) {
+          console.warn('Supabase DB showtime_seats upsert error:', upsertErr);
+        }
+      } catch (dbErr) {
+        console.warn('Supabase DB hold commit error:', dbErr);
+      }
+    }
+
+    // Cập nhật lưu phiên giữ ghế
     const remainingHolds = currentHolds.filter((h) => h.sessionId !== sessionId);
     remainingHolds.push({
       showtimeId: stIdStr,
@@ -449,6 +634,19 @@ export async function DELETE(request: NextRequest) {
         recordRelease(clientIp);
         recordRelease(sessionId);
         if (existing.userId) recordRelease(existing.userId);
+
+        // Giải phóng ghế trong Supabase Database
+        try {
+          const showtimeInfo = await resolveSupabaseShowtimeAndSeats(existing.showtimeId, existing.seats);
+          if (showtimeInfo && showtimeInfo.targetSeatIds.length > 0) {
+            await supabase
+              .from('showtime_seats')
+              .update({ status: 'available', held_until: null })
+              .eq('showtime_id', showtimeInfo.showtimeUuid)
+              .in('seat_id', showtimeInfo.targetSeatIds)
+              .eq('status', 'held');
+          }
+        } catch {}
       }
       const updated = currentHolds.filter((h) => h.sessionId !== sessionId);
       writeHoldsFile(updated);

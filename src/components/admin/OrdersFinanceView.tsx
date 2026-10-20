@@ -301,6 +301,20 @@ export default function OrdersFinanceView({
     });
   }, [orders, term, filterChannel, filterOrderStatus]);
 
+function parseDateToTimestamp(dateStr?: string | null): number {
+  if (!dateStr) return 0;
+  const direct = new Date(dateStr).getTime();
+  if (!isNaN(direct)) return direct;
+
+  const match = String(dateStr).match(/(?:(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(?:-|•)?\s*)?(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (match) {
+    const [, hh = '0', mm = '0', ss = '0', day, month, year] = match;
+    const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hh), parseInt(mm), parseInt(ss));
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+  return 0;
+}
+
   // Sorted list for Ticket Management
   const sortedMergedList = useMemo(() => {
     const list = [...filteredMergedList];
@@ -310,8 +324,8 @@ export default function OrdersFinanceView({
       let comparison = 0;
       switch (ticketSortField) {
         case 'createdAt': {
-          const tA = new Date(a.createdAt || 0).getTime();
-          const tB = new Date(b.createdAt || 0).getTime();
+          const tA = parseDateToTimestamp(a.createdAt);
+          const tB = parseDateToTimestamp(b.createdAt);
           comparison = tA - tB;
           break;
         }
@@ -374,8 +388,8 @@ export default function OrdersFinanceView({
       let comparison = 0;
       switch (orderSortField) {
         case 'created_at': {
-          const tA = new Date(a.created_at || 0).getTime();
-          const tB = new Date(b.created_at || 0).getTime();
+          const tA = parseDateToTimestamp(a.created_at);
+          const tB = parseDateToTimestamp(b.created_at);
           comparison = tA - tB;
           break;
         }

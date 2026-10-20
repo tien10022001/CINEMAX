@@ -366,8 +366,8 @@ export function generateMockSeats(roomId: number = 1): Seat[] {
     const typeCode = isCouple ? 'COUPLE' : isVip ? 'VIP' : 'STANDARD';
 
     if (isCouple) {
-      // 5 ghế đôi ở hàng H
-      for (let c = 1; c <= 5; c++) {
+      // 10 ghế đôi ở hàng H (H1 - H10 khớp 100% Admin & Database 80 ghế)
+      for (let c = 1; c <= 10; c++) {
         seats.push({
           id: seatId++,
           room_id: roomId,
@@ -382,7 +382,7 @@ export function generateMockSeats(roomId: number = 1): Seat[] {
             code: typeCode,
             name: 'Ghế đôi',
             capacity: 2,
-            color_code: '#F472B6',
+            color_code: '#E50914',
           },
           status: 'AVAILABLE',
         });

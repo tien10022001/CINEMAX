@@ -232,7 +232,7 @@ export default function PosShiftsView({
   const selectedSeatObjects = roomSeats.filter((s) => selectedSeatIds.includes(s.id));
 
   const getSeatUnitPrice = (s: Seat) => {
-    const base = s.seat_type === 'VIP' ? 105000 : s.seat_type === 'COUPLE' ? 210000 : 85000;
+    const base = s.seat_type === 'VIP' ? 95000 : s.seat_type === 'COUPLE' ? 160000 : 75000;
     const discount = AUDIENCE_CONFIG[selectedAudienceType].discountPercent;
     return Math.round((base * (100 - discount)) / 100);
   };

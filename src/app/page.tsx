@@ -162,18 +162,64 @@ function HomeContent() {
     [searchKeyword, selectedGenreFilter, selectedCinemaFilter, selectedDateFilter, selectedShowtimeFilter, showtimes]
   );
 
-  const rawNowShowing = useMemo(
-    () => movies.filter((m) => m.status?.toLowerCase() === 'now_showing'),
-    [movies]
-  );
-  const rawUpcoming = useMemo(
-    () => movies.filter((m) => m.status?.toLowerCase() === 'coming_soon'),
-    [movies]
-  );
+  const rawNowShowing = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return movies.filter((m) => {
+      const relDate = m.release_date?.includes('/')
+        ? m.release_date.split('/').reverse().join('-')
+        : m.release_date?.slice(0, 10);
+      // Chặn cứng: Phim chưa tới ngày khởi chiếu TUYỆT ĐỐI không thuộc Đang Chiếu
+      if (relDate && relDate > today) return false;
+      return m.status?.toLowerCase() === 'now_showing';
+    });
+  }, [movies]);
+
+  const rawUpcoming = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return movies.filter((m) => {
+      const relDate = m.release_date?.includes('/')
+        ? m.release_date.split('/').reverse().join('-')
+        : m.release_date?.slice(0, 10);
+      // Nếu phim chưa tới ngày khởi chiếu HOẶC mang nhãn coming_soon -> Thuộc Sắp Chiếu
+      if (relDate && relDate > today) return true;
+      return m.status?.toLowerCase() === 'coming_soon';
+    });
+  }, [movies]);
+
+  const rawSpecial = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return movies.filter((m) => {
+      const relDate = m.release_date?.includes('/')
+        ? m.release_date.split('/').reverse().join('-')
+        : m.release_date?.slice(0, 10);
+
+      // 1. Phim sắp chiếu NHƯNG đã mở bán vé trước (Advance Sales - như Inside Out 2)
+      const hasFutureShowtimes = showtimes.some((s) => {
+        const sMovieId = String(s.movie_id || s.movie?.id || '');
+        const mId = String(m.id || '');
+        const mSubId = m.supabase_id ? String(m.supabase_id) : '';
+        const match = sMovieId === mId || (mSubId && sMovieId === mSubId) || (m.slug && s.movie?.slug === m.slug);
+        return match && String(s.status || 'open').toUpperCase() === 'OPEN';
+      });
+      const isAdvanceSale = Boolean(relDate && relDate > today && (hasFutureShowtimes || m.has_advance_tickets));
+
+      // 2. Phim có định dạng phòng chiếu đặc biệt (IMAX, 3D Atmos)
+      const hasSpecialFormat = Boolean(
+        m.formats?.some((f) => ['IMAX', '3D', '4DX'].includes(f.toUpperCase())) ||
+        Number(m.id) === 1 ||
+        m.slug?.includes('dune')
+      );
+
+      // 3. Phim bom tấn đặc biệt (is_blockbuster hoặc tier === 'BLOCKBUSTER' hoặc điểm IMDb cao >= 8.0)
+      const isBlockbusterSpecial = Boolean(m.is_blockbuster || m.tier === 'BLOCKBUSTER' || (m.imdb_score && m.imdb_score >= 8.0));
+
+      return isAdvanceSale || hasSpecialFormat || isBlockbusterSpecial;
+    });
+  }, [movies, showtimes]);
 
   const nowShowingMovies = useMemo(() => filterByClassification(rawNowShowing), [rawNowShowing, filterByClassification]);
   const upcomingMovies = useMemo(() => filterByClassification(rawUpcoming), [rawUpcoming, filterByClassification]);
-  const specialMovies = useMemo(() => filterByClassification(movies).slice(0, 3), [movies, filterByClassification]);
+  const specialMovies = useMemo(() => filterByClassification(rawSpecial), [rawSpecial, filterByClassification]);
   const allFilteredMovies = useMemo(() => filterByClassification(movies), [movies, filterByClassification]);
 
   return (

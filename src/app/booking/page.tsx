@@ -99,6 +99,14 @@ function BookingContent() {
     (queryCinemaId && queryCinemaId !== 'undefined'
       ? cinemas.find((c) => c && c.id != null && (String(c.id) === String(queryCinemaId) || c.supabase_id === queryCinemaId))
       : null) || cinemas[0];
+
+  const normReleaseDate = selectedMovie?.release_date
+    ? (selectedMovie.release_date.includes('/')
+        ? selectedMovie.release_date.split('/').reverse().join('-')
+        : selectedMovie.release_date.slice(0, 10))
+    : '';
+  const isBeforeRelease = Boolean(normReleaseDate && queryDate && queryDate < normReleaseDate);
+
   const foundShowtime =
     (queryShowtimeId && queryShowtimeId !== 'undefined'
       ? showtimes.find((s) => s && s.id != null && (String(s.id) === String(queryShowtimeId) || s.supabase_id === queryShowtimeId))
@@ -110,6 +118,7 @@ function BookingContent() {
             (selectedMovie.supabase_id && String(s.movie_id) === selectedMovie.supabase_id);
           if (!matchMovie) return false;
           const sDate = s.start_time.slice(0, 10);
+          if (normReleaseDate && sDate < normReleaseDate) return false;
           if (queryDate && sDate !== queryDate) return false;
           if (queryTime) {
             const dt = new Date(s.start_time);
@@ -291,7 +300,7 @@ function BookingContent() {
 
     rows.forEach((row, rowIdx) => {
       const isCouple = row === 'H';
-      const isVip = row === 'F' || row === 'G';
+      const isVip = row === 'E' || row === 'F' || row === 'G';
       const typeId = isCouple ? 3 : isVip ? 2 : 1;
       const typeCode = isCouple ? 'COUPLE' : isVip ? 'VIP' : 'STANDARD';
 
@@ -316,7 +325,7 @@ function BookingContent() {
             code: typeCode as any,
             name: isCouple ? 'Ghế đôi' : isVip ? 'Ghế VIP' : 'Ghế thường',
             capacity: isCouple ? 2 : 1,
-            color_code: isCouple ? '#F472B6' : isVip ? '#FBBF24' : '#9CA3AF',
+            color_code: isCouple ? '#E50914' : isVip ? '#FABF2E' : '#1E2738',
           },
           status,
         });
@@ -509,19 +518,18 @@ function BookingContent() {
       return prev;
     });
 
-    // 3. Nếu là suất chiếu thật của rạp Hà Nội Centre trong DB Supabase
+    // 3. Nếu suất chiếu có liên kết với DB Supabase (SSOT)
     const stId = selectedShowtime?.id?.toString();
-    const isRealDbShowtime =
-      stId &&
-      stId === '85608755-35ca-4157-87bd-96b50577e0e5' &&
-      (selectedCinema?.id === 1 || selectedCinema?.name?.includes('Hà Nội'));
+    const effectiveShowtimeUuid =
+      selectedShowtime?.supabase_id ||
+      (stId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stId) ? stId : null);
 
-    if (isRealDbShowtime) {
+    if (effectiveShowtimeUuid) {
       try {
-        const dbSeats = await BookingService.getShowtimeSeats(stId);
+        const dbSeats = await BookingService.getShowtimeSeats(effectiveShowtimeUuid);
         if (dbSeats && dbSeats.length > 0) {
           const mapped: Seat[] = dbSeats.map((s) => {
-            const seatLabel = `${s.row_label}${s.seat_number}`;
+            const seatLabel = s.seat_type === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
             const isBookedLocally = bookedSeatLabels.has(seatLabel);
             const isHeldLocally = heldSeatLabels.has(seatLabel);
 
@@ -670,45 +678,16 @@ function BookingContent() {
       seat.status === 'blocked';
     if (isUnavailable) return;
 
-    // Logic Quách Khánh: Ghế đôi (COUPLE / hàng H) phải tự động chọn theo cặp
-    const isCouple = seat.row_label === 'H' || seat.seat_type?.code === 'COUPLE';
-    let partnerSeat: Seat | undefined;
-    if (isCouple) {
-      const partnerNum = seat.seat_number % 2 === 1 ? seat.seat_number + 1 : seat.seat_number - 1;
-      partnerSeat = seats.find(
-        (s) => s.row_label === seat.row_label && s.seat_number === partnerNum
-      );
-      if (partnerSeat) {
-        const partnerUnavailable =
-          partnerSeat.status === 'SOLD' ||
-          partnerSeat.status === 'sold' ||
-          partnerSeat.status === 'BOOKED' ||
-          partnerSeat.status === 'booked' ||
-          partnerSeat.status === 'HELD' ||
-          partnerSeat.status === 'held' ||
-          partnerSeat.status === 'BLOCKED' ||
-          partnerSeat.status === 'blocked';
-        if (partnerUnavailable && !selectedSeats.some((s) => s.id === seat.id)) {
-          alert(`Ghế đôi ${seat.row_label}${partnerNum} đã không còn trống để chọn theo cặp.`);
-          return;
-        }
-      }
-    }
-
     const isSelected = selectedSeats.some((s) => s.id === seat.id);
     let nextSelected: Seat[];
     if (isSelected) {
-      // Hủy chọn cả ghế chính và ghế cặp
-      nextSelected = selectedSeats.filter(
-        (s) => s.id !== seat.id && (!partnerSeat || s.id !== partnerSeat.id)
-      );
+      nextSelected = selectedSeats.filter((s) => s.id !== seat.id);
     } else {
-      const seatsToAdd = partnerSeat ? [seat, partnerSeat] : [seat];
-      if (selectedSeats.length + seatsToAdd.length > 8) {
+      if (selectedSeats.length >= 8) {
         alert('Bạn chỉ có thể chọn tối đa 8 ghế trong một đơn đặt');
         return;
       }
-      nextSelected = [...selectedSeats, ...seatsToAdd.filter((s) => !selectedSeats.some((sel) => sel.id === s.id))];
+      nextSelected = [...selectedSeats, seat];
     }
 
     // Đồng bộ lập tức việc giữ ghế tạm (HELD) giữa các tab để chống chọn trùng đồng thời
@@ -718,7 +697,7 @@ function BookingContent() {
 
     if (nextSeatLabels.length > 0) {
       const holdRes = await BookingService.holdSeatsLocal({
-        showtimeId: selectedShowtime?.id || queryShowtimeId,
+        showtimeId: selectedShowtime?.supabase_id || selectedShowtime?.id || queryShowtimeId,
         sessionId,
         seatLabels: nextSeatLabels,
         holdMinutes: 10,
@@ -780,7 +759,7 @@ function BookingContent() {
         s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`
       );
       const holdRes = await BookingService.holdSeatsLocal({
-        showtimeId: selectedShowtime?.id || queryShowtimeId,
+        showtimeId: selectedShowtime?.supabase_id || selectedShowtime?.id || queryShowtimeId,
         sessionId,
         seatLabels: updatedLabels,
         holdMinutes: 10,
@@ -814,7 +793,7 @@ function BookingContent() {
     const seatLabels = selectedSeats.map((s) => `${s.row_label}${s.seat_number}`);
 
     const holdRes = await BookingService.holdSeatsLocal({
-      showtimeId: selectedShowtime?.id || queryShowtimeId,
+      showtimeId: selectedShowtime?.supabase_id || selectedShowtime?.id || queryShowtimeId,
       sessionId,
       seatLabels,
       holdMinutes: 10,
@@ -828,22 +807,43 @@ function BookingContent() {
 
     // Khi sang bước thanh toán: tự động cộng thêm 1 phút (tối đa 11 phút) và giữ timer đếm tiếp
     if (!isPaymentGraceApplied) {
-      await BookingService.extendPaymentGracePeriod(selectedShowtime?.id || queryShowtimeId, sessionId);
+      await BookingService.extendPaymentGracePeriod(
+        selectedShowtime?.supabase_id || selectedShowtime?.id || queryShowtimeId,
+        sessionId
+      );
       setTimeLeft((prev) => Math.min(prev + 60, 660));
       setIsPaymentGraceApplied(true);
     }
     setCurrentStep(2);
   };
 
+  const standardPrice =
+    selectedShowtime?.prices?.find(
+      (p: any) => p.seat_type?.code === 'STANDARD' || p.seat_type === 'STANDARD' || p.seat_type_id === 1
+    )?.price || 75000;
+  const vipPrice =
+    selectedShowtime?.prices?.find(
+      (p: any) => p.seat_type?.code === 'VIP' || p.seat_type === 'VIP' || p.seat_type_id === 2
+    )?.price || 95000;
+  const couplePrice =
+    selectedShowtime?.prices?.find(
+      (p: any) => p.seat_type?.code === 'COUPLE' || p.seat_type === 'COUPLE' || p.seat_type_id === 3
+    )?.price || 160000;
+
   const getSeatPrice = (seat: Seat) => {
     const code =
       seat.seat_type?.code ||
-      (seat.row_label === 'H' ? 'COUPLE' : ['F', 'G'].includes(seat.row_label) ? 'VIP' : 'STANDARD');
-    const dynamicPrice = selectedShowtime?.prices?.find((p) => p.seat_type?.code === code)?.price;
+      (seat.row_label === 'H' ? 'COUPLE' : ['E', 'F', 'G'].includes(seat.row_label) ? 'VIP' : 'STANDARD');
+    const dynamicPrice = selectedShowtime?.prices?.find(
+      (p: any) =>
+        p.seat_type?.code === code ||
+        p.seat_type === code ||
+        (code === 'COUPLE' ? p.seat_type_id === 3 : code === 'VIP' ? p.seat_type_id === 2 : p.seat_type_id === 1)
+    )?.price;
     if (dynamicPrice && dynamicPrice > 0) return dynamicPrice;
-    if (code === 'COUPLE') return 210000;
-    if (code === 'VIP') return 110000;
-    return 90000;
+    if (code === 'COUPLE') return couplePrice;
+    if (code === 'VIP') return vipPrice;
+    return standardPrice;
   };
 
   const ticketSubtotal = selectedSeats.reduce((sum, seat) => sum + getSeatPrice(seat), 0);
@@ -1256,6 +1256,7 @@ function BookingContent() {
         await syncOrderToSupabase({
           orderCode: generatedCode,
           channel: 'online',
+          userId: currentUser?.id || null,
           contactName: payerName,
           contactEmail: payerEmail,
           contactPhone: payerPhone,
@@ -1484,6 +1485,7 @@ function BookingContent() {
       await syncOrderToSupabase({
         orderCode: pendingVietQROrder.orderCode,
         channel: 'online',
+        userId: currentUser?.id || null,
         contactName: pendingVietQROrder.payerName,
         contactEmail: pendingVietQROrder.payerEmail,
         contactPhone: pendingVietQROrder.payerPhone,
@@ -1756,6 +1758,37 @@ function BookingContent() {
         {/* FIGMA SCREEN 3: CHỌN GHẾ */}
         {/* ======================================================== */}
         {currentStep === 1 && (
+          isBeforeRelease ? (
+            <div className="bg-[#1A1C26] border border-amber-500/40 rounded-3xl p-8 sm:p-14 text-center max-w-2xl mx-auto space-y-6 shadow-2xl my-8">
+              <div className="w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+                <AlertTriangle className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl sm:text-2xl font-black text-white">
+                  Phim chưa đến ngày khởi chiếu
+                </h2>
+                <p className="text-sm text-[#9EA6B8] leading-relaxed">
+                  Phim <strong className="text-white">"{selectedMovie.title}"</strong> có lịch khởi chiếu chính thức từ ngày <strong className="text-amber-400">{selectedMovie.release_date}</strong>. Hệ thống không mở bán vé cho ngày <strong className="text-white">{queryDate}</strong>.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => router.push(`/movie/${selectedMovie.slug || selectedMovie.id}#schedule-section`)}
+                  className="w-full sm:w-auto px-6 py-3 rounded-full bg-[#E63845] hover:bg-[#CC2B37] text-white font-bold text-sm shadow-lg shadow-[#E63845]/30 transition-all cursor-pointer"
+                >
+                  Xem lịch chiếu từ ngày {selectedMovie.release_date}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/')}
+                  className="w-full sm:w-auto px-6 py-3 rounded-full bg-[#14161F] border border-[#303645] hover:bg-[#242836] text-[#9EA6B8] hover:text-white font-semibold text-sm transition-all cursor-pointer"
+                >
+                  Về trang chủ
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-stretch">
             {/* Seat Map (Left 2 cols) */}
             <div className="lg:col-span-2 bg-[#1A1C26] border border-[#303645] rounded-2xl p-3 sm:p-5 flex flex-col justify-between items-center">
@@ -1827,7 +1860,7 @@ function BookingContent() {
               <div className="w-full overflow-x-auto pb-1 flex justify-center">
                 <div className="space-y-1 sm:space-y-1.5 select-none min-w-[300px]">
                   {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((row) => {
-                    const isVipRow = row === 'F' || row === 'G';
+                    const isVipRow = row === 'E' || row === 'F' || row === 'G';
                     const isCoupleRow = row === 'H';
                     return (
                       <div key={row} className="flex items-center justify-center gap-1 sm:gap-1.5">
@@ -1860,18 +1893,18 @@ function BookingContent() {
                             const isBlocked = seat.status === 'BLOCKED' || seat.status === 'blocked';
 
                             let seatClass =
-                              'bg-[#283044] text-slate-200 border-[#36415C] hover:border-white';
+                              'bg-[#1E2738] text-white border border-[#2D3A50] hover:border-white';
                             if (isVipRow) {
                               seatClass =
-                                'bg-[#3B2610] text-[#FBBF24] border-[#92400E] hover:border-[#FBBF24]';
+                                'bg-[#FABF2E] text-black border border-[#E5AC25] font-bold shadow-sm hover:brightness-110';
                             }
                             if (isCoupleRow) {
                               seatClass =
-                                'bg-[#3B1530] text-[#F472B6] border-[#9D174D] hover:border-[#F472B6]';
+                                'bg-[#E50914] text-white border border-[#E50914] font-bold shadow-sm hover:brightness-110';
                             }
                             if (isSelected) {
                               seatClass =
-                                'bg-[#E63845] text-white border-[#E63845] font-bold shadow-lg shadow-[#E63845]/40 scale-105';
+                                'ring-2 ring-white scale-110 shadow-2xl z-20 font-black brightness-125 border-white';
                             }
                             if (isSold) {
                               seatClass =
@@ -1879,11 +1912,11 @@ function BookingContent() {
                             }
                             if (isHeld) {
                               seatClass =
-                                'bg-[#2D2A1C] text-[#FDE047] border-[#854D0E] cursor-not-allowed';
+                                'bg-[#581C87] text-[#F3E8FF] border-2 border-[#C084FC] shadow-[0_0_8px_rgba(192,132,252,0.45)] cursor-not-allowed font-bold';
                             }
                             if (isBlocked) {
                               seatClass =
-                                'bg-[#3A1217] text-[#F87171] border-[#7F1D1D] cursor-not-allowed line-through';
+                                'bg-[#3B191C] text-[#E50914] border border-[#E50914] cursor-not-allowed line-through';
                             }
 
                             return (
@@ -1894,11 +1927,17 @@ function BookingContent() {
                                 onClick={() => handleSeatClick(seat as Seat)}
                                 className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-semibold border transition-all flex items-center justify-center cursor-pointer ${seatClass}`}
                                 title={`${code} - ${
-                                  isCoupleRow
-                                    ? 'Ghế đôi (210.000đ)'
+                                  isHeld
+                                    ? 'Đang có khách giữ chỗ (tối đa 10 phút)'
+                                    : isSold
+                                    ? 'Ghế đã bán'
+                                    : isBlocked
+                                    ? 'Ghế tạm khóa bảo trì'
+                                    : isCoupleRow
+                                    ? `Ghế đôi (${couplePrice.toLocaleString('vi-VN')}đ)`
                                     : isVipRow
-                                    ? 'Ghế VIP (110.000đ)'
-                                    : 'Ghế thường (90.000đ)'
+                                    ? `Ghế VIP (${vipPrice.toLocaleString('vi-VN')}đ)`
+                                    : `Ghế thường (${standardPrice.toLocaleString('vi-VN')}đ)`
                                 }`}
                               >
                                 {code}
@@ -1915,22 +1954,22 @@ function BookingContent() {
                 </div>
               </div>
 
-              {/* Seat Legend (Khớp 100% Staff POS) */}
+              {/* Seat Legend (Khớp 100% Sơ đồ Admin & Database: 75k, 95k, 160k) */}
               <div className="w-full border-t border-[#303645] pt-2.5 mt-2.5 flex flex-wrap items-center justify-center gap-2.5 sm:gap-4 text-[11px] text-[#9EA6B8]">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3.5 h-3.5 rounded bg-[#283044] border border-[#36415C]" />
-                  <span>Ghế thường (90k)</span>
+                  <div className="w-3.5 h-3.5 rounded bg-[#1E2738] border border-[#2D3A50]" />
+                  <span>Ghế thường (75k)</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3.5 h-3.5 rounded bg-[#3B2610] border border-[#92400E] text-[#FBBF24]" />
-                  <span>Ghế VIP (110k)</span>
+                  <div className="w-3.5 h-3.5 rounded bg-[#FABF2E] text-black font-bold flex items-center justify-center text-[8px]">V</div>
+                  <span className="text-[#FABF2E] font-medium">Ghế VIP (95k)</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3.5 h-3.5 rounded bg-[#3B1530] border border-[#9D174D] text-[#F472B6]" />
-                  <span>Ghế đôi (210k)</span>
+                  <div className="w-3.5 h-3.5 rounded bg-[#E50914] text-white font-bold flex items-center justify-center text-[8px]">C</div>
+                  <span className="text-[#EF4444] font-medium">Ghế đôi (160k)</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3.5 h-3.5 rounded bg-[#E63845] border border-[#E63845]" />
+                  <div className="w-3.5 h-3.5 rounded bg-[#E50914] ring-2 ring-white" />
                   <span className="text-white font-semibold">Đang chọn</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -1938,8 +1977,8 @@ function BookingContent() {
                   <span>Đã bán</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3.5 h-3.5 rounded bg-[#2D2A1C] border border-[#854D0E]" />
-                  <span>Đang giữ chỗ</span>
+                  <div className="w-3.5 h-3.5 rounded bg-[#581C87] border-2 border-[#C084FC] shadow-sm shadow-purple-900/40" />
+                  <span className="text-[#D8B4FE] font-medium">Đang giữ chỗ</span>
                 </div>
               </div>
             </div>
@@ -1972,19 +2011,40 @@ function BookingContent() {
                   </div>
 
                   <div className="pt-2 border-t border-[#303645]">
-                    <span className="text-[#9EA6B8] block text-[11px] mb-1">Ghế đã chọn:</span>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[#9EA6B8] text-[11px]">
+                        Ghế đã chọn ({selectedSeats.length}):
+                      </span>
+                      {selectedSeats.length > 0 && (
+                        <span className="text-[10px] text-[#FABF2E] font-medium">Chi tiết giá vé</span>
+                      )}
+                    </div>
                     {selectedSeats.length === 0 ? (
                       <span className="text-xs text-[#9EA6B8] italic">Chưa chọn ghế nào</span>
                     ) : (
-                      <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
-                        {selectedSeats.map((s) => (
-                          <span
-                            key={s.id}
-                            className="bg-[#E63845] text-white text-[11px] px-2 py-0.5 rounded font-bold"
-                          >
-                            {s.row_label}{s.seat_number}
-                          </span>
-                        ))}
+                      <div className="space-y-1.5 max-h-28 overflow-y-auto custom-scrollbar pr-0.5">
+                        {selectedSeats.map((s) => {
+                          const price = getSeatPrice(s);
+                          const isCouple = s.row_label === 'H';
+                          const isVip = ['E', 'F', 'G'].includes(s.row_label);
+                          const typeLabel = isCouple ? 'Ghế đôi' : isVip ? 'Ghế VIP' : 'Ghế thường';
+                          return (
+                            <div
+                              key={s.id}
+                              className="bg-[#0F1217] border border-[#303645]/70 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="bg-[#E63845] text-white font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">
+                                  {s.row_label}{s.seat_number}
+                                </span>
+                                <span className="text-[11px] text-slate-300">{typeLabel}</span>
+                              </div>
+                              <span className="font-mono font-bold text-white text-xs">
+                                {price.toLocaleString('vi-VN')} đ
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -2021,6 +2081,7 @@ function BookingContent() {
               </div>
             </div>
           </div>
+          )
         )}
 
         {/* ======================================================== */}
@@ -2305,8 +2366,8 @@ function BookingContent() {
                     </span>
                   </div>
                   <div className="flex justify-between text-[#9EA6B8] pt-1 border-t border-[#303645]">
-                    <span>Tiền vé:</span>
-                    <span className="text-white">{ticketSubtotal.toLocaleString('vi-VN')} đ</span>
+                    <span>Tiền vé ({selectedSeats.length} vé):</span>
+                    <span className="text-white font-bold">{ticketSubtotal.toLocaleString('vi-VN')} đ</span>
                   </div>
                   {foodSubtotal > 0 && (
                     <div className="flex justify-between text-[#9EA6B8]">

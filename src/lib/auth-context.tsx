@@ -228,6 +228,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const cleanEmail = email.trim().toLowerCase();
+      const supabase = createClient();
+
+      // 1. Tra cứu trực tiếp trên Supabase Cloud Database bảng profiles
+      let dbProfile: any = null;
+      try {
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+        dbProfile = p;
+      } catch (err) {
+        console.warn('Supabase profile query fallback note:', err);
+      }
+
       const existingDbStr = localStorage.getItem('cinemax_users_db');
       const storedUsers: (User & { password?: string })[] = existingDbStr
         ? JSON.parse(existingDbStr)
@@ -238,7 +253,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       SEED_USERS.forEach((u) => userMap.set(u.email.toLowerCase(), u));
       storedUsers.forEach((u) => userMap.set(u.email.toLowerCase(), u));
 
-      const user = userMap.get(cleanEmail);
+      let user = userMap.get(cleanEmail);
+
+      // Nếu có trên Supabase nhưng chưa có trong userMap (ví dụ đăng nhập trên trình duyệt/thiết bị mới)
+      if (!user && dbProfile) {
+        user = {
+          id: dbProfile.id,
+          role_id: dbProfile.role === 'admin' ? 3 : dbProfile.role === 'staff' ? 2 : 1,
+          role_code: dbProfile.role === 'admin' ? 'ADMIN' : dbProfile.role === 'staff' ? 'STAFF' : 'CUSTOMER',
+          full_name: dbProfile.full_name || 'Khách hàng CINEMAX',
+          email: dbProfile.email || cleanEmail,
+          phone: dbProfile.phone || '0900000000',
+          password: password || '123456',
+          loyalty_points: Number(dbProfile.loyalty_points) || 50,
+          membership_tier: dbProfile.membership_tier || 'MEMBER',
+          is_active: dbProfile.status !== 'blocked',
+          created_at: dbProfile.created_at || new Date().toISOString(),
+          updated_at: dbProfile.updated_at || new Date().toISOString(),
+        };
+        storedUsers.push(user);
+        localStorage.setItem('cinemax_users_db', JSON.stringify(storedUsers));
+      }
 
       if (!user) {
         return { success: false, error: 'Email không tồn tại trong hệ thống. Vui lòng đăng ký tài khoản.' };
@@ -257,6 +292,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // Nếu user có ID cũ dạng 'usr-' mà DB đã có UUID hoặc chưa có trên DB -> đồng bộ ngay
+      if (dbProfile?.id) {
+        user.id = dbProfile.id;
+        user.loyalty_points = Number(dbProfile.loyalty_points) || user.loyalty_points || 50;
+        user.membership_tier = dbProfile.membership_tier || user.membership_tier || 'MEMBER';
+      } else if (!user.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)) {
+        // Tự động tạo profile chính thức trên Supabase Cloud
+        const newUuid = crypto.randomUUID();
+        try {
+          await supabase.from('profiles').insert({
+            id: newUuid,
+            role: user.role_code === 'ADMIN' ? 'admin' : user.role_code === 'STAFF' ? 'staff' : 'user',
+            full_name: user.full_name,
+            email: cleanEmail,
+            phone: user.phone || null,
+            loyalty_points: user.loyalty_points || 50,
+            membership_tier: user.membership_tier || 'MEMBER',
+            status: 'active',
+          });
+          user.id = newUuid;
+        } catch (syncErr) {
+          console.warn('Auto sync profile to Supabase on login warning:', syncErr);
+        }
+      }
+
       const { password: _, ...userSession } = user;
       setCurrentUser(userSession);
       localStorage.setItem('cinemax_session_user', JSON.stringify(userSession));
@@ -264,7 +324,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Attempt Supabase Auth login if account exists on Supabase Cloud
       try {
-        const supabase = createClient();
         await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password: password || 'admin'
@@ -287,24 +346,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const cleanEmail = email.trim().toLowerCase();
+      const cleanPhone = phone.trim() || '0900000000';
+      const cleanName = name.trim();
+      const supabase = createClient();
+
+      // 1. Kiểm tra trên Supabase Cloud Database (bảng profiles)
+      let existingProfileOnDb: any = null;
+      try {
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('id, email, phone')
+          .or(`email.eq.${cleanEmail}${cleanPhone && cleanPhone !== '0900000000' ? `,phone.eq.${cleanPhone}` : ''}`)
+          .maybeSingle();
+        existingProfileOnDb = p;
+      } catch (err) {
+        console.warn('Supabase check existing profile warning:', err);
+      }
+
       const existingDbStr = localStorage.getItem('cinemax_users_db');
       const users: (User & { password?: string })[] = existingDbStr
         ? JSON.parse(existingDbStr)
         : SEED_USERS;
 
-      if (users.some((u) => u.email.toLowerCase() === cleanEmail)) {
-        return { success: false, error: 'Email này đã được sử dụng. Vui lòng đăng nhập.' };
+      if (existingProfileOnDb || users.some((u) => u.email.toLowerCase() === cleanEmail)) {
+        return { success: false, error: 'Email hoặc số điện thoại này đã được sử dụng. Vui lòng đăng nhập.' };
       }
 
+      // 2. Tạo Profile chính thức trên Supabase Cloud Database với UUID chuẩn
+      const newProfileUuid = crypto.randomUUID();
+      try {
+        await supabase.from('profiles').insert({
+          id: newProfileUuid,
+          role: 'user',
+          full_name: cleanName,
+          email: cleanEmail,
+          phone: cleanPhone,
+          loyalty_points: 50, // Welcome gift 50 points
+          membership_tier: 'MEMBER',
+          status: 'active',
+        });
+      } catch (dbErr) {
+        console.error('Lỗi tạo profile trên Supabase:', dbErr);
+      }
+
+      // 3. Khởi tạo session với ID là UUID chính thức từ Supabase
       const newUser: User & { password?: string } = {
-        id: 'usr-' + Date.now(),
+        id: newProfileUuid,
         role_id: 1,
         role_code: 'CUSTOMER',
-        full_name: name.trim(),
+        full_name: cleanName,
         email: cleanEmail,
-        phone: phone.trim() || '0900000000',
+        phone: cleanPhone,
         password: password || '123456',
-        loyalty_points: 50, // Welcome gift 50 points
+        loyalty_points: 50,
         membership_tier: 'MEMBER',
         is_active: true,
         created_at: new Date().toISOString(),

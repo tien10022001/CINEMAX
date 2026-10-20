@@ -26,6 +26,21 @@ import {
   Profile
 } from '@/lib/types-redesign';
 
+// Helper function to safely parse dates in ISO or Vietnamese formats (HH:mm:ss DD/MM/YYYY)
+export function parseAdminDateToTimestamp(dateStr?: string | null): number {
+  if (!dateStr) return 0;
+  const direct = new Date(dateStr).getTime();
+  if (!isNaN(direct)) return direct;
+
+  const match = String(dateStr).match(/(?:(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(?:-|•)?\s*)?(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (match) {
+    const [, hh = '0', mm = '0', ss = '0', day, month, year] = match;
+    const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hh), parseInt(mm), parseInt(ss));
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+  return 0;
+}
+
 export class AdminDataService {
   private static supabase: any = createClient();
 
@@ -207,19 +222,36 @@ export class AdminDataService {
       const userBundle = AdminDataService.getUserBookedOrdersAndTickets();
 
       // Deduplicate orders strictly by id and order_code
-      const seenOrderIds = new Set<string>();
-      const seenOrderCodes = new Set<string>();
-      const mergedOrders: Order[] = [];
+      // Deduplicate orders strictly by id and order_code
+      const orderMap = new Map<string, Order>();
 
       [...loadedOrders, ...userBundle.orders].forEach((o: any) => {
         const idKey = String(o.id || '').toLowerCase();
         const codeKey = String(o.order_code || '').toLowerCase();
-        if (idKey && seenOrderIds.has(idKey)) return;
-        if (codeKey && seenOrderCodes.has(codeKey)) return;
-        if (idKey) seenOrderIds.add(idKey);
-        if (codeKey) seenOrderCodes.add(codeKey);
-        mergedOrders.push(o);
+        const primaryKey = codeKey || idKey;
+        if (!primaryKey) return;
+
+        const existing = orderMap.get(primaryKey);
+        if (!existing) {
+          orderMap.set(primaryKey, o);
+        } else {
+          // If existing order has no items or fewer items than new one, merge items
+          const existingItemCount = Array.isArray(existing.items) ? existing.items.length : 0;
+          const newItemCount = Array.isArray(o.items) ? o.items.length : 0;
+          if (newItemCount > existingItemCount) {
+            orderMap.set(primaryKey, {
+              ...existing,
+              items: o.items,
+              contact_name: existing.contact_name || o.contact_name,
+              contact_email: existing.contact_email || o.contact_email,
+              contact_phone: existing.contact_phone || o.contact_phone,
+            });
+          }
+        }
       });
+
+      const mergedOrders = Array.from(orderMap.values());
+      mergedOrders.sort((a, b) => parseAdminDateToTimestamp(b.created_at) - parseAdminDateToTimestamp(a.created_at));
 
       // Deduplicate tickets strictly by id and qr_token_hash
       const seenTicketIds = new Set<string>();
@@ -238,7 +270,7 @@ export class AdminDataService {
 
       // Enrich tickets with metadata if missing
       const enrichedTickets = mergedTickets.map((t: any) => {
-        const parentOrder = mergedOrders.find((o: any) => o.id === t.order_id || o.order_code === t.order_id);
+        const parentOrder = mergedOrders.find((o: any) => o.id === t.order_id || o.order_code === t.order_id || o.order_code === t.order_code);
         const ticketItem = parentOrder?.items?.find((i: any) => i.id === t.order_item_id || i.item_type === 'ticket');
         const snap = ticketItem?.item_snapshot;
         return {
@@ -249,6 +281,8 @@ export class AdminDataService {
           price: t.price || Number(ticketItem?.unit_price) || (parentOrder ? Math.round(Number(parentOrder.total_amount || 85000)) : 85000)
         };
       });
+
+      enrichedTickets.sort((a, b) => parseAdminDateToTimestamp(b.created_at) - parseAdminDateToTimestamp(a.created_at));
 
       return {
         movies: loadedMovies,
@@ -323,6 +357,16 @@ export class AdminDataService {
         const orderStatus = isUsed ? 'paid' : isCancelled ? 'cancelled' : 'paid';
         const ticketStatus = isUsed ? 'used' : isCancelled ? 'cancelled' : 'issued';
 
+        // Resolve createdAt accurately; DO NOT default to now() because it wrongly bumps old tickets to top
+        const rawTime = t.createdAt || t.created_at || t.date || t.bookingDate;
+        let effectiveCreatedAt = '2026-10-15T00:00:00.000Z';
+        if (rawTime) {
+          const ts = parseAdminDateToTimestamp(rawTime);
+          if (ts > 0) {
+            effectiveCreatedAt = new Date(ts).toISOString();
+          }
+        }
+
         const orderItemSnapshots = effectiveSeats.map((seat) => ({
           id: `item-${orderCode}-${seat}`,
           order_id: orderCode,
@@ -354,7 +398,7 @@ export class AdminDataService {
           loyalty_points_used: 0,
           loyalty_discount_amount: 0,
           total_amount: totalAmt,
-          created_at: t.createdAt && !isNaN(new Date(t.createdAt).getTime()) ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
+          created_at: effectiveCreatedAt,
           items: orderItemSnapshots as any
         });
 
@@ -370,7 +414,7 @@ export class AdminDataService {
             price: unitPrice,
             status: ticketStatus as any,
             age_check_passed: true,
-            created_at: t.createdAt && !isNaN(new Date(t.createdAt).getTime()) ? new Date(t.createdAt).toISOString() : new Date().toISOString()
+            created_at: effectiveCreatedAt
           });
         });
       });
@@ -778,6 +822,26 @@ export class AdminDataService {
   // 4. Showtime & Prices
   static async upsertShowtime(showtime: Partial<Showtime>, prices?: Partial<ShowtimePrice>[]) {
     const supabase = this.supabase;
+
+    // Validate movie active window
+    if (showtime.movie_id && showtime.starts_at) {
+      const { data: movie } = await supabase
+        .from('movies')
+        .select('id, title, release_date, end_date, status')
+        .eq('id', showtime.movie_id)
+        .maybeSingle();
+
+      if (movie) {
+        if (movie.status === 'ended') {
+          throw new Error(`Phim "${movie.title}" đã kết thúc phát hành. Không thể xếp thêm suất chiếu!`);
+        }
+        const showDateStr = showtime.starts_at.slice(0, 10);
+        if (movie.end_date && showDateStr > movie.end_date) {
+          throw new Error(`Ngày chiếu ${showDateStr} vượt quá ngày kết thúc phát hành (${movie.end_date}) của phim "${movie.title}"!`);
+        }
+      }
+    }
+
     const { data, error } = await supabase.from('showtimes').upsert(showtime).select().single();
     if (error) throw error;
 

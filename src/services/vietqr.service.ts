@@ -15,6 +15,8 @@ export interface BankAccountInfo {
   bankCode?: string;      // Mã viết tắt VietQR (TPB, VCB, MB, TCB...)
   accountNumber: string;  // Số tài khoản nhận tiền
   accountName: string;    // Tên chủ tài khoản thụ hưởng
+  customQrUrl?: string;   // URL hoặc base64 ảnh QR tùy chỉnh
+  qrMode?: 'AUTO' | 'CUSTOM'; // Tự động sinh Napas 247 hoặc dùng ảnh QR riêng
 }
 
 export interface BankDefinition {
@@ -37,6 +39,10 @@ export const POPULAR_VIETQR_BANKS: BankDefinition[] = [
   { bin: '970437', shortName: 'HDBank', code: 'HDB', name: 'Ngân hàng TMCP Phát Triển TP.HCM' },
   { bin: '970448', shortName: 'OCB', code: 'OCB', name: 'Ngân hàng TMCP Phương Đông' },
   { bin: '970441', shortName: 'VIB', code: 'VIB', name: 'Ngân hàng TMCP Quốc Tế Việt Nam' },
+  { bin: '970405', shortName: 'Agribank', code: 'VBA', name: 'Ngân hàng Nông nghiệp & PTNT Việt Nam' },
+  { bin: '970443', shortName: 'SHB', code: 'SHB', name: 'Ngân hàng TMCP Sài Gòn - Hà Nội' },
+  { bin: '970440', shortName: 'SeABank', code: 'SEAB', name: 'Ngân hàng TMCP Đông Nam Á' },
+  { bin: '970426', shortName: 'MSB', code: 'MSB', name: 'Ngân hàng TMCP Hàng Hải' },
 ];
 
 const ADMIN_BANK_CONFIG_KEY = 'cinemax_admin_bank_config';
@@ -49,6 +55,8 @@ export const DEFAULT_BANK_INFO: BankAccountInfo = {
   bankCode: 'TPB',
   accountNumber: '03011232003',
   accountName: 'TRUONG VAN HOAN',
+  customQrUrl: '',
+  qrMode: 'AUTO',
 };
 
 export class VietQRService {
@@ -79,6 +87,8 @@ export class VietQRService {
             bankCode: parsed.bankCode || this.resolveBankCode(parsed.bankShortName || 'TPBank'),
             accountNumber: parsed.accountNumber.trim(),
             accountName: parsed.accountName.trim().toUpperCase(),
+            customQrUrl: parsed.customQrUrl || '',
+            qrMode: parsed.qrMode || (parsed.customQrUrl ? 'CUSTOM' : 'AUTO'),
           };
         }
       }
@@ -100,6 +110,8 @@ export class VietQRService {
       accountName: config.accountName.trim().toUpperCase(),
       accountNumber: config.accountNumber.trim(),
       bankCode: config.bankCode || this.resolveBankCode(config.bankShortName),
+      customQrUrl: config.customQrUrl ? config.customQrUrl.trim() : '',
+      qrMode: config.qrMode || (config.customQrUrl ? 'CUSTOM' : 'AUTO'),
     };
 
     localStorage.setItem(ADMIN_BANK_CONFIG_KEY, JSON.stringify(normalized));
@@ -126,6 +138,9 @@ export class VietQRService {
    */
   public static generateDynamicQrUrl(params: VietQRParams): string {
     const bank = this.getBankInfo();
+    if (bank.qrMode === 'CUSTOM' && bank.customQrUrl) {
+      return bank.customQrUrl;
+    }
     const bankCode = bank.bankCode || this.resolveBankCode(bank.bankShortName);
     const memo = encodeURIComponent(params.orderCode);
     const accountName = encodeURIComponent(bank.accountName);
@@ -138,6 +153,9 @@ export class VietQRService {
    * Sinh mã QR Preview kiểm tra thử cho Admin (không cần số tiền/nội dung cố định)
    */
   public static generatePreviewQrUrl(bankInfo: BankAccountInfo, sampleAmount: number = 100000): string {
+    if (bankInfo.qrMode === 'CUSTOM' && bankInfo.customQrUrl) {
+      return bankInfo.customQrUrl;
+    }
     const bankCode = bankInfo.bankCode || this.resolveBankCode(bankInfo.bankShortName);
     const accountName = encodeURIComponent(bankInfo.accountName);
     return `https://img.vietqr.io/image/${bankCode}-${bankInfo.accountNumber}-compact2.png?amount=${sampleAmount}&addInfo=TEST%20CINEMAX&accountName=${accountName}`;

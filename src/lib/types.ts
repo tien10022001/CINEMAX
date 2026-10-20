@@ -79,6 +79,7 @@ export interface Movie {
   created_at?: string;
   tier?: MovieTier;
   is_blockbuster?: boolean;
+  has_advance_tickets?: boolean;
 }
 
 export interface Cinema {

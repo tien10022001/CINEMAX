@@ -159,13 +159,14 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
     const releaseDateStr = String(m.release_date || mockMatch?.release_date || '').slice(0, 10);
     const endDateStr = m.end_date ? String(m.end_date).slice(0, 10) : '';
 
-    // Kiểm tra xem phim có suất chiếu mở bán hợp lệ từ hôm nay trở đi hay không
+    // Kiểm tra xem phim có suất chiếu mở bán hợp lệ từ ngày khởi chiếu trở đi hay không
     const hasActiveShowtimes = (showtimesRes.data || []).some((st: any) => {
       const stMovieId = String(st.movie_id || '');
       const matchM = stMovieId === String(m.id) || stMovieId === String(numId);
       const isAvailable = String(st.status || 'open').toLowerCase() === 'open';
       const stDate = String(st.starts_at || '').slice(0, 10);
-      return matchM && isAvailable && stDate >= todayStr;
+      const isPastRelease = !releaseDateStr || stDate >= releaseDateStr;
+      return matchM && isAvailable && stDate >= todayStr && isPastRelease;
     });
 
     const rawStatus = String(m.status || 'now_showing').toUpperCase();
@@ -173,14 +174,15 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
 
     if (rawStatus === 'ENDED' || (endDateStr && endDateStr < todayStr)) {
       mappedStatus = 'ENDED';
-    } else if (hasActiveShowtimes) {
-      // 1. Nếu phim ĐÃ CÓ suất chiếu mở bán từ hôm nay trở đi -> Luôn là NOW_SHOWING để khán giả mua vé được
-      mappedStatus = 'NOW_SHOWING';
     } else if (releaseDateStr && releaseDateStr > todayStr) {
-      // 2. Nếu chưa tới ngày khởi chiếu và chưa mở bán suất chiếu -> COMING_SOON (Phim sắp chiếu)
+      // BẮT BUỘC: Chưa tới ngày khởi chiếu thì LUÔN LÀ COMING_SOON (Phim sắp chiếu)
+      // Dù đã mở bán vé trước cho ngày công chiếu thì vẫn là Phim Sắp Chiếu (có vé bán trước)
       mappedStatus = 'COMING_SOON';
-    } else if (rawStatus === 'COMING_SOON') {
-      // 3. Nếu đánh dấu COMING_SOON nhưng ngày khởi chiếu đã tới (<= todayStr) -> tự động chuyển NOW_SHOWING khi qua ngày mới
+    } else if (rawStatus === 'COMING_SOON' && releaseDateStr && releaseDateStr <= todayStr) {
+      // Đã tới hoặc qua ngày khởi chiếu -> tự động chuyển sang NOW_SHOWING
+      mappedStatus = 'NOW_SHOWING';
+    } else if (hasActiveShowtimes) {
+      // Đã phát hành và đang có suất chiếu mở bán
       mappedStatus = 'NOW_SHOWING';
     } else {
       mappedStatus = rawStatus === 'COMING_SOON' ? 'COMING_SOON' : 'NOW_SHOWING';
@@ -218,6 +220,7 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
       imdb_score: mockMatch?.imdb_score || 8.7,
       status: mappedStatus,
       is_deleted: false,
+      has_advance_tickets: Boolean(releaseDateStr && releaseDateStr > todayStr && hasActiveShowtimes),
       genres: genres.length > 0 ? genres : mockMatch?.genres || [{ id: 1, name: 'Hành Động', slug: 'hanh-dong' }],
     };
   });
@@ -286,9 +289,9 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
     const stPrices = (pricesRes.data || []).filter(
       (p: Record<string, unknown>) => String(p.showtime_id) === stUuid && String(p.audience_type) === 'ADULT'
     );
-    const stdPrice = Number(stPrices.find((p: Record<string, unknown>) => p.seat_type === 'STANDARD')?.price || 85000);
-    const vipPrice = Number(stPrices.find((p: Record<string, unknown>) => p.seat_type === 'VIP')?.price || 105000);
-    const couplePrice = Number(stPrices.find((p: Record<string, unknown>) => p.seat_type === 'COUPLE')?.price || 210000);
+    const stdPrice = Number(stPrices.find((p: Record<string, unknown>) => p.seat_type === 'STANDARD')?.price || 75000);
+    const vipPrice = Number(stPrices.find((p: Record<string, unknown>) => p.seat_type === 'VIP')?.price || 95000);
+    const couplePrice = Number(stPrices.find((p: Record<string, unknown>) => p.seat_type === 'COUPLE')?.price || 160000);
 
     return {
       id: stNumId,
@@ -322,6 +325,16 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
     };
   });
 
+  // Chặn tuyệt đối: Suất chiếu không bao giờ được phép diễn ra trước ngày khởi chiếu chính thức của phim
+  const validDbShowtimes = dbShowtimes.filter((st) => {
+    if (!st.movie?.release_date) return true;
+    const relDate = st.movie.release_date.includes('/')
+      ? st.movie.release_date.split('/').reverse().join('-')
+      : st.movie.release_date.slice(0, 10);
+    const stDate = (st.start_time || '').slice(0, 10);
+    return !relDate || !stDate || stDate >= relDate;
+  });
+
   const todayIso = new Date().toISOString().slice(0, 10);
   const normalizedMockShowtimes = MOCK_SHOWTIMES.map((st) => {
     const timePart = st.start_time.includes('T') ? st.start_time.split('T')[1] : '10:00:00+07:00';
@@ -333,7 +346,7 @@ export async function fetchSupabaseCatalog(): Promise<SupabaseCatalogResult> {
     };
   });
 
-  const mergedShowtimes = dbShowtimes.length > 0 ? dbShowtimes : normalizedMockShowtimes;
+  const mergedShowtimes = validDbShowtimes.length > 0 ? validDbShowtimes : normalizedMockShowtimes;
 
   // 5. Map products & product_modifiers -> FoodItem[]
   const defaultFoodImages: Record<string, string> = {
@@ -462,6 +475,7 @@ export async function syncOrderToSupabase(params: {
   showtimeUuid?: string;
   auditoriumUuid?: string;
   seatCodes: string[];
+  userId?: string | null;
   seatUuidLookup?: Record<string, string>;
   audienceType?: 'ADULT' | 'STUDENT_U22' | 'CHILD' | 'SENIOR';
   unitTicketPrice: number;
@@ -495,6 +509,46 @@ export async function syncOrderToSupabase(params: {
         .filter((id): id is string => Boolean(id));
     }
 
+    // Resolve or create persistent user profile in Supabase to uniquely identify user (by email and phone)
+    let profileUuid: string | null = null;
+    const cleanEmail = (params.contactEmail || '').trim().toLowerCase();
+    const cleanPhone = (params.contactPhone || '').trim();
+
+    if (params.userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.userId)) {
+      const { data: p } = await supabase.from('profiles').select('id').eq('id', params.userId).maybeSingle();
+      if (p?.id) profileUuid = p.id;
+    }
+
+    if (!profileUuid && cleanEmail) {
+      const { data: p } = await supabase.from('profiles').select('id').eq('email', cleanEmail).maybeSingle();
+      if (p?.id) profileUuid = p.id;
+    }
+
+    if (!profileUuid && cleanPhone && cleanPhone !== '0900000000') {
+      const { data: p } = await supabase.from('profiles').select('id').eq('phone', cleanPhone).maybeSingle();
+      if (p?.id) profileUuid = p.id;
+    }
+
+    if (!profileUuid && (cleanEmail || (cleanPhone && cleanPhone !== '0900000000'))) {
+      const newProfileId = crypto.randomUUID();
+      const { data: createdProfile } = await supabase
+        .from('profiles')
+        .insert({
+          id: newProfileId,
+          role: 'user',
+          full_name: params.contactName || 'Khách hàng CINEMAX',
+          email: cleanEmail || null,
+          phone: cleanPhone || null,
+          loyalty_points: 50,
+          membership_tier: 'MEMBER',
+          status: 'active',
+        })
+        .select('id')
+        .maybeSingle();
+
+      if (createdProfile?.id) profileUuid = createdProfile.id;
+    }
+
     // 0. Check if an order with this orderCode already exists (e.g. held previously)
     const { data: existingOrder } = await supabase
       .from('orders')
@@ -507,6 +561,7 @@ export async function syncOrderToSupabase(params: {
       await supabase
         .from('orders')
         .update({
+          user_id: profileUuid,
           status: 'paid',
           subtotal: params.subtotal,
           discount_amount: params.discountAmount,
@@ -529,6 +584,73 @@ export async function syncOrderToSupabase(params: {
         console.warn('confirm_order_payment fallback for existing order:', payErr);
       }
 
+      // Check existing order_items for this order
+      const { data: currentItems } = await supabase
+        .from('order_items')
+        .select('id, item_type, item_snapshot')
+        .eq('order_id', existingOrderId);
+
+      const existingTicketCount = (currentItems || []).filter((i) => i.item_type === 'ticket').length;
+
+      // If order_items are incomplete or missing seat items, populate them properly
+      if (existingTicketCount < params.seatCodes.length) {
+        // Remove incomplete dummy ticket items
+        await supabase
+          .from('order_items')
+          .delete()
+          .eq('order_id', existingOrderId)
+          .eq('item_type', 'ticket');
+
+        for (const seatCode of params.seatCodes) {
+          const seatUuid =
+            audUuid && params.seatUuidLookup
+              ? params.seatUuidLookup[`${audUuid}:${seatCode}`] || null
+              : null;
+
+          const { data: oiRow } = await supabase
+            .from('order_items')
+            .insert({
+              order_id: existingOrderId,
+              item_type: 'ticket',
+              showtime_id: showtimeUuid || null,
+              seat_id: seatUuid,
+              audience_type: params.audienceType || 'ADULT',
+              quantity: 1,
+              unit_price: params.unitTicketPrice,
+              line_total: params.unitTicketPrice,
+              item_snapshot: {
+                ...params.movieSnapshot,
+                seatCode,
+              },
+            })
+            .select()
+            .single();
+
+          if (oiRow) {
+            await supabase.from('tickets').insert({
+              order_item_id: oiRow.id,
+              qr_token_hash: `${params.orderCode}-${seatCode}`,
+              status: 'issued',
+              age_check_passed: true,
+            });
+          }
+
+          if (showtimeUuid && seatUuid) {
+            await supabase
+              .from('showtime_seats')
+              .upsert(
+                {
+                  showtime_id: showtimeUuid,
+                  seat_id: seatUuid,
+                  status: 'sold',
+                  order_id: existingOrderId,
+                },
+                { onConflict: 'showtime_id,seat_id' }
+              );
+          }
+        }
+      }
+
       return { synced: true, orderUuid: existingOrderId, orderCode: params.orderCode };
     }
 
@@ -541,7 +663,7 @@ export async function syncOrderToSupabase(params: {
         const res = await supabase.rpc('hold_seats', {
           p_showtime_id: showtimeUuid,
           p_seat_ids: seatIds,
-          p_user_id: null,
+          p_user_id: profileUuid,
           p_channel: params.channel,
           p_contact_name: params.contactName || 'Khách hàng CINEMAX',
           p_contact_email: params.contactEmail || 'guest@cinemax.vn',
@@ -564,11 +686,12 @@ export async function syncOrderToSupabase(params: {
         p_received_by: null,
       });
 
-        // Enrich the RPC-created order with our exact orderCode, totalAmount, and snapshots
+        // Enrich the RPC-created order with our exact orderCode, totalAmount, user_id and snapshots
         await supabase
           .from('orders')
           .update({
             order_code: params.orderCode,
+            user_id: profileUuid,
             subtotal: params.subtotal,
             discount_amount: params.discountAmount,
             total_amount: params.totalAmount,
@@ -648,6 +771,7 @@ export async function syncOrderToSupabase(params: {
       .insert({
         order_code: params.orderCode,
         channel: params.channel,
+        user_id: profileUuid,
         status: 'paid',
         contact_name: params.contactName || 'Khách hàng CINEMAX',
         contact_email: params.contactEmail || 'guest@cinemax.vn',

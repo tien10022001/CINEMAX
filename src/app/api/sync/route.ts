@@ -103,7 +103,21 @@ async function syncToSupabaseIfConfigured(entityOrAction: string, data: any) {
       });
       await supabase.from('movies').upsert(cleanMovies);
     } else if (entityOrAction === 'showtimes' && Array.isArray(data)) {
-      await supabase.from('showtimes').upsert(data);
+      const cleanShowtimes = data.map((st: any) => ({
+        id: st.id,
+        movie_id: st.movie_id,
+        auditorium_id: st.auditorium_id,
+        format: st.format || '2D',
+        language_version: st.language_version || 'Phụ đề Tiếng Việt',
+        starts_at: st.starts_at || st.start_time,
+        ends_at: st.ends_at || st.end_time,
+        status: st.status || 'open'
+      })).filter((st: any) => st.movie_id && st.auditorium_id);
+      if (cleanShowtimes.length > 0) {
+        for (let i = 0; i < cleanShowtimes.length; i += 50) {
+          await supabase.from('showtimes').upsert(cleanShowtimes.slice(i, i + 50));
+        }
+      }
     } else if (entityOrAction === 'delete_showtime' && data?.id) {
       await supabase.from('showtime_prices').delete().eq('showtime_id', data.id);
       await supabase.from('showtimes').delete().eq('id', data.id);

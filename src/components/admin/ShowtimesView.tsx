@@ -53,6 +53,7 @@ interface ShowtimesViewProps {
   onBulkDeleteShowtimes?: (ids: string[]) => Promise<void>;
   onBulkUpdateShowtimes?: (updatedShowtimes: Showtime[]) => Promise<void>;
   getSoldTicketsCount?: (id: string) => number;
+  orders?: any[];
   showToast: (msg: string) => void;
 }
 
@@ -67,6 +68,7 @@ export default function ShowtimesView({
   onBulkDeleteShowtimes,
   onBulkUpdateShowtimes,
   getSoldTicketsCount,
+  orders = [],
   showToast
 }: ShowtimesViewProps) {
   const [selectedAuditoriumId, setSelectedAuditoriumId] = useState<string>('all');
@@ -120,6 +122,20 @@ export default function ShowtimesView({
   const [publishStatus, setPublishStatus] = useState<'open' | 'draft'>('open');
   const [isPreviewDrawerOpen, setIsPreviewDrawerOpen] = useState(false);
 
+  // AI Scheduling State (Gemini 2.5 Flash & CINEMAX Rule Engine)
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStartDate, setAiStartDate] = useState(selectedDate);
+  const [aiEndDate, setAiEndDate] = useState(selectedDate);
+  const [aiOverwrite, setAiOverwrite] = useState(true);
+  const [aiTargetSlotsPerRoom, setAiTargetSlotsPerRoom] = useState<number | 'MAX'>('MAX');
+  const [aiOptimizationCriteria, setAiOptimizationCriteria] = useState<'DEFAULT' | 'REVENUE' | 'TICKETS' | 'HOT' | 'GENRE'>('DEFAULT');
+  const [aiGeneratedSlots, setAiGeneratedSlots] = useState<any[]>([]);
+  const [selectedAiIndices, setSelectedAiIndices] = useState<number[]>([]);
+  const [aiSource, setAiSource] = useState<string>('');
+  const [aiStats, setAiStats] = useState<{ eligible_movies?: number; active_rooms?: number } | null>(null);
+  const [aiNote, setAiNote] = useState<string>('');
+
   // Form State for showtime (create or edit)
   const [form, setForm] = useState({
     id: '',
@@ -136,16 +152,16 @@ export default function ShowtimesView({
 
   // Price Matrix State for selected showtime
   const [priceMatrix, setPriceMatrix] = useState<Record<string, number>>({
-    'STANDARD_ADULT': 85000,
+    'STANDARD_ADULT': 75000,
     'STANDARD_STUDENT_U22': 65000,
     'STANDARD_CHILD': 55000,
     'STANDARD_SENIOR': 55000,
-    'VIP_ADULT': 105000,
+    'VIP_ADULT': 95000,
     'VIP_STUDENT_U22': 85000,
     'VIP_CHILD': 75000,
     'VIP_SENIOR': 75000,
-    'COUPLE_ADULT': 210000,
-    'COUPLE_STUDENT_U22': 170000,
+    'COUPLE_ADULT': 160000,
+    'COUPLE_STUDENT_U22': 140000,
     'WHEELCHAIR_ADULT': 65000,
     'WHEELCHAIR_STUDENT_U22': 50000
   });
@@ -171,12 +187,13 @@ export default function ShowtimesView({
     return matchesAud && stDate === selectedDate;
   });
 
-  // Overlap Detection
+  // Overlap Detection (Bỏ qua các suất đã hủy để không tạo xung đột ảo)
   const checkOverlap = (st: Showtime) => {
+    if (st.status === 'cancelled') return false;
     const start = new Date(st.starts_at).getTime();
     const end = new Date(st.ends_at).getTime();
     return showtimes.some((other) => {
-      if (other.id === st.id || other.auditorium_id !== st.auditorium_id) return false;
+      if (other.id === st.id || other.auditorium_id !== st.auditorium_id || other.status === 'cancelled') return false;
       const otherStart = new Date(other.starts_at).getTime();
       const otherEnd = new Date(other.ends_at).getTime();
       return Math.max(start, otherStart) < Math.min(end, otherEnd);
@@ -193,6 +210,27 @@ export default function ShowtimesView({
       return;
     }
 
+    // 1. RÀNG BUỘC THEO TRẠNG THÁI & NGÀY PHÁT HÀNH PHIM
+    if (movie.status === 'ended') {
+      showToast(`Phim "${movie.title}" đã kết thúc phát hành. Không thể xếp thêm suất chiếu!`);
+      return;
+    }
+
+    if (movie.end_date && form.date > movie.end_date) {
+      showToast(`Ngày chiếu ${form.date} vượt quá ngày kết thúc phát hành (${movie.end_date}) của phim "${movie.title}"!`);
+      return;
+    }
+
+    if (movie.release_date && form.date < movie.release_date) {
+      const releaseTime = new Date(movie.release_date).getTime();
+      const selectedTime = new Date(form.date).getTime();
+      const diffDays = Math.ceil((releaseTime - selectedTime) / (1000 * 3600 * 24));
+      if (diffDays > 7) {
+        showToast(`Phim "${movie.title}" chỉ khởi chiếu từ ngày ${movie.release_date}. Rạp chỉ mở bán vé sớm / giữ rạp trước tối đa 7 ngày!`);
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
       const startsAt = new Date(`${form.date}T${form.start_time}:00`);
@@ -201,12 +239,12 @@ export default function ShowtimesView({
       const endsAt = new Date(startsAt.getTime() + totalMinutes * 60000);
 
       const generatedPrices: Partial<ShowtimePrice>[] = [
-        { seat_type: 'STANDARD', audience_type: 'ADULT', price: 85000, currency: 'VND' },
+        { seat_type: 'STANDARD', audience_type: 'ADULT', price: 75000, currency: 'VND' },
         { seat_type: 'STANDARD', audience_type: 'STUDENT_U22', price: 65000, currency: 'VND' },
         { seat_type: 'STANDARD', audience_type: 'CHILD', price: 55000, currency: 'VND' },
-        { seat_type: 'VIP', audience_type: 'ADULT', price: 105000, currency: 'VND' },
+        { seat_type: 'VIP', audience_type: 'ADULT', price: 95000, currency: 'VND' },
         { seat_type: 'VIP', audience_type: 'STUDENT_U22', price: 85000, currency: 'VND' },
-        { seat_type: 'COUPLE', audience_type: 'ADULT', price: 210000, currency: 'VND' }
+        { seat_type: 'COUPLE', audience_type: 'ADULT', price: 160000, currency: 'VND' }
       ];
 
       const isEditing = Boolean(form.id);
@@ -524,20 +562,17 @@ export default function ShowtimesView({
     });
   }, [form.date, form.start_time, calculatedEndTime, form.auditorium_id, form.id, showtimes]);
 
-  const conflictCount = showtimes.filter(checkOverlap).length;
-
   // Selected showtimes objects & date memo
   const todayShowtimes = React.useMemo(() => {
     return showtimes.filter((st) => isShowtimeInBusinessDay(st, selectedDate));
   }, [showtimes, selectedDate]);
 
-  const systemConflictShowtimes = React.useMemo(() => {
-    return showtimes.filter(checkOverlap);
-  }, [showtimes, checkOverlap]);
-
   const todayConflictShowtimes = React.useMemo(() => {
     return todayShowtimes.filter(checkOverlap);
   }, [todayShowtimes, checkOverlap]);
+
+  // Đếm xung đột của ngày đang xem (thay vì toàn hệ thống) để phản ánh đúng thực tế
+  const conflictCount = todayConflictShowtimes.length;
 
   const selectedShowtimes = React.useMemo(() => {
     const idSet = new Set(selectedShowtimeIds);
@@ -560,11 +595,23 @@ export default function ShowtimesView({
   };
 
   const handleSelectAllConflicts = () => {
-    const target = todayConflictShowtimes.length > 0 ? todayConflictShowtimes : systemConflictShowtimes;
-    const ids = target.map((st) => st.id);
+    // NGUYÊN TẮC BẢO VỆ DỮ LIỆU BẤT BIẾN:
+    // Khi dọn suất trùng, CHỈ CHỌN các suất TRỐNG (0 vé) bị xung đột để xóa.
+    // Suất nào ĐÃ CÓ KHÁCH ĐẶT VÉ (sold > 0) -> TUYỆT ĐỐI BẢO LƯU 100%, KHÔNG BAO GIỜ XÓA!
+    const target = todayConflictShowtimes;
+    const safeToRemove = target.filter((st) => {
+      const sold = getSoldTicketsCount ? getSoldTicketsCount(st.id) : 0;
+      return sold === 0;
+    });
+    const preservedCount = target.length - safeToRemove.length;
+    const ids = safeToRemove.map((st) => st.id);
     setSelectedShowtimeIds(ids);
     setIsBulkMode(true);
-    showToast(`Đã chọn ${ids.length} suất chiếu bị xung đột!`);
+    if (preservedCount > 0) {
+      showToast(`Đã chọn ${ids.length} suất trống để dọn. Tự động bảo vệ an toàn ${preservedCount} suất đã có khách đặt vé!`);
+    } else {
+      showToast(`Đã chọn ${ids.length} suất chiếu bị xung đột để xử lý!`);
+    }
   };
 
   const handleClearSelection = () => {
@@ -666,6 +713,187 @@ export default function ShowtimesView({
       setIsBulkMode(false);
     } catch (err: any) {
       showToast('Lỗi khi sửa hàng loạt: ' + (err.message || 'Thử lại'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // AI SCHEDULING HANDLERS (GEMINI 2.0 FLASH & CINEMAX RULE ENGINE)
+  // AI SCHEDULING HANDLERS (GEMINI 2.5 FLASH & CINEMAX RULE ENGINE)
+  const getDatesInRange = (startDate: string, endDate: string): string[] => {
+    const dates: string[] = [];
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return [startDate];
+    const curr = new Date(start);
+    while (curr <= end && dates.length < 30) {
+      dates.push(curr.toISOString().split('T')[0]);
+      curr.setDate(curr.getDate() + 1);
+    }
+    return dates.length > 0 ? dates : [startDate];
+  };
+
+  const handleOpenAiModal = () => {
+    setAiStartDate(selectedDate);
+    setAiEndDate(selectedDate);
+    setAiOverwrite(true);
+    setAiTargetSlotsPerRoom('MAX');
+    setAiOptimizationCriteria('DEFAULT');
+    setAiGeneratedSlots([]);
+    setSelectedAiIndices([]);
+    setAiSource('');
+    setAiNote('');
+    setAiModalOpen(true);
+  };
+
+  const handleRunAiSchedule = async () => {
+    setAiLoading(true);
+    setAiGeneratedSlots([]);
+    setSelectedAiIndices([]);
+    try {
+      const targetDates = getDatesInRange(aiStartDate, aiEndDate);
+
+      // Lọc các suất chiếu ĐÃ CÓ KHÁCH ĐẶT VÉ trên tất cả các ngày trong dải ngày để bảo vệ tuyệt đối
+      const lockedWithTickets = showtimes.filter((st) => {
+        const inRange = targetDates.some((d) => isShowtimeInBusinessDay(st, d));
+        if (!inRange) return false;
+        const sold = getSoldTicketsCount ? getSoldTicketsCount(st.id) : 0;
+        return sold > 0;
+      });
+
+      const res = await fetch('/api/admin/ai-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start_date: aiStartDate,
+          end_date: aiEndDate,
+          movies,
+          auditoriums,
+          historical_orders: orders,
+          existing_showtimes: showtimes,
+          locked_showtimes: lockedWithTickets,
+          overwrite_existing: aiOverwrite,
+          target_slots_per_room: aiTargetSlotsPerRoom === 'MAX' ? 99 : Number(aiTargetSlotsPerRoom),
+          optimization_criteria: aiOptimizationCriteria,
+          operating_hours: { open_time: '08:30', close_time: '23:30' },
+          cleaning_buffer_minutes: 15
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Không thể sinh lịch chiếu AI');
+      }
+
+      const slots = data.showtimes || [];
+      setAiGeneratedSlots(slots);
+      setSelectedAiIndices(slots.map((_: any, idx: number) => idx));
+      setAiSource(data.source || 'cinemax_rules_engine');
+      setAiStats(data.stats || null);
+      setAiNote(data.note || '');
+      const dateText = aiStartDate === aiEndDate ? aiStartDate : `${aiStartDate} → ${aiEndDate}`;
+      showToast(`AI đã sinh ${slots.length} suất chiếu tối ưu (${dateText})!`);
+    } catch (err: any) {
+      showToast(`Lỗi AI: ${err.message || 'Thử lại sau'}`);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleApplyAiSchedule = async () => {
+    const slotsToApply = aiGeneratedSlots.filter((_, idx) => selectedAiIndices.includes(idx));
+    if (slotsToApply.length === 0) {
+      showToast('Vui lòng chọn ít nhất 1 suất chiếu để áp dụng!');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1. Chỉ xóa các suất cũ TRẮNG CHƯA CÓ VÉ (soldCount === 0). TUYỆT ĐỐI BẢO LƯU SUẤT ĐÃ CÓ KHÁCH ĐẶT!
+      if (aiOverwrite) {
+        const audIdsSet = new Set(slotsToApply.map((s: any) => s.auditorium_id));
+        const targetDates = getDatesInRange(aiStartDate, aiEndDate);
+
+        const oldToRemove = showtimes.filter((st) => {
+          if (!audIdsSet.has(st.auditorium_id)) return false;
+          const inRange = targetDates.some((d) => isShowtimeInBusinessDay(st, d));
+          if (!inRange) return false;
+          // BẢO VỆ DỮ LIỆU: Chỉ xóa nếu chưa có vé bán ra (0 vé)
+          const sold = getSoldTicketsCount ? getSoldTicketsCount(st.id) : 0;
+          return sold === 0;
+        });
+
+        const preservedWithTickets = showtimes.filter((st) => {
+          if (!audIdsSet.has(st.auditorium_id)) return false;
+          const inRange = targetDates.some((d) => isShowtimeInBusinessDay(st, d));
+          if (!inRange) return false;
+          const sold = getSoldTicketsCount ? getSoldTicketsCount(st.id) : 0;
+          return sold > 0;
+        });
+
+        if (oldToRemove.length > 0) {
+          if (onBulkDeleteShowtimes) {
+            await onBulkDeleteShowtimes(oldToRemove.map((s) => s.id));
+          } else {
+            for (const st of oldToRemove) {
+              await onDeleteShowtime(st.id);
+            }
+          }
+        }
+
+        if (preservedWithTickets.length > 0) {
+          showToast(`Đã bảo vệ an toàn ${preservedWithTickets.length} suất chiếu đã có vé đặt!`);
+        }
+      }
+
+      // 2. Lưu hàng loạt suất chiếu AI
+      const defaultPrices: Partial<ShowtimePrice>[] = [
+        { seat_type: 'STANDARD', audience_type: 'ADULT', price: 75000, currency: 'VND' },
+        { seat_type: 'STANDARD', audience_type: 'STUDENT_U22', price: 65000, currency: 'VND' },
+        { seat_type: 'STANDARD', audience_type: 'CHILD', price: 55000, currency: 'VND' },
+        { seat_type: 'VIP', audience_type: 'ADULT', price: 95000, currency: 'VND' },
+        { seat_type: 'VIP', audience_type: 'STUDENT_U22', price: 85000, currency: 'VND' },
+        { seat_type: 'COUPLE', audience_type: 'ADULT', price: 160000, currency: 'VND' }
+      ];
+
+      if (onBulkSaveShowtimes) {
+        const batchPayload = slotsToApply.map((slot: any) => {
+          const movieObj = movies.find((m) => m.id === slot.movie_id);
+          return {
+            showtime: {
+              movie_id: slot.movie_id,
+              auditorium_id: slot.auditorium_id,
+              format: slot.format || '2D',
+              language_version: movieObj?.language || 'Phụ đề Tiếng Việt',
+              starts_at: slot.starts_at,
+              ends_at: slot.ends_at,
+              status: 'open' as const
+            },
+            prices: defaultPrices
+          };
+        });
+
+        await onBulkSaveShowtimes(batchPayload);
+      } else {
+        for (const slot of slotsToApply) {
+          const movieObj = movies.find((m) => m.id === slot.movie_id);
+          await onSaveShowtime({
+            movie_id: slot.movie_id,
+            auditorium_id: slot.auditorium_id,
+            format: slot.format || '2D',
+            language_version: movieObj?.language || 'Phụ đề Tiếng Việt',
+            starts_at: slot.starts_at,
+            ends_at: slot.ends_at,
+            status: 'open'
+          }, defaultPrices);
+        }
+      }
+
+      showToast(`Đã áp dụng thành công ${slotsToApply.length} suất chiếu AI vào lịch rạp!`);
+      setAiModalOpen(false);
+      setSelectedDate(aiStartDate);
+    } catch (err: any) {
+      showToast(`Lỗi khi lưu suất chiếu: ${err.message || 'Thử lại'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -1037,12 +1265,12 @@ export default function ShowtimesView({
     setIsSubmitting(true);
     try {
       const defaultPrices: Partial<ShowtimePrice>[] = [
-        { seat_type: 'STANDARD', audience_type: 'ADULT', price: 85000, currency: 'VND' },
+        { seat_type: 'STANDARD', audience_type: 'ADULT', price: 75000, currency: 'VND' },
         { seat_type: 'STANDARD', audience_type: 'STUDENT_U22', price: 65000, currency: 'VND' },
         { seat_type: 'STANDARD', audience_type: 'CHILD', price: 55000, currency: 'VND' },
-        { seat_type: 'VIP', audience_type: 'ADULT', price: 105000, currency: 'VND' },
+        { seat_type: 'VIP', audience_type: 'ADULT', price: 95000, currency: 'VND' },
         { seat_type: 'VIP', audience_type: 'STUDENT_U22', price: 85000, currency: 'VND' },
-        { seat_type: 'COUPLE', audience_type: 'ADULT', price: 210000, currency: 'VND' }
+        { seat_type: 'COUPLE', audience_type: 'ADULT', price: 160000, currency: 'VND' }
       ];
 
       // Nếu bật làm mới phòng: Xóa sạch các suất cũ chưa bán vé trong các phòng và ngày được lên lịch để chống đè ô
@@ -1051,7 +1279,10 @@ export default function ShowtimesView({
         const audIdsSet = new Set(validQuickSlots.map((s) => s.auditoriumId));
         const oldToRemove = showtimes.filter((st) => {
           if (!audIdsSet.has(st.auditorium_id)) return false;
-          return Array.from(datesSet).some((d) => isShowtimeInBusinessDay(st, d));
+          if (!Array.from(datesSet).some((d) => isShowtimeInBusinessDay(st, d))) return false;
+          // BẢO VỆ DỮ LIỆU: Tuyệt đối KHÔNG xóa suất đã phát sinh vé đặt của khách!
+          const sold = getSoldTicketsCount ? getSoldTicketsCount(st.id) : 0;
+          return sold === 0;
         });
         if (oldToRemove.length > 0) {
           if (onBulkDeleteShowtimes) {
@@ -1287,6 +1518,17 @@ export default function ShowtimesView({
           >
             <Zap className="w-3.5 h-3.5 fill-current text-white shrink-0" />
             <span className="whitespace-nowrap">Tạo Suất Chiếu Nhanh</span>
+          </button>
+
+          {/* Nút AI Gợi Ý Lịch Chiếu */}
+          <button
+            type="button"
+            onClick={handleOpenAiModal}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition-all cursor-pointer shrink-0 border border-indigo-400/30 hover:scale-[1.02]"
+            title="Sử dụng Trí Tuệ Nhân Tạo (Gemini 2.0 Flash / CINEMAX Rules) để tự động xếp lịch chiếu tối ưu theo doanh thu"
+          >
+            <Sparkles className="w-3.5 h-3.5 fill-current text-amber-300 shrink-0" />
+            <span className="whitespace-nowrap">AI Gợi Ý Lịch Chiếu</span>
           </button>
         </div>
       </div>
@@ -2275,6 +2517,363 @@ export default function ShowtimesView({
         </div>
       )}
 
+      {/* 2.5. MODAL AI GỢI Ý & TỐI ƯU LỊCH CHIẾU (GEMINI 2.5 FLASH / CINEMAX RULES) */}
+      {aiModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-[#121622] border border-[#3730A3] rounded-3xl w-full max-w-4xl flex flex-col max-h-[92vh] shadow-2xl overflow-hidden shadow-indigo-950/50">
+            {/* Header */}
+            <div className="px-6 py-3.5 border-b border-[#222B3D] flex items-center justify-between bg-gradient-to-r from-[#0E121B] via-[#1E1B4B]/40 to-[#0E121B] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
+                  <Sparkles className="w-5 h-5 fill-current text-amber-300" />
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <h3 className="font-bold text-white text-base tracking-wide uppercase">
+                    AI Tối Ưu Lịch Chiếu Rạp
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    Gemini 2.5 Flash
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAiModalOpen(false)}
+                className="w-8 h-8 rounded-xl bg-[#1A202E] text-[#8E9AAF] hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-4 custom-scrollbar text-xs">
+              {/* 1. Thiết lập Dải Ngày & Số Suất Muốn Tạo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-[#0E121B]/90 border border-[#222B3D] p-3.5 rounded-2xl">
+                <div className="space-y-1">
+                  <label className="text-[#8E9AAF] font-medium text-[11px] flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Từ ngày</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={aiStartDate}
+                    onChange={(e) => {
+                      setAiStartDate(e.target.value);
+                      if (e.target.value > aiEndDate) setAiEndDate(e.target.value);
+                    }}
+                    className="w-full bg-[#141924] border border-[#222B3D] focus:border-indigo-500 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[#8E9AAF] font-medium text-[11px] flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Đến ngày</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={aiEndDate}
+                    min={aiStartDate}
+                    onChange={(e) => setAiEndDate(e.target.value)}
+                    className="w-full bg-[#141924] border border-[#222B3D] focus:border-indigo-500 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[#8E9AAF] font-medium text-[11px] flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Số suất muốn tạo / phòng</span>
+                  </label>
+                  <select
+                    value={String(aiTargetSlotsPerRoom)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setAiTargetSlotsPerRoom(val === 'MAX' ? 'MAX' : Number(val));
+                    }}
+                    className="w-full bg-[#141924] border border-[#222B3D] focus:border-cyan-500 rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                  >
+                    <option value="MAX">⚡ Tự động tối đa (Lấp kín ca)</option>
+                    <option value="3">3 suất / phòng</option>
+                    <option value="4">4 suất / phòng</option>
+                    <option value="5">5 suất / phòng</option>
+                    <option value="6">6 suất / phòng</option>
+                    <option value="7">7 suất / phòng</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[#8E9AAF] font-medium text-[11px] flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Khung giờ & Dọn rạp</span>
+                  </label>
+                  <div className="bg-[#141924] border border-[#222B3D] rounded-xl px-3 py-2 text-white text-xs font-mono flex items-center justify-between">
+                    <span>08:30 — 23:30</span>
+                    <span className="text-[#8E9AAF] text-[10px]">Buffer 15p</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Tiêu Chí Tối Ưu Lịch Chiếu (Optimization Criteria) */}
+              <div className="bg-[#0E121B]/90 border border-[#222B3D] p-3.5 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-bold text-xs flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Chọn tiêu chí tối ưu hóa:</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
+                    🛡️ Tự xóa suất trống cũ & Giữ nguyên 100% suất đã có khách đặt
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[
+                    { id: 'DEFAULT', label: 'Mặc định', desc: 'Cân bằng tỉ lệ chuẩn rạp', icon: Sparkles },
+                    { id: 'REVENUE', label: 'Doanh thu', desc: 'Ưu tiên tối đa doanh số', icon: DollarSign },
+                    { id: 'TICKETS', label: 'Lượt bán', desc: 'Tối đa tỷ lệ lấp đầy ghế', icon: Users },
+                    { id: 'HOT', label: 'Độ hot / Bom tấn', desc: 'Ưu tiên bom tấn giờ vàng', icon: Flame },
+                    { id: 'GENRE', label: 'Thể loại', desc: 'Đa dạng thể loại theo ca', icon: Film },
+                  ].map((crit) => {
+                    const isActive = aiOptimizationCriteria === crit.id;
+                    const IconComp = crit.icon;
+                    return (
+                      <button
+                        key={crit.id}
+                        type="button"
+                        onClick={() => setAiOptimizationCriteria(crit.id as any)}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1 ${
+                          isActive
+                            ? 'bg-indigo-600/20 border-indigo-500 shadow-md shadow-indigo-950/50 ring-1 ring-indigo-500/50'
+                            : 'bg-[#141924] border-[#222B3D] hover:border-[#374151] opacity-75 hover:opacity-100'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`font-bold text-xs flex items-center gap-1.5 ${isActive ? 'text-white' : 'text-slate-300'}`}>
+                            <IconComp className={`w-3.5 h-3.5 ${isActive ? 'text-amber-300' : 'text-[#8E9AAF]'}`} />
+                            <span>{crit.label}</span>
+                          </span>
+                          {isActive && <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
+                        </div>
+                        <p className="text-[10px] text-[#8E9AAF] leading-tight">
+                          {crit.desc}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Nút Kích Hoạt AI & Tình hình rạp */}
+              {aiGeneratedSlots.length === 0 && (
+                <div className="py-6 px-4 bg-[#0E121B]/60 border border-dashed border-[#263147] rounded-2xl flex flex-col items-center justify-center gap-3.5 text-center">
+                  <div className="flex items-center gap-3 text-xs text-[#8E9AAF] flex-wrap justify-center">
+                    <span>🎬 <strong>{movies.filter(m => m.status !== 'ended').length}</strong> phim sẵn sàng</span>
+                    <span>•</span>
+                    <span>🏛️ <strong>{auditoriums.filter(a => a.status !== 'maintenance').length}</strong> phòng hoạt động</span>
+                    <span>•</span>
+                    <span className="text-emerald-400 font-medium">🛡️ Chống xung đột & Bảo vệ vé đặt</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={aiLoading}
+                    onClick={handleRunAiSchedule}
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>AI đang phân tích dữ liệu & xếp lịch...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <span>Bắt Đầu Phân Tích & Xếp Lịch Bằng AI</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* 4. Kết Quả AI Đề Xuất */}
+              {aiGeneratedSlots.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-sm">
+                        Kết Quả Đề Xuất ({aiGeneratedSlots.length} suất chiếu)
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-900/40 text-indigo-300 border border-indigo-700/50">
+                        {aiSource === 'gemini-2.5-flash' || aiSource === 'gemini-2.0-flash'
+                          ? '🤖 Powered by Gemini 2.5 Flash'
+                          : '⚡ Powered by CINEMAX Rule Engine'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAiIndices(aiGeneratedSlots.map((_, i) => i))}
+                        className="text-cyan-400 hover:underline font-semibold cursor-pointer"
+                      >
+                        [Chọn tất cả]
+                      </button>
+                      <span className="text-[#3A4760]">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAiIndices([])}
+                        className="text-[#8E9AAF] hover:text-white cursor-pointer"
+                      >
+                        [Bỏ chọn]
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRunAiSchedule}
+                        disabled={aiLoading}
+                        className="ml-2 px-2.5 py-1 rounded-lg bg-[#1E2638] text-indigo-300 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Sparkles className="w-3 h-3 text-amber-300" />
+                        <span>Chạy lại</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {aiNote && (
+                    <div className="p-2.5 rounded-xl bg-indigo-950/30 border border-indigo-500/20 text-[#8E9AAF] text-[11px] flex items-center gap-2">
+                      <Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                      <span>{aiNote}</span>
+                    </div>
+                  )}
+
+                  {/* Danh sách thẻ suất chiếu do AI gợi ý */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-[380px] overflow-y-auto custom-scrollbar pr-1">
+                    {aiGeneratedSlots.map((slot, idx) => {
+                      const isSelected = selectedAiIndices.includes(idx);
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setSelectedAiIndices((prev) =>
+                              prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
+                            );
+                          }}
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer select-none flex flex-col justify-between gap-2 ${
+                            isSelected
+                              ? 'bg-[#151A28] border-indigo-500/60 shadow-md shadow-indigo-950/40'
+                              : 'bg-[#0E121B]/70 border-[#1E2638] opacity-60 hover:opacity-90'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {}}
+                                className="w-4 h-4 accent-indigo-600 rounded cursor-pointer pointer-events-none shrink-0"
+                              />
+                              <div>
+                                <div className="font-bold text-white text-xs flex items-center gap-1.5">
+                                  <span>{slot.movie_title}</span>
+                                  <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
+                                    slot.format === 'IMAX'
+                                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                                      : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                                  }`}>
+                                    {slot.format}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-[#8E9AAF] flex items-center gap-2 mt-0.5">
+                                  <span className="text-indigo-400 font-semibold">{slot.auditorium_name}</span>
+                                  <span>•</span>
+                                  <span>{slot.date}</span>
+                                  <span>•</span>
+                                  <span>{slot.movie_duration} phút</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <div className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                                {slot.start_time} → {slot.end_time}
+                              </div>
+                              <div className="text-[10px] text-[#8E9AAF] mt-0.5">
+                                Độ tin cậy: {slot.confidence_score}%
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Hộp lý giải của AI */}
+                          <div className="bg-[#0B0E17] border border-[#1E2638] rounded-xl p-2 text-[11px] text-slate-300">
+                            <div className="text-[#8E9AAF] text-[10px] flex items-center gap-1 font-semibold mb-0.5 text-indigo-300">
+                              <Sparkles className="w-3 h-3 text-amber-300" />
+                              <span>AI Reasoning:</span>
+                            </div>
+                            <p className="line-clamp-2 leading-relaxed text-[#CBD5E1]">
+                              {slot.ai_reasoning}
+                            </p>
+                          </div>
+
+                          {/* Rule tags */}
+                          {slot.rule_tags && slot.rule_tags.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                              {slot.rule_tags.map((tag: string, tIdx: number) => (
+                                <span
+                                  key={tIdx}
+                                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[#1E2638] text-slate-400 border border-[#2B354D]"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-[#222B3D] flex items-center justify-between bg-[#0E121B] shrink-0">
+              <div className="text-xs text-[#8E9AAF]">
+                {aiGeneratedSlots.length > 0 && (
+                  <span>
+                    Đã chọn <strong className="text-white">{selectedAiIndices.length}</strong> / {aiGeneratedSlots.length} suất chiếu
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAiModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-[#1A202E] hover:bg-[#252E42] text-[#8E9AAF] hover:text-white font-bold text-xs cursor-pointer transition-colors"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting || selectedAiIndices.length === 0}
+                  onClick={handleApplyAiSchedule}
+                  className="px-6 py-2 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-bold text-xs cursor-pointer shadow-lg shadow-indigo-600/30 disabled:opacity-50 transition-all flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <span>Đang áp dụng...</span>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 fill-current text-amber-300" />
+                      <span>
+                        Áp Dụng {selectedAiIndices.length} Suất Chiếu Vào Lịch Rạp
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal 1: Add Showtime */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -2465,6 +3064,17 @@ export default function ShowtimesView({
                         )}
                       </div>
 
+                      {/* Thời gian phát hành phim */}
+                      <div className="text-[10px] text-[#8E9AAF] flex items-center gap-2 pt-0.5">
+                        <span>Khởi chiếu: <strong className="text-white">{selectedModalMovie.release_date || 'Chưa đặt'}</strong></span>
+                        {selectedModalMovie.end_date && (
+                          <>
+                            <span>•</span>
+                            <span>Kết thúc: <strong className="text-white">{selectedModalMovie.end_date}</strong></span>
+                          </>
+                        )}
+                      </div>
+
                       {/* Định dạng hỗ trợ đối chiếu với phòng chiếu */}
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                         <span className="text-[10px] text-[#8E9AAF]">Định dạng:</span>
@@ -2509,8 +3119,26 @@ export default function ShowtimesView({
                     required
                     value={form.date}
                     onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className="w-full bg-[#171D2B] border border-[#253045] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#E63845]"
+                    className={`w-full bg-[#171D2B] border rounded-xl px-3 py-2 text-white focus:outline-none transition-colors ${
+                      selectedModalMovie?.end_date && form.date > selectedModalMovie.end_date
+                        ? 'border-[#EF4444] text-[#EF4444]'
+                        : selectedModalMovie?.release_date && form.date < selectedModalMovie.release_date
+                        ? 'border-[#FABF2E] text-white'
+                        : 'border-[#253045] focus:border-[#E63845]'
+                    }`}
                   />
+                  {selectedModalMovie && selectedModalMovie.end_date && form.date > selectedModalMovie.end_date && (
+                    <div className="text-[10px] text-[#EF4444] font-bold flex items-center gap-1 mt-1">
+                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                      <span>Vượt quá ngày kết thúc ({selectedModalMovie.end_date})!</span>
+                    </div>
+                  )}
+                  {selectedModalMovie && selectedModalMovie.release_date && form.date < selectedModalMovie.release_date && (
+                    <div className="text-[10px] text-[#FABF2E] font-bold flex items-center gap-1 mt-1">
+                      <Sparkles className="w-3 h-3 shrink-0" />
+                      <span>Suất chiếu sớm (Khởi chiếu: {selectedModalMovie.release_date})</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1">

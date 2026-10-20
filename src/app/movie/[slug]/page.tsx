@@ -6,7 +6,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import TrailerModal from '@/components/common/TrailerModal';
 import { useData } from '@/lib/data-context';
-import { Star, MapPin, Play, Ticket } from 'lucide-react';
+import { Star, MapPin, Play, Ticket, Calendar } from 'lucide-react';
 
 export default function MovieDetailPage() {
   const params = useParams();
@@ -18,6 +18,14 @@ export default function MovieDetailPage() {
     () => movies.find((m) => m.slug === slug) || movies[0],
     [movies, slug]
   );
+
+  // Chuẩn hóa ngày khởi chiếu về YYYY-MM-DD
+  const normReleaseDate = useMemo(() => {
+    if (!movie?.release_date) return '';
+    return movie.release_date.includes('/')
+      ? movie.release_date.split('/').reverse().join('-')
+      : movie.release_date.slice(0, 10);
+  }, [movie?.release_date]);
 
   // Tạo danh sách 7 ngày tính từ hôm nay (17/10 - 23/10) khớp lịch chiếu Admin
   const dates = useMemo(() => {
@@ -36,8 +44,23 @@ export default function MovieDetailPage() {
     });
   }, []);
 
-  const [selectedDate, setSelectedDate] = useState<string>(() => dates[0]?.date || '2026-10-17');
+  // Nếu phim chưa tới ngày khởi chiếu và ngày khởi chiếu nằm trong danh sách 7 ngày tới,
+  // ưu tiên mặc định chọn thẳng ngày khởi chiếu để người dùng xem suất đặt trước
+  const initialDate = useMemo(() => {
+    if (normReleaseDate && dates.some((d) => d.date === normReleaseDate)) {
+      return normReleaseDate;
+    }
+    return dates[0]?.date || '2026-10-21';
+  }, [normReleaseDate, dates]);
+
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [isTrailerOpen, setIsTrailerOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (initialDate) {
+      setSelectedDate(initialDate);
+    }
+  }, [initialDate]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.hash === '#schedule-section') {
@@ -165,20 +188,62 @@ export default function MovieDetailPage() {
 
           {/* Date Selector Pills */}
           <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
-            {dates.map((d) => (
-              <button
-                key={d.date}
-                onClick={() => setSelectedDate(d.date)}
-                className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  selectedDate === d.date
-                    ? 'bg-[#E63845] text-white shadow-md shadow-[#E63845]/30'
-                    : 'bg-[#1A1C26] border border-[#303645] text-[#9EA6B8] hover:text-white'
-                }`}
-              >
-                {d.label} ({d.day})
-              </button>
-            ))}
+            {dates.map((d) => {
+              const isBeforeRelease = Boolean(normReleaseDate && d.date < normReleaseDate);
+              const isSelected = selectedDate === d.date;
+              return (
+                <button
+                  key={d.date}
+                  onClick={() => setSelectedDate(d.date)}
+                  className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-[#E63845] text-white shadow-md shadow-[#E63845]/30'
+                      : isBeforeRelease
+                      ? 'bg-[#14161F] border border-[#262B38] text-[#5D6475] hover:text-[#9EA6B8]'
+                      : 'bg-[#1A1C26] border border-[#303645] text-[#9EA6B8] hover:text-white'
+                  }`}
+                  title={isBeforeRelease ? `Phim chính thức khởi chiếu từ ${movie.release_date}` : undefined}
+                >
+                  <span>{d.label} ({d.day})</span>
+                  {isBeforeRelease && (
+                    <span className="text-[10px] text-amber-500/80 font-normal">● Chưa chiếu</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
+
+          {/* Banner Thông Báo Khi Chọn Ngày Trước Khởi Chiếu */}
+          {normReleaseDate && selectedDate < normReleaseDate && (
+            <div className="bg-[#1A1C26] border border-amber-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-black/40">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center flex-shrink-0 text-amber-400 mt-0.5 sm:mt-0">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-amber-300">Phim chưa khởi chiếu vào ngày này</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      Khởi chiếu: {movie.release_date}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#9EA6B8] mt-1 leading-relaxed max-w-2xl">
+                    "{movie.title}" chính thức công chiếu từ ngày <strong className="text-white">{movie.release_date}</strong>. Suất chiếu chỉ mở từ ngày khởi chiếu trở đi. Quý khách vui lòng chọn ngày từ <strong>{movie.release_date}</strong> để xem lịch chiếu và đặt vé sớm.
+                  </p>
+                </div>
+              </div>
+              {dates.some((d) => d.date === normReleaseDate) && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(normReleaseDate)}
+                  className="px-4 py-2.5 rounded-xl bg-[#E63845] hover:bg-[#CC2B37] text-white text-xs font-bold transition-all whitespace-nowrap shadow-md shadow-[#E63845]/30 cursor-pointer self-start sm:self-auto flex items-center gap-1.5"
+                >
+                  <span>Xem ngày khởi chiếu ({dates.find((d) => d.date === normReleaseDate)?.day})</span>
+                  <span>&gt;</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Cinema Blocks with Showtimes */}
           <div className="space-y-4 pt-2">
@@ -205,6 +270,9 @@ export default function MovieDetailPage() {
                 if (!stTime) return false;
                 const stDate = stTime.slice(0, 10);
                 if (selectedDate && stDate && stDate !== selectedDate) return false;
+
+                // Chặn tuyệt đối: Phim chưa khởi chiếu thì không được phép có suất chiếu
+                if (normReleaseDate && stDate < normReleaseDate) return false;
 
                 return true;
               });
@@ -236,6 +304,7 @@ export default function MovieDetailPage() {
 
               // Tìm ngày gần nhất có suất chiếu nếu ngày hiện tại không có
               const allDatesWithShowtimes = dates.filter((d) => {
+                if (normReleaseDate && d.date < normReleaseDate) return false;
                 return showtimes.some((s) => {
                   const sStatus = String(s.status || 'OPEN').toUpperCase();
                   if (sStatus === 'CANCELLED' || sStatus === 'CLOSED') return false;
