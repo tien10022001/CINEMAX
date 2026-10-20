@@ -954,6 +954,8 @@ export default function StaffWorkspacePage() {
   const [scanInputCode, setScanInputCode] = useState<string>('');
   const [inspectedOrder, setInspectedOrder] = useState<SharedTicketOrder | null>(null);
   const [printedQrDataUrl, setPrintedQrDataUrl] = useState<string>('');
+  const [printedQrMap, setPrintedQrMap] = useState<Record<string, string>>({});
+  const [selectedTicketSeatTab, setSelectedTicketSeatTab] = useState<string>('ALL');
   const [ageVerifiedChecked, setAgeVerifiedChecked] = useState<boolean>(false);
   const [selectedSeatsForPartialCheckin, setSelectedSeatsForPartialCheckin] = useState<string[]>([]);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -1038,19 +1040,49 @@ export default function StaffWorkspacePage() {
     handleInspectTicketRef.current = handleInspectTicket;
   }, [handleInspectTicket]);
 
-  // Generate real QR code for thermal print modal
+  // Generate real QR code for thermal print modal (Từng ghế riêng biệt + Mã đơn)
   useEffect(() => {
     if (!printingOrder) {
       setPrintedQrDataUrl('');
+      setPrintedQrMap({});
+      setSelectedTicketSeatTab('ALL');
       return;
     }
-    QRCode.toDataURL(printingOrder.id, {
-      width: 220,
-      margin: 1,
-      color: { dark: '#000000', light: '#FFFFFF' },
-    })
-      .then((url) => setPrintedQrDataUrl(url))
-      .catch(() => setPrintedQrDataUrl(''));
+
+    const validSeats = printingOrder.seats.filter((s) => s && s !== 'F&B');
+    const tasks: { key: string; code: string }[] = [
+      { key: 'MAIN', code: printingOrder.id },
+    ];
+
+    validSeats.forEach((seat) => {
+      tasks.push({ key: seat, code: `${printingOrder.id}-${seat}` });
+    });
+
+    if (printingOrder.foods && printingOrder.foods.length > 0) {
+      tasks.push({ key: 'FNB', code: `FNB-${printingOrder.id}` });
+    }
+
+    Promise.all(
+      tasks.map(async ({ key, code }) => {
+        try {
+          const url = await QRCode.toDataURL(code, {
+            width: 220,
+            margin: 1,
+            color: { dark: '#000000', light: '#FFFFFF' },
+          });
+          return { key, url };
+        } catch {
+          return { key, url: '' };
+        }
+      })
+    ).then((results) => {
+      const map: Record<string, string> = {};
+      results.forEach((r) => {
+        map[r.key] = r.url;
+      });
+      setPrintedQrMap(map);
+      setPrintedQrDataUrl(map['MAIN'] || '');
+    });
   }, [printingOrder]);
 
   // Real Live Webcam QR Scanner Loop using jsQR
@@ -1213,12 +1245,458 @@ export default function StaffWorkspacePage() {
   };
 
   // Download QR image helper for easy testing
-  const handleDownloadQrImage = (dataUrl: string, orderId: string) => {
+  const handleDownloadQrImage = (dataUrl: string, orderId: string, seatLabel?: string) => {
     if (!dataUrl) return;
     const link = document.createElement('a');
     link.href = dataUrl;
-    link.download = `QR-VE-${orderId.slice(0, 10)}.png`;
+    link.download = `QR-VE-${orderId.slice(0, 10)}${seatLabel ? '-' + seatLabel : ''}.png`;
     link.click();
+  };
+
+  // Dedicated thermal printing engine: isolates ticket stubs, prints each seat on its own page
+  const handlePrintThermalTickets = (order: SharedTicketOrder, targetSeat?: string) => {
+    const existingFrame = document.getElementById('cinemax-thermal-print-frame');
+    if (existingFrame) existingFrame.remove();
+
+    const printFrame = document.createElement('iframe');
+    printFrame.id = 'cinemax-thermal-print-frame';
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    document.body.appendChild(printFrame);
+
+    const frameDoc = printFrame.contentWindow?.document;
+    if (!frameDoc) {
+      window.print();
+      return;
+    }
+
+    const validSeats = order.seats.filter((s) => s && s !== 'F&B');
+    const seatsToPrint = targetSeat ? [targetSeat] : validSeats;
+    const isSingleSeatPrint = Boolean(targetSeat);
+    const audienceLabel = AUDIENCE_CONFIG[order.audience_type]?.label || 'Người lớn';
+    const showtimeDateStr = order.start_time
+      ? new Date(order.start_time).toLocaleDateString('vi-VN')
+      : new Date().toLocaleDateString('vi-VN');
+    const showtimeTimeStr = order.start_time
+      ? new Date(order.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+      : '';
+
+    // Calculate per-seat unit price based on seat category
+    const getSeatTypeAndPrice = (seatCode: string) => {
+      const isCouple = seatCode.startsWith('H');
+      const isVip = ['E', 'F', 'G'].includes(seatCode.charAt(0));
+      const typeName = isCouple ? 'Ghế Đôi' : isVip ? 'Ghế VIP' : 'Ghế Thường';
+      const basePrice = isCouple ? 160000 : isVip ? 95000 : 75000;
+      const discount = AUDIENCE_CONFIG[order.audience_type]?.discountPercent || 0;
+      const finalPrice = Math.round((basePrice * (100 - discount)) / 100);
+      return { typeName, finalPrice };
+    };
+
+    let ticketsHtml = '';
+
+    // 1. Từng vé xem phim cho từng ghế riêng biệt (Mỗi ghế 1 trang in nhiệt K80 có ngắt giấy)
+    seatsToPrint.forEach((seat) => {
+      const { typeName, finalPrice } = getSeatTypeAndPrice(seat);
+      const qrUrl = printedQrMap[seat] || printedQrMap['MAIN'] || printedQrDataUrl;
+      const ticketIndex = validSeats.indexOf(seat) + 1;
+      const totalSeatsCount = validSeats.length;
+
+      ticketsHtml += `
+        <div class="ticket-slip">
+          <div class="header">
+            <div class="cinema-brand">CINEMAX THEATER</div>
+            <div class="cinema-name">${order.cinema_name}</div>
+            <div class="ticket-badge">VÉ XEM PHIM • ADMISSION TICKET</div>
+          </div>
+
+          <div class="divider-dashed"></div>
+
+          <div class="movie-info">
+            <div class="movie-title">${order.movie_title}</div>
+            <div class="movie-meta">
+              <span class="age-tag">[${order.age_rating}]</span>
+              <span>${order.screen_type || '2D Digital'}</span>
+            </div>
+          </div>
+
+          <div class="seat-hero-box">
+            <div class="seat-title">GHẾ / SEAT</div>
+            <div class="seat-code">${seat}</div>
+            <div class="seat-sub">${typeName} • ${audienceLabel}</div>
+          </div>
+
+          <table class="details-table">
+            <tr>
+              <td>Phòng chiếu:</td>
+              <td class="text-right font-bold">${order.room_name}</td>
+            </tr>
+            <tr>
+              <td>Suất chiếu:</td>
+              <td class="text-right font-bold">${showtimeTimeStr} - ${showtimeDateStr}</td>
+            </tr>
+            <tr>
+              <td>Giá vé:</td>
+              <td class="text-right font-bold">${finalPrice.toLocaleString('vi-VN')} đ</td>
+            </tr>
+            <tr>
+              <td>Mã đơn:</td>
+              <td class="text-right font-mono">#${order.id.slice(0, 10)}</td>
+            </tr>
+            <tr>
+              <td>Số liên:</td>
+              <td class="text-right">Vé ${ticketIndex} / ${totalSeatsCount}</td>
+            </tr>
+          </table>
+
+          <div class="divider-dashed"></div>
+
+          ${qrUrl ? `
+            <div class="qr-section">
+              <img src="${qrUrl}" alt="QR" class="qr-img" />
+              <div class="qr-code-text">${order.id}-${seat}</div>
+              <div class="qr-note">Quét mã QR tại cổng soát vé để vào phòng chiếu</div>
+            </div>
+          ` : ''}
+
+          <div class="footer">
+            <div>CINEMAX cảm ơn quý khách!</div>
+            <div class="small">Vui lòng giữ vé để kiểm soát cửa rạp</div>
+          </div>
+        </div>
+      `;
+    });
+
+    // 2. Phiếu nhận bắp nước (nếu có đồ ăn và không in riêng 1 vé lẻ)
+    if (!isSingleSeatPrint && order.foods && order.foods.length > 0) {
+      const fnbQrUrl = printedQrMap['FNB'] || printedQrMap['MAIN'] || printedQrDataUrl;
+      const fnbTotal = order.foods.reduce((sum, f) => sum + f.price * f.qty, 0);
+
+      ticketsHtml += `
+        <div class="ticket-slip">
+          <div class="header">
+            <div class="cinema-brand">CINEMAX CONCESSION</div>
+            <div class="cinema-name">${order.cinema_name}</div>
+            <div class="ticket-badge fnb-badge">PHIẾU NHẬN BẮP NƯỚC & COMBO</div>
+          </div>
+
+          <div class="divider-dashed"></div>
+
+          <table class="details-table">
+            <tr>
+              <td>Mã đơn:</td>
+              <td class="text-right font-mono font-bold">#${order.id.slice(0, 10)}</td>
+            </tr>
+            <tr>
+              <td>Thời gian:</td>
+              <td class="text-right">${order.created_at || new Date().toLocaleTimeString('vi-VN')}</td>
+            </tr>
+            <tr>
+              <td>Phim / Phòng:</td>
+              <td class="text-right font-bold">${order.room_name}</td>
+            </tr>
+          </table>
+
+          <div class="divider-solid"></div>
+          <div class="font-bold text-center" style="margin: 4px 0 2px 0;">DANH SÁCH MÓN:</div>
+
+          <table class="items-table">
+            ${order.foods.map((f) => `
+              <tr>
+                <td style="padding: 3px 0;">
+                  <div class="font-bold">${f.qty}x ${f.name}</div>
+                  <div class="item-sub">${f.flavor || ''} ${f.drinkSize ? '• ' + f.drinkSize : ''}</div>
+                </td>
+                <td class="text-right font-bold" style="padding: 3px 0; vertical-align: top;">
+                  ${(f.price * f.qty).toLocaleString('vi-VN')} đ
+                </td>
+              </tr>
+            `).join('')}
+          </table>
+
+          <div class="divider-solid"></div>
+
+          <table class="details-table">
+            <tr class="total-row-highlight">
+              <td class="font-bold">TIỀN BẮP NƯỚC:</td>
+              <td class="text-right font-bold">${fnbTotal.toLocaleString('vi-VN')} đ</td>
+            </tr>
+          </table>
+
+          <div class="divider-dashed"></div>
+
+          ${fnbQrUrl ? `
+            <div class="qr-section">
+              <img src="${fnbQrUrl}" alt="QR" class="qr-img" />
+              <div class="qr-code-text">FNB-${order.id.slice(0, 8)}</div>
+              <div class="qr-note">Xuất trình phiếu tại quầy Concession để nhận đồ ăn</div>
+            </div>
+          ` : ''}
+
+          <div class="footer">
+            <div>Chúc quý khách xem phim ngon miệng!</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 3. Hóa đơn thanh toán tổng hợp (nếu không in riêng 1 vé lẻ)
+    if (!isSingleSeatPrint) {
+      ticketsHtml += `
+        <div class="ticket-slip">
+          <div class="header">
+            <div class="cinema-brand">CINEMAX THEATER</div>
+            <div class="cinema-name">${order.cinema_name}</div>
+            <div class="ticket-badge receipt-badge">HÓA ĐƠN BÁN HÀNG TỔNG HỢP</div>
+          </div>
+
+          <div class="divider-dashed"></div>
+
+          <table class="details-table">
+            <tr>
+              <td>Mã hóa đơn:</td>
+              <td class="text-right font-mono font-bold">#${order.id}</td>
+            </tr>
+            <tr>
+              <td>Thời gian:</td>
+              <td class="text-right">${order.created_at || new Date().toLocaleTimeString('vi-VN')}</td>
+            </tr>
+            <tr>
+              <td>Thu ngân:</td>
+              <td class="text-right font-bold">${order.channel === 'POS' ? 'Quầy vé POS' : 'Online'}</td>
+            </tr>
+            <tr>
+              <td>Khách hàng:</td>
+              <td class="text-right">${order.customer_name || 'Khách vãng lai'}</td>
+            </tr>
+            <tr>
+              <td>Phim:</td>
+              <td class="text-right font-bold">${order.movie_title}</td>
+            </tr>
+            <tr>
+              <td>Suất chiếu:</td>
+              <td class="text-right">${showtimeTimeStr} - ${showtimeDateStr}</td>
+            </tr>
+            <tr>
+              <td>Ghế (${validSeats.length}):</td>
+              <td class="text-right font-bold">${validSeats.join(', ') || 'F&B'}</td>
+            </tr>
+          </table>
+
+          <div class="divider-solid"></div>
+
+          <table class="details-table">
+            <tr>
+              <td>Phương thức:</td>
+              <td class="text-right font-bold">${order.payment_method || 'TIỀN MẶT'}</td>
+            </tr>
+            <tr class="total-row-highlight">
+              <td class="font-bold text-base">TỔNG THANH TOÁN:</td>
+              <td class="text-right font-bold text-base">${order.total_amount.toLocaleString('vi-VN')} đ</td>
+            </tr>
+          </table>
+
+          <div class="divider-dashed"></div>
+
+          <div class="footer">
+            <div>Cảm ơn quý khách và hẹn gặp lại!</div>
+            <div class="small">Hotline: 1900 1081 • cinemax.vn</div>
+          </div>
+        </div>
+      `;
+    }
+
+    frameDoc.open();
+    frameDoc.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>In vé - ${order.id}</title>
+        <style>
+          @page {
+            size: 80mm auto;
+            margin: 2mm 3mm;
+          }
+          * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+          }
+          body {
+            font-family: 'Courier New', Courier, monospace, -apple-system, sans-serif;
+            background: #ffffff;
+            color: #000000;
+            font-size: 11px;
+            line-height: 1.35;
+          }
+          .ticket-slip {
+            width: 100%;
+            max-width: 74mm;
+            margin: 0 auto;
+            padding: 6mm 2mm 10mm 2mm;
+            page-break-after: always;
+            break-after: page;
+          }
+          .ticket-slip:last-child {
+            page-break-after: auto;
+            break-after: auto;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 6px;
+          }
+          .cinema-brand {
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: 1px;
+          }
+          .cinema-name {
+            font-size: 10px;
+            color: #333333;
+            margin-top: 2px;
+          }
+          .ticket-badge {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 800;
+            border: 1px solid #000000;
+            padding: 2px 6px;
+            margin-top: 4px;
+            letter-spacing: 0.5px;
+          }
+          .fnb-badge {
+            background: #000000;
+            color: #ffffff;
+          }
+          .receipt-badge {
+            border-style: dashed;
+          }
+          .divider-dashed {
+            border-bottom: 1px dashed #555555;
+            margin: 6px 0;
+          }
+          .divider-solid {
+            border-bottom: 1px solid #000000;
+            margin: 6px 0;
+          }
+          .movie-info {
+            text-align: center;
+            margin: 6px 0;
+          }
+          .movie-title {
+            font-size: 14px;
+            font-weight: 900;
+            line-height: 1.25;
+            text-transform: uppercase;
+          }
+          .movie-meta {
+            font-size: 10px;
+            margin-top: 3px;
+          }
+          .age-tag {
+            font-weight: 800;
+            margin-right: 4px;
+          }
+          .seat-hero-box {
+            border: 2px solid #000000;
+            border-radius: 4px;
+            text-align: center;
+            padding: 6px;
+            margin: 8px 0;
+          }
+          .seat-title {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1px;
+          }
+          .seat-code {
+            font-size: 30px;
+            font-weight: 900;
+            line-height: 1;
+            margin: 3px 0;
+          }
+          .seat-sub {
+            font-size: 9px;
+            font-weight: 700;
+          }
+          .details-table, .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10.5px;
+            margin: 4px 0;
+          }
+          .details-table td, .items-table td {
+            padding: 2.5px 0;
+            vertical-align: top;
+          }
+          .text-right {
+            text-align: right;
+          }
+          .font-bold {
+            font-weight: bold;
+          }
+          .font-mono {
+            font-family: monospace;
+          }
+          .text-base {
+            font-size: 13px;
+          }
+          .item-sub {
+            font-size: 9px;
+            color: #555555;
+          }
+          .total-row-highlight {
+            border-top: 1px solid #000000;
+            padding-top: 4px;
+          }
+          .qr-section {
+            text-align: center;
+            margin: 6px 0;
+          }
+          .qr-img {
+            width: 130px;
+            height: 130px;
+            margin: 0 auto;
+            display: block;
+          }
+          .qr-code-text {
+            font-size: 9px;
+            font-weight: 700;
+            margin-top: 2px;
+          }
+          .qr-note {
+            font-size: 8.5px;
+            color: #444444;
+            margin-top: 2px;
+          }
+          .footer {
+            text-align: center;
+            font-size: 9px;
+            margin-top: 8px;
+            color: #333333;
+          }
+          .small {
+            font-size: 8px;
+            color: #666666;
+            margin-top: 2px;
+          }
+        </style>
+      </head>
+      <body>
+        ${ticketsHtml}
+      </body>
+      </html>
+    `);
+    frameDoc.close();
+
+    setTimeout(() => {
+      printFrame.contentWindow?.focus();
+      printFrame.contentWindow?.print();
+    }, 350);
   };
 
   const handleConfirmCheckIn = async (orderToCheckIn: SharedTicketOrder) => {
@@ -4004,85 +4482,424 @@ export default function StaffWorkspacePage() {
       )}
 
       {/* ==================================================================== */}
-      {/* MODAL 5: IN VÉ NHIỆT                                                 */}
+      {/* MODAL 5: IN VÉ NHIỆT / PHIẾU BÁN VÉ TẠI QUẦY (ĐẦY ĐỦ TỪNG GHẾ)       */}
       {/* ==================================================================== */}
-      {printingOrder && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white text-black rounded-xl max-w-sm w-full p-6 shadow-2xl space-y-4 font-mono">
-            <div className="text-center border-b border-dashed border-slate-400 pb-3">
-              <div className="text-base font-black">CINEMAX THEATER</div>
-              <div className="text-[11px] text-slate-600">{printingOrder.cinema_name}</div>
-            </div>
+      {printingOrder && (() => {
+        const validSeats = printingOrder.seats.filter((s) => s && s !== 'F&B');
+        const hasFoods = Boolean(printingOrder.foods && printingOrder.foods.length > 0);
+        const totalPrintCount = validSeats.length + (hasFoods ? 1 : 0) + 1; // tickets + concession + receipt
+        const audienceLabel = AUDIENCE_CONFIG[printingOrder.audience_type]?.label || 'Người lớn';
+        const showtimeDateStr = printingOrder.start_time
+          ? new Date(printingOrder.start_time).toLocaleDateString('vi-VN')
+          : new Date().toLocaleDateString('vi-VN');
+        const showtimeTimeStr = printingOrder.start_time
+          ? new Date(printingOrder.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+          : '';
 
-            {printedQrDataUrl && (
-              <div className="flex flex-col items-center py-1">
-                <img
-                  src={printedQrDataUrl}
-                  alt="QR Vé"
-                  className="w-36 h-36 border border-slate-300 rounded p-1"
-                />
-                <span className="text-[10px] text-slate-500 mt-1">
-                  Mã QR chuẩn quét tại cổng soát vé
-                </span>
-              </div>
-            )}
+        // Current tab preview
+        const isAllTab = selectedTicketSeatTab === 'ALL';
+        const isFnbTab = selectedTicketSeatTab === 'FNB';
+        const isReceiptTab = selectedTicketSeatTab === 'RECEIPT';
+        const activeSeatCode = !isAllTab && !isFnbTab && !isReceiptTab ? selectedTicketSeatTab : (validSeats[0] || '');
 
-            <div className="space-y-1.5 text-xs border-b border-dashed border-slate-400 pb-3">
-              <div className="flex justify-between">
-                <span>Mã đơn:</span>
-                <span className="font-bold">#{printingOrder.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Phim:</span>
-                <span className="font-bold text-right">{printingOrder.movie_title}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Phòng / Ghế:</span>
-                <span className="font-bold">
-                  {printingOrder.room_name} - {printingOrder.seats.join(', ')}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Đồ ăn:</span>
-                <span className="font-bold text-right">
-                  {printingOrder.foods && printingOrder.foods.length > 0
-                    ? printingOrder.foods.map((f) => `${f.qty}x ${f.name}`).join(', ')
-                    : 'Không'}
-                </span>
-              </div>
-            </div>
+        const isCoupleSeat = activeSeatCode.startsWith('H');
+        const isVipSeat = ['E', 'F', 'G'].includes(activeSeatCode.charAt(0));
+        const activeSeatTypeName = isCoupleSeat ? 'Ghế Đôi' : isVipSeat ? 'Ghế VIP' : 'Ghế Thường';
+        const baseSeatPrice = isCoupleSeat ? 160000 : isVipSeat ? 95000 : 75000;
+        const discountPct = AUDIENCE_CONFIG[printingOrder.audience_type]?.discountPercent || 0;
+        const activeSeatPrice = Math.round((baseSeatPrice * (100 - discountPct)) / 100);
 
-            <div className="flex justify-between items-center text-sm font-black">
-              <span>TỔNG CỘNG:</span>
-              <span>{printingOrder.total_amount.toLocaleString('vi-VN')} đ</span>
-            </div>
+        const getSeatTypeAndPrice = (seatCode: string) => {
+          const isCouple = seatCode.startsWith('H');
+          const isVip = ['E', 'F', 'G'].includes(seatCode.charAt(0));
+          const typeName = isCouple ? 'Ghế Đôi' : isVip ? 'Ghế VIP' : 'Ghế Thường';
+          const basePrice = isCouple ? 160000 : isVip ? 95000 : 75000;
+          const discount = AUDIENCE_CONFIG[printingOrder.audience_type]?.discountPercent || 0;
+          const finalPrice = Math.round((basePrice * (100 - discount)) / 100);
+          return { typeName, finalPrice };
+        };
 
-            <div className="grid grid-cols-3 gap-2 pt-2 font-sans">
-              <button
-                type="button"
-                onClick={() => setPrintingOrder(null)}
-                className="py-2 rounded-lg bg-slate-200 text-slate-800 font-bold text-xs"
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDownloadQrImage(printedQrDataUrl, printingOrder.id)}
-                className="py-2 rounded-lg bg-slate-800 text-white font-bold text-xs"
-              >
-                Tải ảnh QR
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="py-2 rounded-lg bg-[#E63845] text-white font-bold text-xs"
-              >
-                In ngay
-              </button>
+        const currentQrUrl = isFnbTab
+          ? printedQrMap['FNB'] || printedQrMap['MAIN']
+          : !isAllTab && !isReceiptTab
+          ? printedQrMap[activeSeatCode] || printedQrMap['MAIN']
+          : printedQrMap['MAIN'] || printedQrDataUrl;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm">
+            <div className="bg-[#121620] border border-[#2D3A50] text-white rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4 max-h-[92vh] flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-[#1E2433] pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#E50914] animate-pulse" />
+                    <h3 className="text-base font-black tracking-wide text-white">
+                      IN VÉ NHIỆT POS
+                    </h3>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[#1E2738] text-slate-300 font-mono">
+                      #{printingOrder.id.slice(0, 8)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Đơn hàng gồm <span className="text-[#FABF2E] font-bold">{validSeats.length} vé xem phim</span>
+                    {hasFoods && <span> + <span className="text-[#22C55E] font-bold">1 phiếu bắp nước</span></span>}
+                    {' • '}Tổng <span className="text-white font-bold">{totalPrintCount} liên</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPrintingOrder(null)}
+                  className="w-8 h-8 rounded-lg bg-[#181C26] hover:bg-[#252D3D] text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Ticket Navigator Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTicketSeatTab('ALL')}
+                  className={`px-3 py-1.5 rounded-lg font-bold shrink-0 transition ${
+                    isAllTab
+                      ? 'bg-[#E50914] text-white shadow-md'
+                      : 'bg-[#181C26] text-slate-400 hover:text-white hover:bg-[#202736]'
+                  }`}
+                >
+                  Tất cả ({totalPrintCount} liên)
+                </button>
+
+                {validSeats.map((seat, sIdx) => (
+                  <button
+                    key={seat}
+                    type="button"
+                    onClick={() => setSelectedTicketSeatTab(seat)}
+                    className={`px-2.5 py-1.5 rounded-lg font-bold shrink-0 transition flex items-center gap-1 ${
+                      selectedTicketSeatTab === seat
+                        ? 'bg-[#FABF2E] text-black shadow-md'
+                        : 'bg-[#181C26] text-slate-400 hover:text-white hover:bg-[#202736]'
+                    }`}
+                  >
+                    <span>Vé {sIdx + 1}:</span>
+                    <span className="font-black underline">{seat}</span>
+                  </button>
+                ))}
+
+                {hasFoods && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTicketSeatTab('FNB')}
+                    className={`px-3 py-1.5 rounded-lg font-bold shrink-0 transition ${
+                      isFnbTab
+                        ? 'bg-[#22C55E] text-black shadow-md'
+                        : 'bg-[#181C26] text-slate-400 hover:text-white hover:bg-[#202736]'
+                    }`}
+                  >
+                    Bắp nước ({printingOrder.foods.length} món)
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedTicketSeatTab('RECEIPT')}
+                  className={`px-3 py-1.5 rounded-lg font-bold shrink-0 transition ${
+                    isReceiptTab
+                      ? 'bg-white text-black shadow-md'
+                      : 'bg-[#181C26] text-slate-400 hover:text-white hover:bg-[#202736]'
+                  }`}
+                >
+                  Hóa đơn tổng
+                </button>
+              </div>
+
+              {/* Thermal Paper Preview Container */}
+              <div className="flex-1 overflow-y-auto pr-1">
+                <div className="bg-white text-black rounded-xl p-5 shadow-inner space-y-3 font-mono text-xs max-w-sm mx-auto border border-slate-300">
+                  {/* PREVIEW: ALL SEATS OVERVIEW */}
+                  {isAllTab ? (
+                    <div className="space-y-3">
+                      <div className="text-center border-b border-dashed border-slate-400 pb-2.5">
+                        <div className="text-base font-black tracking-wider">CINEMAX THEATER</div>
+                        <div className="text-[11px] text-slate-600">{printingOrder.cinema_name}</div>
+                        <div className="inline-block px-2 py-0.5 border border-black text-[9px] font-bold mt-1">
+                          DANH SÁCH {validSeats.length} VÉ IN RIÊNG
+                        </div>
+                      </div>
+
+                      <div className="text-center">
+                        <div className="text-sm font-black uppercase text-slate-900 leading-tight">
+                          {printingOrder.movie_title}
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-0.5">
+                          [{printingOrder.age_rating}] • {printingOrder.room_name} ({printingOrder.screen_type || '2D'})
+                        </div>
+                        <div className="text-[11px] text-slate-600 font-bold">
+                          {showtimeTimeStr} - {showtimeDateStr}
+                        </div>
+                      </div>
+
+                      <div className="border border-black rounded p-2.5 bg-slate-50 space-y-1.5">
+                        <div className="text-[10px] font-bold text-slate-600 uppercase">
+                          Các vé sẽ được máy in cắt rời từng vé:
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5 text-xs">
+                          {validSeats.map((seat, idx) => {
+                            const { typeName, finalPrice } = getSeatTypeAndPrice(seat);
+                            return (
+                              <div
+                                key={seat}
+                                className="p-1.5 border border-slate-300 rounded bg-white flex items-center justify-between"
+                              >
+                                <div>
+                                  <span className="font-black text-sm text-[#E50914]">{seat}</span>
+                                  <span className="text-[9px] text-slate-500 block">
+                                    {typeName}
+                                  </span>
+                                </div>
+                                <span className="font-bold text-[11px]">
+                                  {finalPrice.toLocaleString('vi-VN')} đ
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {hasFoods && (
+                        <div className="border border-dashed border-slate-400 rounded p-2 bg-slate-50 text-[11px]">
+                          <div className="font-bold text-slate-800">Kèm 1 Phiếu Bắp Nước:</div>
+                          <div className="text-slate-600 mt-0.5">
+                            {printingOrder.foods.map((f) => `${f.qty}x ${f.name}`).join(', ')}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="border-t border-dashed border-slate-400 pt-2 flex justify-between font-black text-sm">
+                        <span>TỔNG ĐƠN HÀNG:</span>
+                        <span className="text-[#E50914]">
+                          {printingOrder.total_amount.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    </div>
+                  ) : isFnbTab ? (
+                    /* PREVIEW: CONCESSION TICKET */
+                    <div className="space-y-3">
+                      <div className="text-center border-b border-dashed border-slate-400 pb-2">
+                        <div className="text-base font-black">CINEMAX CONCESSION</div>
+                        <div className="text-[11px] text-slate-600">{printingOrder.cinema_name}</div>
+                        <div className="inline-block px-2 py-0.5 bg-black text-white text-[9px] font-bold mt-1">
+                          PHIẾU NHẬN BẮP NƯỚC & COMBO
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-[11px]">
+                        <div className="flex justify-between">
+                          <span>Mã đơn:</span>
+                          <span className="font-bold">#{printingOrder.id.slice(0, 10)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Phòng chiếu:</span>
+                          <span className="font-bold">{printingOrder.room_name}</span>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-b border-black py-2 space-y-1.5">
+                        <div className="font-bold text-[11px]">CHI TIẾT MÓN:</div>
+                        {printingOrder.foods.map((f, fIdx) => (
+                          <div key={fIdx} className="flex justify-between items-start text-[11px]">
+                            <div>
+                              <span className="font-bold">{f.qty}x {f.name}</span>
+                              <span className="text-[9px] text-slate-500 block">
+                                {f.flavor || ''} {f.drinkSize ? '• ' + f.drinkSize : ''}
+                              </span>
+                            </div>
+                            <span className="font-bold">{(f.price * f.qty).toLocaleString('vi-VN')} đ</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {currentQrUrl && (
+                        <div className="text-center pt-1">
+                          <img
+                            src={currentQrUrl}
+                            alt="QR F&B"
+                            className="w-28 h-28 mx-auto border border-slate-300 rounded p-1"
+                          />
+                          <div className="text-[10px] text-slate-500 mt-1">
+                            Xuất trình tại quầy bắp nước để nhận phần ăn
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : isReceiptTab ? (
+                    /* PREVIEW: SUMMARY RECEIPT */
+                    <div className="space-y-2.5">
+                      <div className="text-center border-b border-dashed border-slate-400 pb-2">
+                        <div className="text-base font-black">CINEMAX THEATER</div>
+                        <div className="text-[11px] text-slate-600">{printingOrder.cinema_name}</div>
+                        <div className="inline-block px-2 py-0.5 border border-dashed border-black text-[9px] font-bold mt-1">
+                          HÓA ĐƠN BÁN HÀNG TỔNG HỢP
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span>Mã đơn:</span>
+                          <span className="font-bold">#{printingOrder.id}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Phim:</span>
+                          <span className="font-bold text-right">{printingOrder.movie_title}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Phòng / Ghế:</span>
+                          <span className="font-bold text-right">
+                            {printingOrder.room_name} ({validSeats.join(', ') || 'F&B'})
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Phương thức:</span>
+                          <span className="font-bold">{printingOrder.payment_method || 'TIỀN MẶT'}</span>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-black pt-2 flex justify-between font-black text-sm">
+                        <span>TỔNG CỘNG:</span>
+                        <span>{printingOrder.total_amount.toLocaleString('vi-VN')} đ</span>
+                      </div>
+                    </div>
+                  ) : (
+                    /* PREVIEW: INDIVIDUAL SEAT TICKET */
+                    <div className="space-y-3">
+                      <div className="text-center border-b border-dashed border-slate-400 pb-2">
+                        <div className="text-base font-black tracking-wide">CINEMAX THEATER</div>
+                        <div className="text-[11px] text-slate-600">{printingOrder.cinema_name}</div>
+                        <div className="inline-block px-2 py-0.5 border border-black text-[9px] font-bold mt-1">
+                          VÉ XEM PHIM • ADMISSION TICKET
+                        </div>
+                      </div>
+
+                      <div className="text-center">
+                        <div className="text-sm font-black uppercase text-slate-900 leading-tight">
+                          {printingOrder.movie_title}
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-0.5 font-bold">
+                          [{printingOrder.age_rating}] • {printingOrder.room_name} ({printingOrder.screen_type || '2D'})
+                        </div>
+                        <div className="text-[11px] text-slate-600">
+                          {showtimeTimeStr} - {showtimeDateStr}
+                        </div>
+                      </div>
+
+                      {/* Giant Seat Hero Box */}
+                      <div className="border-2 border-black rounded-lg p-2.5 text-center bg-slate-50">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          GHẾ / SEAT
+                        </div>
+                        <div
+                          className={`text-4xl font-black my-1 ${
+                            isCoupleSeat ? 'text-[#E50914]' : isVipSeat ? 'text-[#D97706]' : 'text-slate-900'
+                          }`}
+                        >
+                          {activeSeatCode}
+                        </div>
+                        <div className="text-[11px] font-bold text-slate-700">
+                          {activeSeatTypeName} • {audienceLabel}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-xs border-b border-dashed border-slate-400 pb-2">
+                        <div className="flex justify-between">
+                          <span>Giá vé:</span>
+                          <span className="font-bold text-sm">
+                            {activeSeatPrice.toLocaleString('vi-VN')} đ
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px] text-slate-600">
+                          <span>Số liên:</span>
+                          <span className="font-bold">
+                            Vé {validSeats.indexOf(activeSeatCode) + 1} / {validSeats.length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px] text-slate-600">
+                          <span>Mã vé:</span>
+                          <span className="font-mono">#{printingOrder.id.slice(0, 8)}-{activeSeatCode}</span>
+                        </div>
+                      </div>
+
+                      {currentQrUrl && (
+                        <div className="text-center pt-1">
+                          <img
+                            src={currentQrUrl}
+                            alt="QR Vé"
+                            className="w-32 h-32 mx-auto border border-slate-300 rounded p-1"
+                          />
+                          <div className="text-[10px] text-slate-500 mt-1">
+                            Mã QR quét tại cổng soát vé vào phòng chiếu
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="pt-2 border-t border-[#1E2433] flex flex-wrap items-center gap-2 font-sans">
+                <button
+                  type="button"
+                  onClick={() => setPrintingOrder(null)}
+                  className="px-4 py-2.5 rounded-xl bg-[#181C26] hover:bg-[#202736] text-slate-300 font-bold text-xs transition cursor-pointer"
+                >
+                  Đóng
+                </button>
+
+                {currentQrUrl && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleDownloadQrImage(
+                        currentQrUrl,
+                        printingOrder.id,
+                        !isAllTab && !isFnbTab && !isReceiptTab ? activeSeatCode : undefined
+                      )
+                    }
+                    className="px-3 py-2.5 rounded-xl bg-[#1E2738] hover:bg-[#2A374F] text-slate-200 font-bold text-xs transition cursor-pointer"
+                  >
+                    Tải ảnh QR
+                  </button>
+                )}
+
+                {!isAllTab && !isFnbTab && !isReceiptTab && (
+                  <button
+                    type="button"
+                    onClick={() => handlePrintThermalTickets(printingOrder, activeSeatCode)}
+                    className="px-3.5 py-2.5 rounded-xl bg-[#FABF2E] hover:bg-[#E5AC25] text-black font-black text-xs transition cursor-pointer shadow-md"
+                  >
+                    In riêng vé {activeSeatCode}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handlePrintThermalTickets(printingOrder)}
+                  className="flex-1 py-2.5 rounded-xl bg-[#E50914] hover:bg-[#C80812] text-white font-black text-xs transition cursor-pointer shadow-lg shadow-red-900/30 flex items-center justify-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                    />
+                  </svg>
+                  <span>In tất cả ({totalPrintCount} liên)</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
