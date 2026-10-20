@@ -48,3 +48,6 @@ CINEMAX/
 src/data/email-config.json
 src/data/seat-holds.json
 
+
+# Office temporary files
+~$*

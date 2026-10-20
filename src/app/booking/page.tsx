@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -253,6 +253,16 @@ function BookingContent() {
     isOverduePaid?: boolean;
     overdueWarningMessage?: string;
   } | null>(null);
+
+  const currentStepRef = useRef<1 | 2 | 3>(currentStep);
+  currentStepRef.current = currentStep;
+
+  const completedBookingRef = useRef(completedBooking);
+  completedBookingRef.current = completedBooking;
+
+  const isProcessingPaymentRef = useRef(isProcessingPayment);
+  isProcessingPaymentRef.current = isProcessingPayment;
+
   const [showUnifiedModal, setShowUnifiedModal] = useState<boolean>(false);
 
   // Chuyển đổi Guest thành Member (Post-payment conversion)
@@ -502,21 +512,23 @@ function BookingContent() {
     });
 
     // Nếu ghế người này đang chọn bị phiên khác giữ trước -> Tự động loại bỏ khỏi giỏ hàng
-    setSelectedSeats((prev) => {
-      const conflicted = prev.filter((s) => {
-        const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
-        return heldSeatLabels.has(label) || bookedSeatLabels.has(label);
-      });
-      if (conflicted.length > 0) {
-        if (currentStep === 2) {
+    // QUAN TRỌNG: Tuyệt đối không kiểm tra xung đột khi đang xử lý thanh toán hoặc đã hoàn tất đơn (Step 3 / completedBooking)
+    if (!completedBookingRef.current && currentStepRef.current === 2 && !isProcessingPaymentRef.current) {
+      setSelectedSeats((prev) => {
+        if (prev.length === 0) return prev;
+        const conflicted = prev.filter((s) => {
+          const label = s.seat_type?.code === 'COUPLE' ? `ĐÔI ${s.seat_number}` : `${s.row_label}${s.seat_number}`;
+          return heldSeatLabels.has(label) || bookedSeatLabels.has(label);
+        });
+        if (conflicted.length > 0) {
           const names = conflicted.map((c) => `${c.row_label}${c.seat_number}`).join(', ');
           alert(`Ghế (${names}) đã bị hết hạn giữ chỗ hoặc có người khác đặt. Hệ thống đưa bạn quay lại bước chọn ghế.`);
           setCurrentStep(1);
+          return prev.filter((s) => !conflicted.some((c) => c.id === s.id));
         }
-        return prev.filter((s) => !conflicted.some((c) => c.id === s.id));
-      }
-      return prev;
-    });
+        return prev;
+      });
+    }
 
     // 3. Nếu suất chiếu có liên kết với DB Supabase (SSOT)
     const stId = selectedShowtime?.id?.toString();
@@ -1291,6 +1303,8 @@ function BookingContent() {
         console.warn('Sync to Supabase error:', syncErr);
       }
 
+      const purchasedSeatIds = new Set(selectedSeats.map((s) => s.id));
+
       // 4. Lưu vào localStorage dự phòng cho client
       try {
         const stored = localStorage.getItem('cinemax_user_tickets');
@@ -1356,6 +1370,12 @@ function BookingContent() {
           localStorage.setItem('cinemax_showtimes_v2', JSON.stringify(updatedShowtimes));
         }
 
+        // Cập nhật trạng thái hoàn tất đơn hàng trước khi đồng bộ dữ liệu
+        completedBookingRef.current = newBooking;
+        currentStepRef.current = 3;
+        setCurrentStep(3);
+        setSelectedSeats([]);
+
         BookingService.releaseSessionHold(sessionId);
         try {
           fetch('/api/sync', {
@@ -1374,11 +1394,9 @@ function BookingContent() {
       // Đánh dấu các ghế vừa mua thành đã bán ngay lập tức
       setSeats((prev) =>
         prev.map((s) =>
-          selectedSeats.some((sel) => sel.id === s.id) ? { ...s, status: 'sold' as any } : s
+          purchasedSeatIds.has(s.id) ? { ...s, status: 'sold' as any } : s
         )
       );
-
-      setCurrentStep(3);
     } catch (error: any) {
       console.error('Checkout error:', error);
       alert('Có lỗi xảy ra trong quá trình đặt vé: ' + (error?.message || 'Vui lòng thử lại!'));
@@ -1520,6 +1538,8 @@ function BookingContent() {
       console.warn('Sync VietQR order to Supabase error:', syncErr);
     }
 
+    const purchasedSeatIds = new Set(selectedSeats.map((s) => s.id));
+
     try {
       const storedTickets = localStorage.getItem('cinemax_user_tickets');
       const list = storedTickets ? JSON.parse(storedTickets) : [];
@@ -1593,6 +1613,13 @@ function BookingContent() {
         }
       }
 
+      // Đặt ngay trạng thái bước 3 và dọn ghế trước khi bắn event đồng bộ dữ liệu
+      completedBookingRef.current = newBooking;
+      currentStepRef.current = 3;
+      setCurrentStep(3);
+      setSelectedSeats([]);
+      setIsVietQRModalOpen(false);
+
       BookingService.releaseSessionHold(sessionId);
       try {
         fetch('/api/sync', {
@@ -1612,13 +1639,10 @@ function BookingContent() {
     if (!isOverduePaid) {
       setSeats((prev) =>
         prev.map((s) =>
-          selectedSeats.some((sel) => sel.id === s.id) ? { ...s, status: 'sold' as any } : s
+          purchasedSeatIds.has(s.id) ? { ...s, status: 'sold' as any } : s
         )
       );
     }
-
-    setIsVietQRModalOpen(false);
-    setCurrentStep(3);
   };
 
   const handleForwardToRegister = () => {
